@@ -1,0 +1,22 @@
+{
+    "mcpServers": {
+        "shell": {
+            "type": "stdio",
+            "command": "/home/josh/.mcpshell/mcpshell",
+            "args": [
+                "mcp",
+                "--tools",
+                "mediagrid"
+            ]
+        },
+        "git": {
+            "type": "stdio",
+            "command": "/home/josh/.mcpshell/mcpshell",
+            "args": [
+                "mcp",
+                "--tools",
+                "git"
+            ]
+        }
+    }
+}
