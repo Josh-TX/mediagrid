@@ -141,8 +141,9 @@ function Block({ block, onTileClick, galleryWidthPx, tileCropMaxX, tileCropMaxY,
         }
         const { previewType, path } = tile.preview
         return (
-          <div
+          <button
             key={tile.index}
+            type="button"
             className={styles.cell}
             style={{
               width: `${tile.width * 100}%`,
@@ -181,7 +182,7 @@ function Block({ block, onTileClick, galleryWidthPx, tileCropMaxX, tileCropMaxY,
                 </span>
               </div>
             )}
-          </div>
+          </button>
         )
       })}
     </div>
@@ -280,6 +281,10 @@ export function Gallery() {
     prevDirRef.current !== dir
   ) {
     shuffleIdRef.current = null
+    prevSearchRef.current = debouncedSearch
+    prevPresetRef.current = activePreset
+    prevSortRef.current = sort
+    prevDirRef.current = dir
   }
 
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -398,27 +403,14 @@ export function Gallery() {
   function handleModalOpenChange(open: boolean) {
     if (!open) {
       const { preset: urlPreset } = readUrlParams()
-      if (urlPreset !== activePreset) window.scrollTo(0, 0)
+      if (urlPreset !== activePreset) {
+        window.scrollTo(0, 0)
+        setShuffleId(null)
+      }
       setActivePreset(urlPreset)
     }
     setModalOpen(open)
   }
-
-  // State update for URL/UI after the ref was cleared during render.
-  useEffect(() => {
-    if (
-      prevSearchRef.current !== debouncedSearch ||
-      prevPresetRef.current !== activePreset ||
-      prevSortRef.current !== sort ||
-      prevDirRef.current !== dir
-    ) {
-      prevSearchRef.current = debouncedSearch
-      prevPresetRef.current = activePreset
-      prevSortRef.current = sort
-      prevDirRef.current = dir
-      setShuffleId(null)
-    }
-  }, [debouncedSearch, activePreset, sort, dir])
 
   const loadedBlocks = useMemo(() => data?.pages.flatMap((p) => p.blocks) ?? [], [data])
   const totalBlocks = data?.pages[0]?.totalBlocks ?? null
@@ -470,6 +462,7 @@ export function Gallery() {
               if (debounceTimer.current) clearTimeout(debounceTimer.current)
               debounceTimer.current = setTimeout(() => {
                 setDebouncedSearch(v)
+                setShuffleId(null)
                 window.scrollTo(0, 0)
               }, 400)
             }}

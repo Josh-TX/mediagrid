@@ -252,7 +252,6 @@ export function Player({
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [slots, setSlots] = useState<SlotItem[]>(() => Array<SlotItem>(TOTAL_SLOTS).fill("loading"))
-  const [loadTrigger, setLoadTrigger] = useState(0)
   const [errorIndices, setErrorIndices] = useState<Set<number>>(new Set())
 
   const [vpW, setVpW] = useState(globalThis.innerWidth ?? 375)
@@ -448,7 +447,7 @@ export function Player({
   }
 
   // ── Startup: begin the contrast auto-fade timer on mount ────────────────────
-  // Player remounts on each open (keyed from Gallery), so this runs once per session.
+  // Player remounts on each open (keyed from Gallery), so open is always true here.
   useEffect(() => {
     if (!open) return
     const timerId = setTimeout(() => {
@@ -457,8 +456,7 @@ export function Player({
     }, CONTRAST_HOLD_MS)
     contrastTimerRef.current = timerId
     return () => { clearTimeout(timerId); contrastTimerRef.current = null }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [open])
 
   const loadWindow = useCallback(
     async (idx: number) => {
@@ -476,10 +474,8 @@ export function Player({
   )
 
   useEffect(() => {
-    if (!open) return
-    void loadWindow(currentIndex)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, loadTrigger, loadWindow])
+    void loadWindow(initialIndex)
+  }, [loadWindow, initialIndex])
 
   useEffect(() => {
     videoRefs.current.forEach((video, idx) => {
@@ -496,8 +492,7 @@ export function Player({
     if (!currentItem || currentItem === "loading") return
     const video = videoRefs.current.get(currentIndex)
     if (video && currentItem.media_type === 1) video.play().catch(() => { })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentItem])
+  }, [currentItem, currentIndex])
 
   useEffect(() => {
     function onResize() {
@@ -613,13 +608,13 @@ export function Player({
       if (direction === 1) {
         onShowToast("Wrapped to beginning")
         setCurrentIndex(0)
-        setLoadTrigger((t) => t + 1)
+        void loadWindow(0)
       } else {
         onShowToast("Wrapped to end")
         try {
           const last = await findLastIndex(shuffleId)
           setCurrentIndex(last)
-          setLoadTrigger((t) => t + 1)
+          void loadWindow(last)
         } catch (err) {
           if (err instanceof Error && err.message.includes("404")) onShuffleExpired()
         }
@@ -688,13 +683,13 @@ export function Player({
       if (direction === 1) {
         onShowToast("Wrapped to beginning")
         setCurrentIndex(0)
-        setLoadTrigger((t) => t + 1)
+        void loadWindow(0)
       } else {
         onShowToast("Wrapped to end")
         try {
           const last = await findLastIndex(shuffleId)
           setCurrentIndex(last)
-          setLoadTrigger((t) => t + 1)
+          void loadWindow(last)
         } catch (err) {
           if (err instanceof Error && err.message.includes("404")) {
             onShuffleExpired()
@@ -972,7 +967,10 @@ export function Player({
   return (
     <div
       className={`${styles.player} ${open ? styles.playerOpen : ""}`}
+      role="application"
+      aria-label="Media player"
       onClick={onPlayerClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onPlayerClick(e as unknown as React.MouseEvent) }}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -1091,14 +1089,14 @@ export function Player({
       )}
 
       {/* Back button — 8px from top/left, slightly transparent */}
-      <button className={styles.backBtn} onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="Back">
+      <button type="button" className={styles.backBtn} onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="Back">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
         </svg>
       </button>
 
       {/* Fullscreen toggle — 8px from top/right; shows ⛶ normally, × in fullscreen */}
-      <button className={styles.fullscreenBtn} onClick={(e) => { e.stopPropagation(); toggleFullscreen() }} aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
+      <button type="button" className={styles.fullscreenBtn} onClick={(e) => { e.stopPropagation(); toggleFullscreen() }} aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
         {isFullscreen
           ? <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg>
           : <span className={styles.fullscreenIcon}>⛶</span>

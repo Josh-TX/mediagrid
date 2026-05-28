@@ -56,15 +56,16 @@ function humanDuration(ms: number): string {
 
 // ---- NumberInput ----
 
-function NumberInput({ value, min, className, onChange, "aria-label": ariaLabel }: { value: number; min?: number; className?: string | undefined; onChange: (n: number) => void; "aria-label"?: string }) {
+function NumberInput({ value, min, className, onChange, id, "aria-label": ariaLabel }: { value: number; min?: number; className?: string | undefined; onChange: (n: number) => void; id?: string; "aria-label"?: string }) {
   const [str, setStr] = useState(String(value))
-  const [prevValue, setPrevValue] = useState(value)
-  if (prevValue !== value) {
-    setPrevValue(value)
+  const prevValueRef = useRef(value)
+  if (prevValueRef.current !== value) {
+    prevValueRef.current = value
     setStr(String(value))
   }
   return (
     <input
+      id={id}
       type="number"
       className={className}
       value={str}
@@ -132,13 +133,13 @@ function PresetsTab({
       <div className={styles.settingsScroll}>
         <fieldset className={styles.section}>
           <legend className={styles.sectionLabel}>Gallery</legend>
-          <label className={styles.field}>
+          <label className={styles.field} htmlFor="targetTilePercent">
             <span>Target tile % of screen</span>
-            <NumberInput className={styles.numberInput} value={selectedPreset.targetTilePercent} min={1} onChange={(n) => onUpdatePreset({ targetTilePercent: n })} />
+            <NumberInput id="targetTilePercent" className={styles.numberInput} value={selectedPreset.targetTilePercent} min={1} aria-label="Target tile % of screen" onChange={(n) => onUpdatePreset({ targetTilePercent: n })} />
           </label>
-          <label className={styles.field}>
+          <label className={styles.field} htmlFor="maxTilePercent">
             <span>Max tile % of screen</span>
-            <NumberInput className={styles.numberInput} value={selectedPreset.maxTilePercent} min={1} onChange={(n) => onUpdatePreset({ maxTilePercent: n })} />
+            <NumberInput id="maxTilePercent" className={styles.numberInput} value={selectedPreset.maxTilePercent} min={1} aria-label="Max tile % of screen" onChange={(n) => onUpdatePreset({ maxTilePercent: n })} />
           </label>
           <label className={styles.field}>
             <span>Clusters</span>
@@ -223,14 +224,14 @@ function PresetsTab({
           </label>
           {selectedPreset.oneFileAtATime ? (
             <>
-              <label className={styles.field}>
+              <div className={styles.field}>
                 <span>Forward preload</span>
                 <span>1</span>
-              </label>
-              <label className={styles.field}>
+              </div>
+              <div className={styles.field}>
                 <span>Backward preload</span>
                 <span>1</span>
-              </label>
+              </div>
             </>
           ) : (
             <>
@@ -509,23 +510,21 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
   const queryClient = useQueryClient()
   const [activeForm, setActiveForm] = useState<string>("thumbnails")
 
+  // Server-synced settings (overwritten on load from server)
+  const [form, setForm] = useState({ thumbCompression: 50, thumbResolution: 500 * 500, hlResolution: 500 * 500, hlDuration: 6, hlSegmentCount: 10, hlFfmpegArg: "-c:v libx264 -crf 25 -preset fast" })
+  const { thumbCompression, thumbResolution, hlResolution, hlDuration, hlSegmentCount, hlFfmpegArg } = form
+
   // Thumbnail form state
-  const [thumbCompression, setThumbCompression] = useState(50)
-  const [thumbResolution, setThumbResolution] = useState(500 * 500)
   const [thumbOverride, setThumbOverride] = useState(false)
   const [thumbSimpleFilter, setThumbSimpleFilter] = useState("")
   const [thumbUsePresetFilter, setThumbUsePresetFilter] = useState(false)
   const [thumbPresetName, setThumbPresetName] = useState<string | null>("default")
 
   // Highlight form state
-  const [hlResolution, setHlResolution] = useState(500 * 500)
   const [hlOverride, setHlOverride] = useState(false)
   const [hlSimpleFilter, setHlSimpleFilter] = useState("")
   const [hlUsePresetFilter, setHlUsePresetFilter] = useState(false)
   const [hlPresetName, setHlPresetName] = useState<string | null>("default")
-  const [hlDuration, setHlDuration] = useState(6)
-  const [hlSegmentCount, setHlSegmentCount] = useState(10)
-  const [hlFfmpegArg, setHlFfmpegArg] = useState("-c:v libx264 -crf 25 -preset fast")
 
   const [showQueued, setShowQueued] = useState(false)
   const queuedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -537,12 +536,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
 
   useEffect(() => {
     if (!settings) return
-    setThumbCompression(settings.thumbCompression)
-    setThumbResolution(settings.thumbResolution)
-    setHlResolution(settings.highlightResolution)
-    setHlDuration(settings.highlightDuration)
-    setHlSegmentCount(settings.highlightSegmentCount)
-    setHlFfmpegArg(settings.highlightFfmpegArg)
+    setForm({ thumbCompression: settings.thumbCompression, thumbResolution: settings.thumbResolution, hlResolution: settings.highlightResolution, hlDuration: settings.highlightDuration, hlSegmentCount: settings.highlightSegmentCount, hlFfmpegArg: settings.highlightFfmpegArg })
   }, [settings])
 
   async function handleGenerate() {
@@ -597,7 +591,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
             <legend className={styles.sectionLabel}>Thumbnails</legend>
             <label className={styles.field}>
               <span>WebP quality</span>
-              <select value={thumbCompression} onChange={(e) => setThumbCompression(Number(e.target.value))}>
+              <select value={thumbCompression} onChange={(e) => setForm((prev) => ({ ...prev, thumbCompression: Number(e.target.value) }))}>
                 {COMPRESSION_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
@@ -605,7 +599,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
             </label>
             <label className={styles.field}>
               <span>Resolution</span>
-              <select value={thumbResolution} onChange={(e) => setThumbResolution(Number(e.target.value))}>
+              <select value={thumbResolution} onChange={(e) => setForm((prev) => ({ ...prev, thumbResolution: Number(e.target.value) }))}>
                 {RESOLUTION_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
@@ -634,7 +628,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
             <legend className={styles.sectionLabel}>Highlights</legend>
             <label className={styles.field}>
               <span>Resolution</span>
-              <select value={hlResolution} onChange={(e) => setHlResolution(Number(e.target.value))}>
+              <select value={hlResolution} onChange={(e) => setForm((prev) => ({ ...prev, hlResolution: Number(e.target.value) }))}>
                 {RESOLUTION_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
@@ -652,7 +646,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
                 className={styles.numberInput}
                 value={hlDuration}
                 min={0}
-                onChange={(e) => setHlDuration(Number(e.target.value))}
+                onChange={(e) => setForm((prev) => ({ ...prev, hlDuration: Number(e.target.value) }))}
               />
             </label>
             <label className={styles.field}>
@@ -663,7 +657,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
                 className={styles.numberInput}
                 value={hlSegmentCount}
                 min={1}
-                onChange={(e) => setHlSegmentCount(Number(e.target.value))}
+                onChange={(e) => setForm((prev) => ({ ...prev, hlSegmentCount: Number(e.target.value) }))}
               />
             </label>
             <label className={styles.field}>
@@ -677,7 +671,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
                 aria-label="ffmpeg arg"
                 className={styles.textInput}
                 value={hlFfmpegArg}
-                onChange={(e) => setHlFfmpegArg(e.target.value)}
+                onChange={(e) => setForm((prev) => ({ ...prev, hlFfmpegArg: e.target.value }))}
               />
             </label>
           </fieldset>
