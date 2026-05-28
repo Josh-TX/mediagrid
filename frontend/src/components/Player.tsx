@@ -254,6 +254,16 @@ export function Player({
   const [slots, setSlots] = useState<SlotItem[]>(() => Array<SlotItem>(TOTAL_SLOTS).fill("loading"))
   const [errorIndices, setErrorIndices] = useState<Set<number>>(new Set())
 
+  // isOpen lags one frame behind open=true so the browser paints translateX(100%)
+  // before the CSS transition fires. It tracks open synchronously on close so the
+  // slide-out transition starts immediately.
+  const [isOpen, setIsOpen] = useState(false)
+  useEffect(() => {
+    if (!open) { setIsOpen(false); return }
+    const frame = requestAnimationFrame(() => setIsOpen(true))
+    return () => cancelAnimationFrame(frame)
+  }, [open])
+
   const [vpW, setVpW] = useState(globalThis.innerWidth ?? 375)
   const [vpH, setVpH] = useState(globalThis.innerHeight ?? 667)
 
@@ -474,8 +484,18 @@ export function Player({
   )
 
   useEffect(() => {
+    if (!open) return
     void loadWindow(initialIndex)
-  }, [loadWindow, initialIndex])
+  }, [loadWindow, initialIndex, open])
+
+  useEffect(() => {
+    if (open) return
+    const timer = setTimeout(() => {
+      videoRefs.current.forEach((v) => v.pause())
+      setSlots((prev) => prev.map(() => null))
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [open])
 
   useEffect(() => {
     videoRefs.current.forEach((video, idx) => {
@@ -958,7 +978,7 @@ export function Player({
 
   // ── Seek bar gradient style ──────────────────────────────────────────────────
   const seekBarStyle: React.CSSProperties = {
-    background: `linear-gradient(to right, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.8) ${seekProgress * 100}%, rgba(255,255,255,0.3) ${seekProgress * 100}%, rgba(255,255,255,0.3) 100%)`,
+    background: `linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,1) ${seekProgress * 100}%, rgba(255,255,255,0.2) ${seekProgress * 100}%, rgba(255,255,255,0.2) 100%)`,
   }
 
   // ── Shared transition style for controls and overlay ─────────────────────────
@@ -966,7 +986,7 @@ export function Player({
 
   return (
     <div
-      className={`${styles.player} ${open ? styles.playerOpen : ""}`}
+      className={`${styles.player} ${isOpen ? styles.playerOpen : ""}`}
       role="application"
       aria-label="Media player"
       onClick={onPlayerClick}
