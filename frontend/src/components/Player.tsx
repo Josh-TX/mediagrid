@@ -156,6 +156,7 @@ function renderSlot(
           autoPlay={isCurrent && open}
           muted={false}
           onError={onError}
+          aria-label="Media player"
         />
         {hasError && <div className={styles.loadError}>Failed to load media</div>}
       </div>
@@ -308,15 +309,15 @@ export function Player({
   /** True when the current media is a video — controls seek bar visibility. */
   const [seekBarVisible, setSeekBarVisible] = useState(false)
 
+  const currentSlot = slots[CURRENT_SLOT_IDX]
+
   // Sync seekBarVisible when the current slot changes
   useEffect(() => {
-    const current = slots[CURRENT_SLOT_IDX]
-    setSeekBarVisible(!!current && current !== "loading" && current.media_type === 1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slots[CURRENT_SLOT_IDX]])
+    setSeekBarVisible(!!currentSlot && currentSlot !== "loading" && currentSlot.media_type === 1)
+  }, [currentSlot])
 
   // Attach timeupdate listener to the current video to drive the seek bar and time remaining.
-  // Also depends on slots[CURRENT_SLOT_IDX] so it re-attaches after the video element mounts.
+  // Also depends on currentSlot so it re-attaches after the video element mounts.
   useEffect(() => {
     const video = videoRefs.current.get(currentIndex)
     if (!video) return
@@ -328,8 +329,7 @@ export function Player({
     }
     video.addEventListener("timeupdate", onTimeUpdate)
     return () => video.removeEventListener("timeupdate", onTimeUpdate)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, slots[CURRENT_SLOT_IDX]])
+  }, [currentIndex, currentSlot])
 
   // ── Title display ───────────────────────────────────────────────────────────
   /**
@@ -342,12 +342,10 @@ export function Player({
 
   // Sync displayedTitle when the current slot resolves from "loading" → MediaInfo
   useEffect(() => {
-    const current = slots[CURRENT_SLOT_IDX]
-    if (current && current !== "loading") {
-      setDisplayedTitle(titleFromPath(current.path))
+    if (currentSlot && currentSlot !== "loading") {
+      setDisplayedTitle(titleFromPath(currentSlot.path))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slots[CURRENT_SLOT_IDX]])
+  }, [currentSlot])
 
   // ── Contrast / subtle visibility mode ───────────────────────────────────────
   /**
@@ -436,11 +434,6 @@ export function Player({
     }, MEDIA_CROSSFADE_MS)
   }
 
-  // Cancel timer when player closes to avoid stale state updates
-  useEffect(() => {
-    if (!open) cancelContrastTimer()
-  }, [open])
-
   // ── Tap-feedback overlays ─────────────────────────────────────────────────
   const [rewindOverlay, setRewindOverlay] = useState<{ key: number; value: number } | null>(null)
   const [forwardOverlay, setForwardOverlay] = useState<{ key: number; value: number } | null>(null)
@@ -487,7 +480,6 @@ export function Player({
       setOfoatAnimating(false)
       setMediaTargetTops(null)
       setSeekProgress(0)
-      setSeekBarVisible(false)
       setDisplayedTitle("")
       setTimeRemaining(null)
       setErrorIndices(new Set())
@@ -497,7 +489,7 @@ export function Player({
       setOverlayTransitionMs(0)
       setMediaFadingOut(false)
       cancelContrastTimer()
-      contrastTimerRef.current = setTimeout(() => {
+      const timerId = setTimeout(() => {
         setOverlayTransitionMs(CONTRAST_FADE_MS)
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
@@ -505,8 +497,10 @@ export function Player({
           })
         })
       }, CONTRAST_HOLD_MS)
+      contrastTimerRef.current = timerId
       setLoadTrigger((t) => t + 1)
     }
+    return () => cancelContrastTimer()
     // TOTAL_SLOTS included so toggling OFOAT or preload counts while open reinitializes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialIndex, TOTAL_SLOTS])
@@ -542,7 +536,7 @@ export function Player({
     })
   }, [currentIndex, open])
 
-  const currentItem = slots[CURRENT_SLOT_IDX]
+  const currentItem = currentSlot
   useEffect(() => {
     if (!open || !currentItem || currentItem === "loading") return
     const video = videoRefs.current.get(currentIndex)

@@ -56,7 +56,7 @@ function humanDuration(ms: number): string {
 
 // ---- NumberInput ----
 
-function NumberInput({ value, min, className, onChange }: { value: number; min?: number; className?: string | undefined; onChange: (n: number) => void }) {
+function NumberInput({ value, min, className, onChange, "aria-label": ariaLabel }: { value: number; min?: number; className?: string | undefined; onChange: (n: number) => void; "aria-label"?: string }) {
   const [str, setStr] = useState(String(value))
   useEffect(() => { setStr(String(value)) }, [value])
   return (
@@ -64,6 +64,7 @@ function NumberInput({ value, min, className, onChange }: { value: number; min?:
       type="number"
       className={className}
       value={str}
+      aria-label={ariaLabel}
       onChange={(e) => setStr(e.target.value)}
       onBlur={() => {
         const n = min !== undefined ? Math.max(min, Number(str) || min) : (Number(str) || 0)
@@ -119,9 +120,9 @@ function PresetsTab({
             <option key={p.name} value={p.name}>{p.name}</option>
           ))}
         </select>
-        <button className={styles.iconBtn} onClick={onRename} disabled={isDefault}>Rename</button>
-        <button className={styles.iconBtn} onClick={onDuplicate}>Duplicate</button>
-        <button className={styles.iconBtn} onClick={onDelete} disabled={isDefault}>Delete</button>
+        <button type="button" className={styles.iconBtn} onClick={onRename} disabled={isDefault}>Rename</button>
+        <button type="button" className={styles.iconBtn} onClick={onDuplicate}>Duplicate</button>
+        <button type="button" className={styles.iconBtn} onClick={onDelete} disabled={isDefault}>Delete</button>
       </div>
 
       <div className={styles.settingsScroll}>
@@ -158,6 +159,7 @@ function PresetsTab({
             <span>Show tile title</span>
             <input
               type="checkbox"
+              aria-label="Show tile title"
               checked={selectedPreset.showTileTitle}
               onChange={(e) => onUpdatePreset({ showTileTitle: e.target.checked })}
             />
@@ -188,19 +190,19 @@ function PresetsTab({
           </label>
           <label className={styles.field}>
             <span>Min duration (s)</span>
-            <input type="number" className={styles.numberInput} value={selectedPreset.minDuration ?? ""} placeholder="No limit" min={0} onChange={(e) => onUpdatePreset({ minDuration: e.target.value === "" ? null : Number(e.target.value) })} />
+            <input type="number" aria-label="Min duration (s)" className={styles.numberInput} value={selectedPreset.minDuration ?? ""} placeholder="No limit" min={0} onChange={(e) => onUpdatePreset({ minDuration: e.target.value === "" ? null : Number(e.target.value) })} />
           </label>
           <label className={styles.field}>
             <span>Max duration (s)</span>
-            <input type="number" className={styles.numberInput} value={selectedPreset.maxDuration ?? ""} placeholder="No limit" min={0} onChange={(e) => onUpdatePreset({ maxDuration: e.target.value === "" ? null : Number(e.target.value) })} />
+            <input type="number" aria-label="Max duration (s)" className={styles.numberInput} value={selectedPreset.maxDuration ?? ""} placeholder="No limit" min={0} onChange={(e) => onUpdatePreset({ maxDuration: e.target.value === "" ? null : Number(e.target.value) })} />
           </label>
           <label className={styles.field}>
             <span>Exclude contains</span>
-            <input type="text" className={styles.textInput} value={selectedPreset.excludeContainsCsv ?? ""} placeholder="term1,term2" onChange={(e) => onUpdatePreset({ excludeContainsCsv: e.target.value || null })} />
+            <input type="text" aria-label="Exclude contains" className={styles.textInput} value={selectedPreset.excludeContainsCsv ?? ""} placeholder="term1,term2" onChange={(e) => onUpdatePreset({ excludeContainsCsv: e.target.value || null })} />
           </label>
           <label className={styles.field}>
             <span>Exclude not contains</span>
-            <input type="text" className={styles.textInput} value={selectedPreset.excludeNotContainsCsv ?? ""} placeholder="term1,term2" onChange={(e) => onUpdatePreset({ excludeNotContainsCsv: e.target.value || null })} />
+            <input type="text" aria-label="Exclude not contains" className={styles.textInput} value={selectedPreset.excludeNotContainsCsv ?? ""} placeholder="term1,term2" onChange={(e) => onUpdatePreset({ excludeNotContainsCsv: e.target.value || null })} />
           </label>
         </fieldset>
 
@@ -210,6 +212,7 @@ function PresetsTab({
             <span>One file at a time</span>
             <input
               type="checkbox"
+              aria-label="One file at a time"
               checked={selectedPreset.oneFileAtATime}
               onChange={(e) => onUpdatePreset({ oneFileAtATime: e.target.checked })}
             />
@@ -256,20 +259,20 @@ function PresetsTab({
           ))}
           <label className={styles.field}>
             <span>Rewind seconds</span>
-            <input type="number" className={styles.numberInput} value={selectedPreset.rewindSeconds} onChange={(e) => onUpdatePreset({ rewindSeconds: Number(e.target.value) })} />
+            <input type="number" aria-label="Rewind seconds" className={styles.numberInput} value={selectedPreset.rewindSeconds} onChange={(e) => onUpdatePreset({ rewindSeconds: Number(e.target.value) })} />
           </label>
           <label className={styles.field}>
             <span>Fast-forward seconds</span>
-            <input type="number" className={styles.numberInput} value={selectedPreset.fastForwardSeconds} onChange={(e) => onUpdatePreset({ fastForwardSeconds: Number(e.target.value) })} />
+            <input type="number" aria-label="Fast-forward seconds" className={styles.numberInput} value={selectedPreset.fastForwardSeconds} onChange={(e) => onUpdatePreset({ fastForwardSeconds: Number(e.target.value) })} />
           </label>
         </fieldset>
       </div>
 
       <div className={styles.footer}>
-        <button className={styles.closeBtn} onClick={onCancel}>Close</button>
+        <button type="button" className={styles.closeBtn} onClick={onCancel}>Close</button>
         <div className={styles.footerRight}>
           {saveError && <span className={styles.saveError}>Save failed</span>}
-          <button className={styles.saveBtn} onClick={onSave}>Save</button>
+          <button type="button" className={styles.saveBtn} onClick={onSave}>Save</button>
         </div>
       </div>
     </div>
@@ -339,9 +342,9 @@ function TasksTab({ onClose }: { onClose: () => void }) {
   return (
     <div className={styles.tasksTab}>
       <div className={styles.taskActions}>
-        <button className={styles.taskBtn} onClick={handleScan}>Run Scan</button>
+        <button type="button" className={styles.taskBtn} onClick={handleScan}>Run Scan</button>
         {scanMsg && <span className={styles.inlineMsg}>{scanMsg}</span>}
-        <button className={styles.taskBtn} onClick={handleClean}>Run Clean</button>
+        <button type="button" className={styles.taskBtn} onClick={handleClean}>Run Clean</button>
         {cleanMsg && <span className={styles.inlineMsg}>{cleanMsg}</span>}
       </div>
 
@@ -357,6 +360,7 @@ function TasksTab({ onClose }: { onClose: () => void }) {
               {active.cancelling ? "cancelling…" : active.status}
             </span>
             <button
+              type="button"
               className={styles.cancelBtn}
               disabled={active.cancelling}
               onClick={() => handleCancel(active.id)}
@@ -376,7 +380,7 @@ function TasksTab({ onClose }: { onClose: () => void }) {
             <div key={t.id} className={styles.taskItem}>
               <span className={styles.taskType}>{taskLabel(t.type)}</span>
               <span className={styles.taskStatus}>{timeAgo(t.enqueuedAt)}</span>
-              <button className={styles.cancelBtn} onClick={() => handleCancel(t.id)}>Cancel</button>
+              <button type="button" className={styles.cancelBtn} onClick={() => handleCancel(t.id)}>Cancel</button>
             </div>
           ))
         )}
@@ -404,7 +408,7 @@ function TasksTab({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className={styles.footer}>
-        <button className={styles.closeBtn} onClick={onClose}>Close</button>
+        <button type="button" className={styles.closeBtn} onClick={onClose}>Close</button>
       </div>
     </div>
   )
@@ -464,6 +468,7 @@ function FilterSection({
         <span>Search</span>
         <input
           type="text"
+          aria-label="Search"
           className={styles.textInput}
           value={simpleFilter}
           placeholder="space-delimited terms"
@@ -474,6 +479,7 @@ function FilterSection({
         <span>Use preset filter</span>
         <input
           type="checkbox"
+          aria-label="Use preset filter"
           checked={usePresetFilter}
           onChange={(e) => onUsePresetFilterChange(e.target.checked)}
         />
@@ -603,7 +609,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
             </label>
             <label className={styles.field}>
               <span>Override existing</span>
-              <input type="checkbox" checked={thumbOverride} onChange={(e) => setThumbOverride(e.target.checked)} />
+              <input type="checkbox" aria-label="Override existing thumbnails" checked={thumbOverride} onChange={(e) => setThumbOverride(e.target.checked)} />
             </label>
           </fieldset>
           <FilterSection
@@ -632,12 +638,13 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
             </label>
             <label className={styles.field}>
               <span>Override existing</span>
-              <input type="checkbox" checked={hlOverride} onChange={(e) => setHlOverride(e.target.checked)} />
+              <input type="checkbox" aria-label="Override existing highlights" checked={hlOverride} onChange={(e) => setHlOverride(e.target.checked)} />
             </label>
             <label className={styles.field}>
               <span>Highlight duration (s)</span>
               <input
                 type="number"
+                aria-label="Highlight duration (s)"
                 className={styles.numberInput}
                 value={hlDuration}
                 min={0}
@@ -648,6 +655,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
               <span>Segment count</span>
               <input
                 type="number"
+                aria-label="Segment count"
                 className={styles.numberInput}
                 value={hlSegmentCount}
                 min={1}
@@ -656,12 +664,13 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
             </label>
             <label className={styles.field}>
               <span>Segment duration</span>
-              <input type="text" className={styles.numberInput} readOnly value={`${segmentDuration}s per segment`} />
+              <input type="text" aria-label="Segment duration" className={styles.numberInput} readOnly value={`${segmentDuration}s per segment`} />
             </label>
             <label className={styles.field}>
               <span>ffmpeg arg</span>
               <input
                 type="text"
+                aria-label="ffmpeg arg"
                 className={styles.textInput}
                 value={hlFfmpegArg}
                 onChange={(e) => setHlFfmpegArg(e.target.value)}
@@ -681,7 +690,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
       )}
 
       <div className={styles.footer}>
-        <button className={styles.closeBtn} onClick={onClose}>Close</button>
+        <button type="button" className={styles.closeBtn} onClick={onClose}>Close</button>
         <div className={styles.footerRight}>
           {showQueued ? (
             <div className={styles.queuedMsg}>
@@ -689,7 +698,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
               <span>See Tasks tab for status</span>
             </div>
           ) : (
-            <button className={styles.saveBtn} onClick={handleGenerate}>
+            <button type="button" className={styles.saveBtn} onClick={handleGenerate}>
               {activeForm === "thumbnails" ? "Generate Thumbnails" : "Generate Highlights"}
             </button>
           )}
@@ -708,18 +717,10 @@ export function SettingsModal({
   activePreset,
   onPresetsUpdate,
 }: SettingsModalProps) {
-  const [localPresets, setLocalPresets] = useState<Preset[]>([])
-  const [selectedName, setSelectedName] = useState("default")
+  const [localPresets, setLocalPresets] = useState<Preset[]>(() => [...presets])
+  const [selectedName, setSelectedName] = useState(activePreset)
   const [saveError, setSaveError] = useState(false)
   const [activeTab, setActiveTab] = useState("presets")
-
-  useEffect(() => {
-    if (open) {
-      setLocalPresets([...presets])
-      setSelectedName(activePreset)
-      setSaveError(false)
-    }
-  }, [open, presets, activePreset])
 
   function updateSelectedPreset(patch: Partial<Preset>) {
     setLocalPresets((prev) =>

@@ -54,7 +54,7 @@ function VideoTile({ src, style }: VideoTileProps) {
     obs.observe(video)
     return () => obs.disconnect()
   }, [])
-  return <video ref={videoRef} src={src} autoPlay muted loop playsInline style={style} />
+  return <video ref={videoRef} src={src} autoPlay muted loop playsInline style={style} aria-label="Gallery tile video" />
 }
 
 /** Extracts the display title from a media path: last path segment with extension stripped. */
@@ -232,6 +232,7 @@ export function Gallery() {
   const [sort, setSort] = useState<SortType>(initialParams.sort)
   const [dir, setDir] = useState<SortDir>(initialParams.dir)
   const [modalOpen, setModalOpen] = useState(false)
+  const [modalKey, setModalKey] = useState(0)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState("")
   const [playerOpen, setPlayerOpen] = useState(false)
@@ -285,7 +286,10 @@ export function Gallery() {
 
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    debounceTimer.current = setTimeout(() => setDebouncedSearch(search), 400)
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(search)
+      window.scrollTo(0, 0)
+    }, 400)
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
@@ -339,10 +343,6 @@ export function Gallery() {
   }
 
   useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [debouncedSearch, activePreset, sort, dir])
-
-  useEffect(() => {
     if (isError && error instanceof Error && !error.message.includes("404")) {
       setToastMessage("Failed to load media")
       setToastOpen(true)
@@ -379,6 +379,7 @@ export function Gallery() {
     shuffleIdRef.current = null
     setActivePreset(name)
     setShuffleId(null)
+    window.scrollTo(0, 0)
     queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, name, sort, dir] })
   }
 
@@ -386,6 +387,7 @@ export function Gallery() {
   function handleReshuffle() {
     shuffleIdRef.current = null
     setShuffleId(null)
+    window.scrollTo(0, 0)
     queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
   }
 
@@ -393,6 +395,7 @@ export function Gallery() {
     shuffleIdRef.current = null
     setSort(newSort)
     setShuffleId(null)
+    window.scrollTo(0, 0)
     // Reset dir to asc when switching to a non-random sort for the first time.
     if (newSort !== "random" && sort === "random") setDir("asc")
   }
@@ -401,11 +404,13 @@ export function Gallery() {
     shuffleIdRef.current = null
     setDir((d) => (d === "asc" ? "desc" : "asc"))
     setShuffleId(null)
+    window.scrollTo(0, 0)
   }
 
   function handleModalOpenChange(open: boolean) {
     if (!open) {
       const { preset: urlPreset } = readUrlParams()
+      if (urlPreset !== activePreset) window.scrollTo(0, 0)
       setActivePreset(urlPreset)
     }
     setModalOpen(open)
@@ -447,6 +452,7 @@ export function Gallery() {
     <Toast.Provider>
         <div className={styles.toolbar}>
           <button
+            type="button"
             className={styles.sortDirBtn}
             onClick={sort === "random" ? handleReshuffle : handleDirToggle}
             aria-label={sort === "random" ? "Re-shuffle" : dir === "asc" ? "Sort ascending" : "Sort descending"}
@@ -487,7 +493,7 @@ export function Gallery() {
               ))}
             </select>
           )}
-          <button className={styles.settingsBtn} onClick={() => setModalOpen(true)} aria-label="Settings">
+          <button type="button" className={styles.settingsBtn} onClick={() => { setModalKey(k => k + 1); setModalOpen(true) }} aria-label="Settings">
             ⚙
           </button>
         </div>
@@ -526,6 +532,7 @@ export function Gallery() {
 
         {presets && (
           <SettingsModal
+            key={modalKey}
             open={modalOpen}
             onOpenChange={handleModalOpenChange}
             presets={presets}
