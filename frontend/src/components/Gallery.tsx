@@ -237,6 +237,7 @@ export function Gallery() {
   const [toastMessage, setToastMessage] = useState("")
   const [playerOpen, setPlayerOpen] = useState(false)
   const [playerIndex, setPlayerIndex] = useState(0)
+  const [playerSessionKey, setPlayerSessionKey] = useState(0)
   const [galleryWidthPx, setGalleryWidthPx] = useState(() => window.innerWidth)
 
   const galleryRef = useRef<HTMLDivElement>(null)
@@ -284,16 +285,7 @@ export function Gallery() {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    debounceTimer.current = setTimeout(() => {
-      setDebouncedSearch(search)
-      window.scrollTo(0, 0)
-    }, 400)
-    return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    }
-  }, [search])
+  useEffect(() => () => { if (debounceTimer.current) clearTimeout(debounceTimer.current) }, [])
 
   // Single source of truth for URL — runs whenever any URL-relevant state changes.
   useEffect(() => {
@@ -308,7 +300,6 @@ export function Gallery() {
     isFetchingNextPage,
     isPending,
     isError,
-    error,
   } = useInfiniteQuery({
     queryKey: ["blocks", debouncedSearch, activePreset, sort, dir],
     queryFn: async ({ pageParam }) => {
@@ -322,6 +313,9 @@ export function Gallery() {
       } catch (err) {
         if (err instanceof Error && err.message.includes("404")) {
           handleShuffleExpired()
+        } else {
+          setToastMessage("Failed to load media")
+          setToastOpen(true)
         }
         throw err
       }
@@ -342,15 +336,9 @@ export function Gallery() {
     queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
   }
 
-  useEffect(() => {
-    if (isError && error instanceof Error && !error.message.includes("404")) {
-      setToastMessage("Failed to load media")
-      setToastOpen(true)
-    }
-  }, [isError, error])
-
   function handleTileClick(shuffleIndex: number) {
     setPlayerIndex(shuffleIndex)
+    setPlayerSessionKey(k => k + 1)
     setPlayerOpen(true)
   }
 
@@ -476,7 +464,15 @@ export function Gallery() {
             type="search"
             placeholder="Search"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value
+              setSearch(v)
+              if (debounceTimer.current) clearTimeout(debounceTimer.current)
+              debounceTimer.current = setTimeout(() => {
+                setDebouncedSearch(v)
+                window.scrollTo(0, 0)
+              }, 400)
+            }}
             aria-label="Search"
           />
           {presets && (
@@ -562,6 +558,7 @@ export function Gallery() {
 
         {shuffleId !== null && (
           <Player
+            key={playerSessionKey}
             open={playerOpen}
             initialIndex={playerIndex}
             shuffleId={shuffleId}

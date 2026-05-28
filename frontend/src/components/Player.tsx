@@ -306,15 +306,13 @@ export function Player({
 
   // ── Seek bar ─────────────────────────────────────────────────────────────────
   const [seekProgress, setSeekProgress] = useState(0)
-  /** True when the current media is a video — controls seek bar visibility. */
-  const [seekBarVisible, setSeekBarVisible] = useState(false)
+  const [fadeSeekBarVisible, setFadeSeekBarVisible] = useState<boolean | null>(null)
+  const [fadeTitle, setFadeTitle] = useState<string | null>(null)
 
   const currentSlot = slots[CURRENT_SLOT_IDX]
-
-  // Sync seekBarVisible when the current slot changes
-  useEffect(() => {
-    setSeekBarVisible(!!currentSlot && currentSlot !== "loading" && currentSlot.media_type === 1)
-  }, [currentSlot])
+  const currentSlotSeekBarVisible = !!currentSlot && currentSlot !== "loading" && currentSlot.media_type === 1
+  const currentSlotTitle = currentSlot && currentSlot !== "loading" ? titleFromPath(currentSlot.path) : ""
+  const seekBarVisible = fadeSeekBarVisible ?? currentSlotSeekBarVisible
 
   // Attach timeupdate listener to the current video to drive the seek bar and time remaining.
   // Also depends on currentSlot so it re-attaches after the video element mounts.
@@ -332,20 +330,8 @@ export function Player({
   }, [currentIndex, currentSlot])
 
   // ── Title display ───────────────────────────────────────────────────────────
-  /**
-   * The title shown in the player UI. Updated immediately when the current slot loads,
-   * and updated at the midpoint of the media-transition cross-fade (while controls are
-   * invisible) so the new title fades in without a visible swap.
-   */
-  const [displayedTitle, setDisplayedTitle] = useState("")
+  const displayedTitle = fadeTitle ?? currentSlotTitle
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null)
-
-  // Sync displayedTitle when the current slot resolves from "loading" → MediaInfo
-  useEffect(() => {
-    if (currentSlot && currentSlot !== "loading") {
-      setDisplayedTitle(titleFromPath(currentSlot.path))
-    }
-  }, [currentSlot])
 
   // ── Contrast / subtle visibility mode ───────────────────────────────────────
   /**
@@ -409,25 +395,19 @@ export function Player({
     setMediaFadingOut(true)
 
     setTimeout(() => {
-      // Midpoint: controls are at opacity 0 — swap content invisibly
-      setDisplayedTitle(newTitle)
+      setFadeTitle(newTitle)
+      setFadeSeekBarVisible(newSeekBarVisible)
       setTimeRemaining(null)
-      setSeekBarVisible(newSeekBarVisible)
       setSeekProgress(0)
-      setContrastMode(true)   // ensure contrast on new media
-      setMediaFadingOut(false) // fade back in with MEDIA_CROSSFADE_MS transition
+      setContrastMode(true)
+      setMediaFadingOut(false)
 
-      // After the fade-in completes, reset to instant-snap mode and start hold timer
       setTimeout(() => {
         setOverlayTransitionMs(0)
         if (!isPausedRef.current) {
           contrastTimerRef.current = setTimeout(() => {
             setOverlayTransitionMs(CONTRAST_FADE_MS)
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                setContrastMode(false)
-              })
-            })
+            requestAnimationFrame(() => requestAnimationFrame(() => setContrastMode(false)))
           }, CONTRAST_HOLD_MS)
         }
       }, MEDIA_CROSSFADE_MS)
@@ -467,43 +447,18 @@ export function Player({
     setPlayPauseOverlay({ key: playPauseKey.current, action })
   }
 
-  // ── Core player state setup ──────────────────────────────────────────────────
+  // ── Startup: begin the contrast auto-fade timer on mount ────────────────────
+  // Player remounts on each open (keyed from Gallery), so this runs once per session.
   useEffect(() => {
-    if (open) {
-      setCurrentIndex(initialIndex)
-      setSlots(Array<SlotItem>(TOTAL_SLOTS).fill("loading"))
-      setDragOffset(0)
-      setAnimating(false)
-      animatingRef.current = false
-      baseYRef.current = 0
-      setItemTops(null)
-      setOfoatAnimating(false)
-      setMediaTargetTops(null)
-      setSeekProgress(0)
-      setDisplayedTitle("")
-      setTimeRemaining(null)
-      setErrorIndices(new Set())
-      isPausedRef.current = false
-      // Enter contrast mode and start the auto-fade timer
-      setContrastMode(true)
-      setOverlayTransitionMs(0)
-      setMediaFadingOut(false)
-      cancelContrastTimer()
-      const timerId = setTimeout(() => {
-        setOverlayTransitionMs(CONTRAST_FADE_MS)
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            setContrastMode(false)
-          })
-        })
-      }, CONTRAST_HOLD_MS)
-      contrastTimerRef.current = timerId
-      setLoadTrigger((t) => t + 1)
-    }
-    return () => cancelContrastTimer()
-    // TOTAL_SLOTS included so toggling OFOAT or preload counts while open reinitializes
+    if (!open) return
+    const timerId = setTimeout(() => {
+      setOverlayTransitionMs(CONTRAST_FADE_MS)
+      requestAnimationFrame(() => requestAnimationFrame(() => setContrastMode(false)))
+    }, CONTRAST_HOLD_MS)
+    contrastTimerRef.current = timerId
+    return () => { clearTimeout(timerId); contrastTimerRef.current = null }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialIndex, TOTAL_SLOTS])
+  }, [])
 
   const loadWindow = useCallback(
     async (idx: number) => {
@@ -538,7 +493,7 @@ export function Player({
 
   const currentItem = currentSlot
   useEffect(() => {
-    if (!open || !currentItem || currentItem === "loading") return
+    if (!currentItem || currentItem === "loading") return
     const video = videoRefs.current.get(currentIndex)
     if (video && currentItem.media_type === 1) video.play().catch(() => { })
     // eslint-disable-next-line react-hooks/exhaustive-deps

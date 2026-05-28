@@ -58,7 +58,11 @@ function humanDuration(ms: number): string {
 
 function NumberInput({ value, min, className, onChange, "aria-label": ariaLabel }: { value: number; min?: number; className?: string | undefined; onChange: (n: number) => void; "aria-label"?: string }) {
   const [str, setStr] = useState(String(value))
-  useEffect(() => { setStr(String(value)) }, [value])
+  const [prevValue, setPrevValue] = useState(value)
+  if (prevValue !== value) {
+    setPrevValue(value)
+    setStr(String(value))
+  }
   return (
     <input
       type="number"
