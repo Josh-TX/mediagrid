@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import type { MediaInfo } from "@repo/types"
 import { fetchMediaInfo, encodePath } from "../api/media"
 import styles from "./Player.module.css"
@@ -156,8 +157,11 @@ function renderSlot(
           autoPlay={isCurrent && open}
           muted={false}
           onError={onError}
+          onCanPlay={isCurrent && open ? (e) => { e.currentTarget.play().catch(() => { }) } : undefined}
           aria-label="Media player"
-        />
+        >
+          <track kind="captions" />
+        </video>
         {hasError && <div className={styles.loadError}>Failed to load media</div>}
       </div>
     )
@@ -250,19 +254,20 @@ export function Player({
   const TOTAL_SLOTS = effectiveBackward + 1 + effectiveForward
   const CURRENT_SLOT_IDX = effectiveBackward
 
+  const queryClient = useQueryClient()
+
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [slots, setSlots] = useState<SlotItem[]>(() => Array<SlotItem>(TOTAL_SLOTS).fill("loading"))
   const [errorIndices, setErrorIndices] = useState<Set<number>>(new Set())
 
-  // isOpen lags one frame behind open=true so the browser paints translateX(100%)
-  // before the CSS transition fires. It tracks open synchronously on close so the
-  // slide-out transition starts immediately.
+  // isOpen lags one frame behind mount so the browser paints translateX(100%)
+  // before the CSS transition fires. Close is adjusted during render for instant slide-out.
   const [isOpen, setIsOpen] = useState(false)
+  if (!open && isOpen) setIsOpen(false)
   useEffect(() => {
-    if (!open) { setIsOpen(false); return }
     const frame = requestAnimationFrame(() => setIsOpen(true))
     return () => cancelAnimationFrame(frame)
-  }, [open])
+  }, [])
 
   const [vpW, setVpW] = useState(globalThis.innerWidth ?? 375)
   const [vpH, setVpH] = useState(globalThis.innerHeight ?? 667)
@@ -277,6 +282,9 @@ export function Player({
   // OFOAT-specific: overrides the formula-derived mediaTopInDiv per slot during commit animation,
   // so the within-div alignment transition starts simultaneously with the slot-div slide.
   const [mediaTargetTops, setMediaTargetTops] = useState<number[] | null>(null)
+
+  const onShuffleExpiredRef = useRef(onShuffleExpired)
+  onShuffleExpiredRef.current = onShuffleExpired
 
   const baseYRef = useRef(0)
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map())
@@ -353,19 +361,18 @@ export function Player({
    *
    * During a media transition cross-fade the controls temporarily drop to 0 opacity
    * (150ms out, 150ms in) regardless of mode. This is tracked separately by
-   * `mediaFadingOut` and `overlayTransitionMs`.
+   * `mediaFadingOut` and `contrast.transitionMs`.
    */
-  const [contrastMode, setContrastMode] = useState(true)
-  const [overlayTransitionMs, setOverlayTransitionMs] = useState(0)
+  const [contrast, setContrast] = useState({ mode: true, transitionMs: 0 })
   const [mediaFadingOut, setMediaFadingOut] = useState(false)
   const contrastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** Tracks whether the current video is paused; paused state holds contrast indefinitely. */
   const isPausedRef = useRef(false)
 
   // Computed opacities for the two overlay layers
-  const controlsOpacity = mediaFadingOut ? 0 : (contrastMode ? 1 : 0.5)
+  const controlsOpacity = mediaFadingOut ? 0 : (contrast.mode ? 1 : 0.5)
   // Black gradient behind controls: present only in contrast mode
-  const blackOverlayOpacity = contrastMode ? 1 : 0
+  const blackOverlayOpacity = contrast.mode ? 1 : 0
 
   function cancelContrastTimer() {
     if (contrastTimerRef.current) { clearTimeout(contrastTimerRef.current); contrastTimerRef.current = null }
@@ -377,17 +384,16 @@ export function Player({
    */
   function enterContrastMode() {
     cancelContrastTimer()
-    setOverlayTransitionMs(0)  // instant snap
-    setContrastMode(true)
+    setContrast({ mode: true, transitionMs: 0 })  // instant snap
     if (isPausedRef.current) return
     contrastTimerRef.current = setTimeout(() => {
       // Step 1: set the transition duration
-      setOverlayTransitionMs(CONTRAST_FADE_MS)
+      setContrast(prev => ({ ...prev, transitionMs: CONTRAST_FADE_MS }))
       // Step 2: change opacity two frames later so the browser sees the new
       // transition-duration before the property value changes (avoids snap).
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          setContrastMode(false)
+          setContrast(prev => ({ ...prev, mode: false }))
         })
       })
     }, CONTRAST_HOLD_MS)
@@ -400,7 +406,7 @@ export function Player({
    */
   function startMediaFade(newTitle: string, newSeekBarVisible: boolean) {
     cancelContrastTimer()
-    setOverlayTransitionMs(MEDIA_CROSSFADE_MS)
+    setContrast(prev => ({ ...prev, transitionMs: MEDIA_CROSSFADE_MS }))
     setMediaFadingOut(true)
 
     setTimeout(() => {
@@ -408,15 +414,15 @@ export function Player({
       setFadeSeekBarVisible(newSeekBarVisible)
       setTimeRemaining(null)
       setSeekProgress(0)
-      setContrastMode(true)
+      setContrast(prev => ({ ...prev, mode: true }))
       setMediaFadingOut(false)
 
       setTimeout(() => {
-        setOverlayTransitionMs(0)
+        setContrast(prev => ({ ...prev, transitionMs: 0 }))
         if (!isPausedRef.current) {
           contrastTimerRef.current = setTimeout(() => {
-            setOverlayTransitionMs(CONTRAST_FADE_MS)
-            requestAnimationFrame(() => requestAnimationFrame(() => setContrastMode(false)))
+            setContrast(prev => ({ ...prev, transitionMs: CONTRAST_FADE_MS }))
+            requestAnimationFrame(() => requestAnimationFrame(() => setContrast(prev => ({ ...prev, mode: false }))))
           }, CONTRAST_HOLD_MS)
         }
       }, MEDIA_CROSSFADE_MS)
@@ -457,30 +463,31 @@ export function Player({
   }
 
   // ── Startup: begin the contrast auto-fade timer on mount ────────────────────
-  // Player remounts on each open (keyed from Gallery), so open is always true here.
+  // Player remounts on each open (keyed from Gallery), so open is always true on mount.
   useEffect(() => {
-    if (!open) return
     const timerId = setTimeout(() => {
-      setOverlayTransitionMs(CONTRAST_FADE_MS)
-      requestAnimationFrame(() => requestAnimationFrame(() => setContrastMode(false)))
+      setContrast(prev => ({ ...prev, transitionMs: CONTRAST_FADE_MS }))
+      requestAnimationFrame(() => requestAnimationFrame(() => setContrast(prev => ({ ...prev, mode: false }))))
     }, CONTRAST_HOLD_MS)
     contrastTimerRef.current = timerId
     return () => { clearTimeout(timerId); contrastTimerRef.current = null }
-  }, [open])
+  }, [])
 
   const loadWindow = useCallback(
     async (idx: number) => {
       const indices = Array.from({ length: TOTAL_SLOTS }, (_, i) => idx - effectiveBackward + i)
       try {
-        const res = await fetchMediaInfo(shuffleId, indices)
+        const res = await queryClient.fetchQuery({
+          queryKey: ['media-info', shuffleId, indices],
+          queryFn: () => fetchMediaInfo(shuffleId, indices),
+          staleTime: 60_000,
+        })
         setSlots(res.map((item) => item ?? null))
       } catch (err) {
-        if (err instanceof Error && err.message.includes("404")) {
-          onShuffleExpired()
-        }
+        if (err instanceof Error && err.message.includes("404")) onShuffleExpiredRef.current()
       }
     },
-    [shuffleId, onShuffleExpired, TOTAL_SLOTS, effectiveBackward],
+    [shuffleId, TOTAL_SLOTS, effectiveBackward, queryClient],
   )
 
   useEffect(() => {
@@ -506,13 +513,6 @@ export function Player({
       }
     })
   }, [currentIndex, open])
-
-  const currentItem = currentSlot
-  useEffect(() => {
-    if (!currentItem || currentItem === "loading") return
-    const video = videoRefs.current.get(currentIndex)
-    if (video && currentItem.media_type === 1) video.play().catch(() => { })
-  }, [currentItem, currentIndex])
 
   useEffect(() => {
     function onResize() {
@@ -659,7 +659,11 @@ export function Player({
       ? newIndex + effectiveForward
       : newIndex - effectiveBackward
     try {
-      const res = await fetchMediaInfo(shuffleId, [edgeIdx])
+      const res = await queryClient.fetchQuery({
+        queryKey: ['media-info', shuffleId, [edgeIdx]],
+        queryFn: () => fetchMediaInfo(shuffleId, [edgeIdx]),
+        staleTime: 60_000,
+      })
       const edgeItem = res[0] ?? null
       setSlots((prev) =>
         direction === 1
@@ -740,7 +744,11 @@ export function Player({
       ? newIndex + effectiveForward
       : newIndex - effectiveBackward
     try {
-      const res = await fetchMediaInfo(shuffleId, [edgeIdx])
+      const res = await queryClient.fetchQuery({
+        queryKey: ['media-info', shuffleId, [edgeIdx]],
+        queryFn: () => fetchMediaInfo(shuffleId, [edgeIdx]),
+        staleTime: 60_000,
+      })
       const edgeItem = res[0] ?? null
       setSlots((prev) =>
         direction === 1
@@ -950,8 +958,7 @@ export function Player({
           isPausedRef.current = true
           // Paused: hold contrast indefinitely (cancel any fade-to-subtle timer)
           cancelContrastTimer()
-          setOverlayTransitionMs(0)
-          setContrastMode(true)
+          setContrast({ mode: true, transitionMs: 0 })
         }
       }
       return
@@ -960,10 +967,9 @@ export function Player({
     // Non-action tap (image, or non-zone area): toggle contrast/subtle.
     // Contrast → subtle is an instant snap (spec: "immediately snaps to subtle").
     // Subtle → contrast uses the normal enterContrastMode path (instant + hold timer).
-    if (contrastMode) {
+    if (contrast.mode) {
       cancelContrastTimer()
-      setOverlayTransitionMs(0)
-      setContrastMode(false)
+      setContrast({ mode: false, transitionMs: 0 })
     } else {
       enterContrastMode()
     }
@@ -982,7 +988,7 @@ export function Player({
   }
 
   // ── Shared transition style for controls and overlay ─────────────────────────
-  const overlayTransition = `opacity ${overlayTransitionMs}ms ease`
+  const overlayTransition = `opacity ${contrast.transitionMs}ms ease`
 
   return (
     <div

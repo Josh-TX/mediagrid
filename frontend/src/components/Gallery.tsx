@@ -1,6 +1,6 @@
 import * as Toast from "@radix-ui/react-toast"
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react"
 import type { BlockInfo } from "@repo/types"
 import { fetchBlocks, fetchPresets, encodePath } from "../api/media"
 import { SettingsModal } from "./SettingsModal"
@@ -218,6 +218,21 @@ function writeUrlParams(q: string, preset: string, shuffleId: number | null, sor
   history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
 }
 
+type ToastAction = { type: 'show'; message: string } | { type: 'hide' }
+function toastReducer(_s: { open: boolean; message: string }, a: ToastAction) {
+  return a.type === 'show' ? { open: true, message: a.message } : { ..._s, open: false }
+}
+
+type PlayerAction = { type: 'open'; index: number } | { type: 'close' }
+function playerReducer(s: { open: boolean; index: number; sessionKey: number }, a: PlayerAction) {
+  return a.type === 'open' ? { open: true, index: a.index, sessionKey: s.sessionKey + 1 } : { ...s, open: false }
+}
+
+type ModalAction = { type: 'open' } | { type: 'close' }
+function modalReducer(s: { open: boolean; key: number }, a: ModalAction) {
+  return a.type === 'open' ? { open: true, key: s.key + 1 } : { ...s, open: false }
+}
+
 export function Gallery() {
   const queryClient = useQueryClient()
   const { data: presets, isError: presetsError } = useQuery({
@@ -232,26 +247,24 @@ export function Gallery() {
   const [shuffleId, setShuffleId] = useState<number | null>(initialParams.s)
   const [sort, setSort] = useState<SortType>(initialParams.sort)
   const [dir, setDir] = useState<SortDir>(initialParams.dir)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [modalKey, setModalKey] = useState(0)
-  const [toastOpen, setToastOpen] = useState(false)
-  const [toastMessage, setToastMessage] = useState("")
-  const [playerOpen, setPlayerOpen] = useState(false)
-  const [playerIndex, setPlayerIndex] = useState(0)
-  const [playerSessionKey, setPlayerSessionKey] = useState(0)
-  const [galleryWidthPx, setGalleryWidthPx] = useState(() => window.innerWidth)
-
+  const [toastState, dispatchToast] = useReducer(toastReducer, { open: false, message: '' })
+  const [playerState, dispatchPlayer] = useReducer(playerReducer, { open: false, index: 0, sessionKey: 0 })
+  const [modalState, dispatchModal] = useReducer(modalReducer, { open: false, key: 0 })
   const galleryRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  const subscribeToGalleryWidth = useCallback((onStoreChange: () => void) => {
     const el = galleryRef.current
-    if (!el) return
-    const obs = new ResizeObserver(([entry]) => {
-      if (entry) setGalleryWidthPx(entry.contentRect.width)
-    })
+    if (!el) return () => {}
+    const obs = new ResizeObserver(onStoreChange)
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
+
+  const galleryWidthPx = useSyncExternalStore(
+    subscribeToGalleryWidth,
+    () => galleryRef.current?.clientWidth ?? window.innerWidth,
+    () => window.innerWidth,
+  )
 
   const activePresetData = presets?.find((p) => p.name === activePreset)
   const tileCropMaxX = activePresetData?.tileCropMaxX ?? 0.1
@@ -319,8 +332,7 @@ export function Gallery() {
         if (err instanceof Error && err.message.includes("404")) {
           handleShuffleExpired()
         } else {
-          setToastMessage("Failed to load media")
-          setToastOpen(true)
+          dispatchToast({ type: 'show', message: "Failed to load media" })
         }
         throw err
       }
@@ -337,19 +349,16 @@ export function Gallery() {
   function handleShuffleExpired() {
     shuffleIdRef.current = null // sync so the next queryFn sees null before React re-renders
     setShuffleId(null)
-    setPlayerOpen(false)
+    dispatchPlayer({ type: 'close' })
     queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
   }
 
   function handleTileClick(shuffleIndex: number) {
-    setPlayerIndex(shuffleIndex)
-    setPlayerSessionKey(k => k + 1)
-    setPlayerOpen(true)
+    dispatchPlayer({ type: 'open', index: shuffleIndex })
   }
 
   function handleShowToast(message: string) {
-    setToastMessage(message)
-    setToastOpen(true)
+    dispatchToast({ type: 'show', message })
   }
 
   // Gate scroll trigger until shuffleId is set so the first page response arrives before any extra fetches.
@@ -408,8 +417,8 @@ export function Gallery() {
         setShuffleId(null)
       }
       setActivePreset(urlPreset)
+      dispatchModal({ type: 'close' })
     }
-    setModalOpen(open)
   }
 
   const loadedBlocks = useMemo(() => data?.pages.flatMap((p) => p.blocks) ?? [], [data])
@@ -482,7 +491,7 @@ export function Gallery() {
               ))}
             </select>
           )}
-          <button type="button" className={styles.settingsBtn} onClick={() => { setModalKey(k => k + 1); setModalOpen(true) }} aria-label="Settings">
+          <button type="button" className={styles.settingsBtn} onClick={() => dispatchModal({ type: 'open' })} aria-label="Settings">
             ⚙
           </button>
         </div>
@@ -521,8 +530,8 @@ export function Gallery() {
 
         {presets && (
           <SettingsModal
-            key={modalKey}
-            open={modalOpen}
+            key={modalState.key}
+            open={modalState.open}
             onOpenChange={handleModalOpenChange}
             presets={presets}
             activePreset={activePreset}
@@ -541,21 +550,21 @@ export function Gallery() {
 
         <Toast.Root
           className={styles.toast}
-          open={toastOpen}
-          onOpenChange={setToastOpen}
+          open={toastState.open}
+          onOpenChange={(o) => { if (!o) dispatchToast({ type: 'hide' }) }}
           duration={5000}
         >
-          <Toast.Title className={styles.toastTitle}>{toastMessage}</Toast.Title>
+          <Toast.Title className={styles.toastTitle}>{toastState.message}</Toast.Title>
         </Toast.Root>
         <Toast.Viewport className={styles.toastViewport} />
 
         {shuffleId !== null && (
           <Player
-            key={playerSessionKey}
-            open={playerOpen}
-            initialIndex={playerIndex}
+            key={playerState.sessionKey}
+            open={playerState.open}
+            initialIndex={playerState.index}
             shuffleId={shuffleId}
-            onClose={() => setPlayerOpen(false)}
+            onClose={() => dispatchPlayer({ type: 'close' })}
             onShowToast={handleShowToast}
             onShuffleExpired={handleShuffleExpired}
             forwardPreloadCount={forwardPreloadCount}

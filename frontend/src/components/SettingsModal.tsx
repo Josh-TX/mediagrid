@@ -298,7 +298,7 @@ function TasksTab({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient()
   const [scanMsg, setScanMsg] = useState<string | null>(null)
   const [cleanMsg, setCleanMsg] = useState<string | null>(null)
-  const [, setTick] = useState(0)
+  const [now, setNow] = useState(Date.now)
 
   const { data: state } = useQuery({
     queryKey: ["tasks"],
@@ -339,10 +339,9 @@ function TasksTab({ onClose }: { onClose: () => void }) {
   const recent = state?.recent ?? []
 
   useEffect(() => {
-    if (recent.length === 0) return
-    const id = setInterval(() => setTick((t) => t + 1), 10_000)
+    const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
-  }, [recent.length])
+  }, [])
 
   return (
     <div className={styles.tasksTab}>
@@ -360,7 +359,7 @@ function TasksTab({ onClose }: { onClose: () => void }) {
         ) : (
           <div className={styles.taskItem}>
             <span className={styles.taskType}>{taskLabel(active.type)}</span>
-            <span className={styles.taskElapsed}>{Math.floor((Date.now() - active.startedAt) / 1000)}s</span>
+            <span className={styles.taskElapsed}>{Math.floor((now - active.startedAt) / 1000)}s</span>
             <span className={styles.taskStatus}>
               {active.cancelling ? "cancelling…" : active.status}
             </span>
