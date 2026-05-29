@@ -14,24 +14,27 @@ function readUrlParams() {
   const sort: SortType = (sortRaw === "size" || sortRaw === "az" || sortRaw === "date") ? sortRaw : "random"
   const dirRaw = params.get("dir") ?? "asc"
   const dir: SortDir = dirRaw === "desc" ? "desc" : "asc"
+  const iRaw = params.get("i")
   return {
     q: params.get("q") ?? "",
     preset: params.get("preset") ?? "default",
     s: params.get("s") !== null ? Number(params.get("s")) : null,
     sort,
     dir,
+    i: iRaw !== null ? Number(iRaw) : null,
   }
 }
 
-function writeUrlParams(q: string, preset: string, shuffleId: number | null, sort: SortType, dir: SortDir) {
+function buildUrl(q: string, preset: string, shuffleId: number | null, sort: SortType, dir: SortDir, playerIndex: number | null): string {
   const params = new URLSearchParams()
   if (q.trim()) params.set("q", q.trim())
   if (preset !== "default") params.set("preset", preset)
   if (sort !== "random") params.set("sort", sort)
   if (dir !== "asc") params.set("dir", dir)
   if (shuffleId !== null) params.set("s", String(shuffleId))
+  if (playerIndex !== null) params.set("i", String(playerIndex))
   const qs = params.toString()
-  history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
+  return qs ? `?${qs}` : window.location.pathname
 }
 
 type ToastAction = { type: 'show'; message: string } | { type: 'hide' }
@@ -64,7 +67,11 @@ export function Gallery() {
   const [sort, setSort] = useState<SortType>(initialParams.sort)
   const [dir, setDir] = useState<SortDir>(initialParams.dir)
   const [toastState, dispatchToast] = useReducer(toastReducer, { open: false, message: '' })
-  const [playerState, dispatchPlayer] = useReducer(playerReducer, { open: false, index: 0, sessionKey: 0 })
+  const [playerState, dispatchPlayer] = useReducer(playerReducer, {
+    open: initialParams.s !== null && initialParams.i !== null,
+    index: initialParams.i ?? 0,
+    sessionKey: 0,
+  })
   const [modalState, dispatchModal] = useReducer(modalReducer, { open: false, key: 0 })
   const galleryRef = useRef<HTMLDivElement>(null)
 
@@ -119,12 +126,33 @@ export function Gallery() {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Always-current refs for values read inside setTimeout callbacks.
+  const latestPresetRef = useRef(activePreset)
+  latestPresetRef.current = activePreset
+  const latestSortRef = useRef(sort)
+  latestSortRef.current = sort
+  const latestDirRef = useRef(dir)
+  latestDirRef.current = dir
+
   useEffect(() => () => { if (debounceTimer.current) clearTimeout(debounceTimer.current) }, [])
 
-  // Single source of truth for URL — runs whenever any URL-relevant state changes.
+  // Popstate: sync React state from URL when the user navigates back/forward.
   useEffect(() => {
-    writeUrlParams(debouncedSearch, activePreset, shuffleId, sort, dir)
-  }, [debouncedSearch, activePreset, shuffleId, sort, dir])
+    function handlePopState() {
+      if (debounceTimer.current) { clearTimeout(debounceTimer.current); debounceTimer.current = null }
+      const p = readUrlParams()
+      setSearch(p.q)
+      setDebouncedSearch(p.q)
+      setActivePreset(p.preset)
+      setShuffleId(p.s)
+      setSort(p.sort)
+      setDir(p.dir)
+      if (p.i !== null) dispatchPlayer({ type: 'open', index: p.i })
+      else dispatchPlayer({ type: 'close' })
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   const {
     data,
@@ -139,7 +167,10 @@ export function Gallery() {
     queryFn: async ({ pageParam }) => {
       try {
         const res = await fetchBlocks(shuffleIdRef.current, pageParam, debouncedSearch, activePreset, sort, dir)
-        if (shuffleIdRef.current === null) setShuffleId(res.shuffleId)
+        if (shuffleIdRef.current === null) {
+          setShuffleId(res.shuffleId)
+          history.replaceState(null, "", buildUrl(debouncedSearch, activePreset, res.shuffleId, sort, dir, null))
+        }
         return res
       } catch (err) {
         if (err instanceof Error && err.message.includes("404")) handleShuffleExpired()
@@ -160,11 +191,13 @@ export function Gallery() {
     shuffleIdRef.current = null
     setShuffleId(null)
     dispatchPlayer({ type: 'close' })
+    history.replaceState(null, "", buildUrl(debouncedSearch, activePreset, null, sort, dir, null))
     queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
   }
 
   function handleTileClick(shuffleIndex: number) {
     dispatchPlayer({ type: 'open', index: shuffleIndex })
+    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, shuffleId, sort, dir, shuffleIndex))
   }
 
   function handleShowToast(message: string) {
@@ -188,6 +221,7 @@ export function Gallery() {
     shuffleIdRef.current = null
     setActivePreset(name)
     setShuffleId(null)
+    history.pushState(null, "", buildUrl(debouncedSearch, name, null, sort, dir, null))
     window.scrollTo(0, 0)
     queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, name, sort, dir] })
   }
@@ -195,22 +229,27 @@ export function Gallery() {
   function handleReshuffle() {
     shuffleIdRef.current = null
     setShuffleId(null)
+    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, null, sort, dir, null))
     window.scrollTo(0, 0)
     queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
   }
 
   function handleSortChange(newSort: SortType) {
     shuffleIdRef.current = null
+    const newDir = newSort !== "random" && sort === "random" ? "asc" : dir
     setSort(newSort)
     setShuffleId(null)
-    window.scrollTo(0, 0)
     if (newSort !== "random" && sort === "random") setDir("asc")
+    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, null, newSort, newDir, null))
+    window.scrollTo(0, 0)
   }
 
   function handleDirToggle() {
     shuffleIdRef.current = null
-    setDir((d) => (d === "asc" ? "desc" : "asc"))
+    const newDir = dir === "asc" ? "desc" : "asc"
+    setDir(newDir)
     setShuffleId(null)
+    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, null, sort, newDir, null))
     window.scrollTo(0, 0)
   }
 
@@ -220,6 +259,7 @@ export function Gallery() {
     debounceTimer.current = setTimeout(() => {
       setDebouncedSearch(v)
       setShuffleId(null)
+      history.pushState(null, "", buildUrl(v, latestPresetRef.current, null, latestSortRef.current, latestDirRef.current, null))
       window.scrollTo(0, 0)
     }, 400)
   }
@@ -335,7 +375,10 @@ export function Gallery() {
           open={playerState.open}
           initialIndex={playerState.index}
           shuffleId={shuffleId}
-          onClose={() => dispatchPlayer({ type: 'close' })}
+          onClose={() => {
+            dispatchPlayer({ type: 'close' })
+            history.pushState(null, "", buildUrl(debouncedSearch, activePreset, shuffleId, sort, dir, null))
+          }}
           onShowToast={handleShowToast}
           onShuffleExpired={handleShuffleExpired}
           forwardPreloadCount={forwardPreloadCount}

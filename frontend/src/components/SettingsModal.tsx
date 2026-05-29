@@ -29,7 +29,7 @@ const ASPECT_RATIO_OPTIONS: { label: string; value: number | null }[] = [
 
 const CROP_OPTIONS = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
 
-function writeUrlPreset(name: string) {
+function writeUrlPreset(name: string, push: boolean) {
   const params = new URLSearchParams(window.location.search)
   if (name === "default") {
     params.delete("preset")
@@ -37,7 +37,9 @@ function writeUrlPreset(name: string) {
     params.set("preset", name)
   }
   const qs = params.toString()
-  history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
+  const url = qs ? `?${qs}` : window.location.pathname
+  if (push) history.pushState(null, "", url)
+  else history.replaceState(null, "", url)
 }
 
 function timeAgo(ms: number): string {
@@ -727,7 +729,7 @@ export function SettingsModal({
 
   function handleSelectChange(name: string) {
     setSelectedName(name)
-    writeUrlPreset(name)
+    writeUrlPreset(name, true)
   }
 
   function handleRename() {
@@ -742,7 +744,7 @@ export function SettingsModal({
       prev.map((p) => (p.name === selectedName ? { ...p, name: trimmed } : p)),
     )
     setSelectedName(trimmed)
-    writeUrlPreset(trimmed)
+    writeUrlPreset(trimmed, false)
   }
 
   function handleDuplicate() {
@@ -758,13 +760,13 @@ export function SettingsModal({
     const copy: Preset = { ...selected, name: trimmed }
     setLocalPresets((prev) => [...prev, copy])
     setSelectedName(trimmed)
-    writeUrlPreset(trimmed)
+    writeUrlPreset(trimmed, true)
   }
 
   function handleDelete() {
     setLocalPresets((prev) => prev.filter((p) => p.name !== selectedName))
     setSelectedName("default")
-    writeUrlPreset("default")
+    writeUrlPreset("default", true)
   }
 
   async function handleSave() {

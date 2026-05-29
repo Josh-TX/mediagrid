@@ -326,6 +326,15 @@ export function Player({
     void loadWindow(initialIndex)
   }, [loadWindow, initialIndex, open])
 
+  // Keep the i= param in sync as the user swipes through media.
+  useEffect(() => {
+    if (!open) return
+    const params = new URLSearchParams(window.location.search)
+    params.set("i", String(currentIndex))
+    const qs = params.toString()
+    history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
+  }, [currentIndex, open])
+
   useEffect(() => {
     if (open) return
     const timer = setTimeout(() => {
