@@ -141,6 +141,8 @@ export function Gallery() {
     function handlePopState() {
       if (debounceTimer.current) { clearTimeout(debounceTimer.current); debounceTimer.current = null }
       const p = readUrlParams()
+      // Set ref immediately so the queryFn reads the correct shuffleId before React re-renders.
+      shuffleIdRef.current = p.s
       setSearch(p.q)
       setDebouncedSearch(p.q)
       setActivePreset(p.preset)
@@ -149,6 +151,8 @@ export function Gallery() {
       setDir(p.dir)
       if (p.i !== null) dispatchPlayer({ type: 'open', index: p.i })
       else dispatchPlayer({ type: 'close' })
+      // Reset cached data so the gallery refetches with the restored shuffleId.
+      queryClient.resetQueries({ queryKey: ["blocks", p.q, p.preset, p.sort, p.dir] })
     }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)

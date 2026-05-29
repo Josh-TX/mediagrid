@@ -164,4 +164,27 @@ describe("browser history navigation", () => {
       expect(input.value).toBe("hello")
     })
   })
+
+  it("popstate after reshuffle triggers gallery refetch", async () => {
+    // Tracks all /api/blocks fetches so we can verify a second fetch happens after back navigation.
+    const fetchCount = { value: 0 }
+    server.use(
+      http.get("/api/blocks", () => {
+        fetchCount.value++
+        return HttpResponse.json({ shuffleId: MOCK_SHUFFLE_ID, totalBlocks: 0, totalMedia: 0, blocks: [] })
+      }),
+    )
+    renderGallery()
+    await waitFor(() => screen.getByTestId("gallery-empty"))
+    const countAfterLoad = fetchCount.value
+
+    fireEvent.click(screen.getByRole("button", { name: "Re-shuffle" }))
+    await waitFor(() => expect(fetchCount.value).toBeGreaterThan(countAfterLoad))
+    const countAfterReshuffle = fetchCount.value
+
+    // Simulate pressing back (URL had no s before reshuffle push)
+    history.pushState(null, "", "/")
+    window.dispatchEvent(new PopStateEvent("popstate"))
+    await waitFor(() => expect(fetchCount.value).toBeGreaterThan(countAfterReshuffle))
+  })
 })
