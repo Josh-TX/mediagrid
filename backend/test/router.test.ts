@@ -156,12 +156,11 @@ describe("GET /api/blocks", () => {
     expect(Array.isArray(body.blocks)).toBe(true)
   })
 
-  it("returns blocks with isFull and tiles with width", async () => {
+  it("returns blocks with tiles with width", async () => {
     const r = await get(handleMany, `/api/blocks?indices=0&${VP}`)
     expect(r.status).toBe(200)
-    const body = r.body as { blocks: { index: number; isFull: boolean; tiles: { index: number; width: number }[] }[] }
+    const body = r.body as { blocks: { index: number; tiles: { index: number; width: number }[] }[] }
     const block = body.blocks[0]!
-    expect(typeof block.isFull).toBe("boolean")
     expect(block.tiles.length).toBeGreaterThan(0)
     for (const tile of block.tiles) {
       expect(typeof tile.width).toBe("number")

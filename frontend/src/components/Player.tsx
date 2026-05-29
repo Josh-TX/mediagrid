@@ -9,7 +9,7 @@ const SWIPE_VELOCITY_THRESHOLD = 0.5 // px/ms
 const SWIPE_COMMIT_THRESHOLD = 0.5 // fraction of current item's rendered height
 const SEEK_END_BUFFER = 0.5
 
-const SEEK_BAR_WRAPPER_BOTTOM = 4
+const SEEK_BAR_WRAPPER_BOTTOM = 0
 const SEEK_BAR_WRAPPER_HEIGHT = 32
 const SEEK_BAR_PAD = 12
 const CONTRAST_HOLD_MS = 800
@@ -219,7 +219,17 @@ export function Player({
     lastTime: number
     mode: "swipe" | "seek"
     pauseDragMode: boolean
+    wasPlaying: boolean
   } | null>(null)
+  const pendingTouchRef = useRef<{
+    startY: number
+    startTime: number
+    lastY: number
+    lastTime: number
+  } | null>(null)
+  const animStartTimeRef = useRef<number>(0)
+  const isCommitAnimRef = useRef(false)
+  const queuedCommitRef = useRef<{ direction: 1 | -1 } | null>(null)
   const seekDragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Fullscreen ──────────────────────────────────────────────────────────────
@@ -245,7 +255,10 @@ export function Player({
   const contrastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isPausedRef = useRef(false)
 
+  const [seekBarSubtle, setSeekBarSubtle] = useState(true)
+
   const controlsOpacity = mediaFadingOut ? 0 : (contrast.mode ? 1 : 0.5)
+  const seekBarOpacity = mediaFadingOut ? 0 : (seekBarSubtle ? 0.5 : (contrast.mode ? 1 : 0.5))
   const blackOverlayOpacity = contrast.mode ? 1 : 0
 
   function cancelContrastTimer() {
@@ -254,6 +267,7 @@ export function Player({
 
   function enterContrastMode() {
     cancelContrastTimer()
+    setSeekBarSubtle(false)
     setContrast({ mode: true, transitionMs: 0 })
     if (isPausedRef.current) return
     contrastTimerRef.current = setTimeout(() => {
@@ -268,6 +282,7 @@ export function Player({
 
   function startMediaFade(newTitle: string, newSeekBarVisible: boolean) {
     cancelContrastTimer()
+    isPausedRef.current = false
     setContrast(prev => ({ ...prev, transitionMs: MEDIA_CROSSFADE_MS }))
     setMediaFadingOut(true)
 
@@ -276,6 +291,7 @@ export function Player({
       setFadeSeekBarVisible(newSeekBarVisible)
       setTimeRemaining(null)
       setSeekProgress(0)
+      setSeekBarSubtle(newSeekBarVisible)
       setContrast(prev => ({ ...prev, mode: true }))
       setMediaFadingOut(false)
 
@@ -351,6 +367,19 @@ export function Player({
     })
   }, [currentIndex, open])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!queuedCommitRef.current || animatingRef.current) return
+    const { direction } = queuedCommitRef.current
+    const targetSlot = slots[CURRENT_SLOT_IDX + direction]
+    if (!targetSlot || targetSlot === "loading") return
+    queuedCommitRef.current = null
+    const newTitle = titleFromPath(targetSlot.path)
+    const newSeekBarVisible = targetSlot.media_type === 1
+    startMediaFade(newTitle, newSeekBarVisible)
+    void commitAdvance(direction)
+  }, [currentIndex, slots])
+
   const fallbackDims: Dims = { width: vpW, height: vpH, offsetX: 0 }
   function getDims(item: SlotItem): Dims {
     if (!item || item === "loading") return fallbackDims
@@ -399,6 +428,8 @@ export function Player({
       : snapSlots[CURRENT_SLOT_IDX - 1] === null
 
     animatingRef.current = true
+    isCommitAnimRef.current = true
+    animStartTimeRef.current = performance.now()
 
     // Phase 1: snapshot visual positions, collapse stack translateY (no CSS transition)
     const snapshotTops = snapRestingTops.map((t) => t + snapDragOffset)
@@ -432,6 +463,7 @@ export function Player({
     await new Promise<void>((r) => setTimeout(r, 300))
 
     animatingRef.current = false
+    isCommitAnimRef.current = false
 
     if (isWrapping) {
       setOfoatAnimating(false)
@@ -502,10 +534,13 @@ export function Player({
     setDragOffset(animOffset)
     setAnimating(true)
     animatingRef.current = true
+    isCommitAnimRef.current = true
+    animStartTimeRef.current = performance.now()
 
     await new Promise<void>((r) => setTimeout(r, 300))
 
     animatingRef.current = false
+    isCommitAnimRef.current = false
 
     if (isWrapping) {
       baseYRef.current = 0
@@ -576,14 +611,20 @@ export function Player({
 
   // ── Touch handlers ───────────────────────────────────────────────────────────
   function onTouchStart(e: React.TouchEvent) {
-    if (animatingRef.current) return
+    if (animatingRef.current) {
+      const t = e.touches[0]
+      if (!t) return
+      pendingTouchRef.current = { startY: t.clientY, startTime: performance.now(), lastY: t.clientY, lastTime: performance.now() }
+      return
+    }
     const t = e.touches[0]
     if (!t) return
     const mode = isSeekBarHit(t.clientY, vpH) ? "seek" : "swipe"
+    const currentVideo = videoRefs.current.get(currentIndex)
     touchRef.current = {
       startY: t.clientY, startX: t.clientX, startTime: performance.now(),
       lastY: t.clientY, lastX: t.clientX, lastTime: performance.now(),
-      mode, pauseDragMode: false,
+      mode, pauseDragMode: false, wasPlaying: !!currentVideo && !currentVideo.paused,
     }
     if (mode === "seek") {
       enterContrastMode()
@@ -604,6 +645,11 @@ export function Player({
   }
 
   function onTouchMove(e: React.TouchEvent) {
+    if (pendingTouchRef.current) {
+      const t = e.touches[0]
+      if (t) { pendingTouchRef.current.lastY = t.clientY; pendingTouchRef.current.lastTime = performance.now() }
+      return
+    }
     if (!touchRef.current || animatingRef.current) return
     const t = e.touches[0]
     if (!t) return
@@ -649,8 +695,35 @@ export function Player({
   }
 
   function onTouchEnd() {
+    if (pendingTouchRef.current) {
+      const { startY, startTime, lastY, lastTime } = pendingTouchRef.current
+      pendingTouchRef.current = null
+      if (animatingRef.current) {
+        if (isCommitAnimRef.current && performance.now() - animStartTimeRef.current >= 200) {
+          const dy = lastY - startY
+          const dt = Math.max(lastTime - startTime, 1)
+          const velocity = Math.abs(dy) / dt
+          if (velocity > SWIPE_VELOCITY_THRESHOLD) {
+            queuedCommitRef.current = { direction: dy < 0 ? 1 : -1 }
+          }
+        }
+        return
+      }
+      const dy = lastY - startY
+      const dt = Math.max(lastTime - startTime, 1)
+      const velocity = Math.abs(dy) / dt
+      if (velocity > SWIPE_VELOCITY_THRESHOLD) {
+        const direction = dy < 0 ? 1 : -1
+        const targetSlot = slots[CURRENT_SLOT_IDX + direction]
+        const newTitle = targetSlot && targetSlot !== "loading" ? titleFromPath(targetSlot.path) : ""
+        const newSeekBarVisible = !!(targetSlot && targetSlot !== "loading" && targetSlot.media_type === 1)
+        startMediaFade(newTitle, newSeekBarVisible)
+        void commitAdvance(direction)
+      }
+      return
+    }
     if (!touchRef.current || animatingRef.current) return
-    const { startY, startTime, lastY, lastX, lastTime, mode, pauseDragMode } = touchRef.current
+    const { startY, startTime, lastY, lastX, lastTime, mode, pauseDragMode, wasPlaying } = touchRef.current
     touchRef.current = null
 
     if (seekDragTimerRef.current) { clearTimeout(seekDragTimerRef.current); seekDragTimerRef.current = null }
@@ -658,7 +731,7 @@ export function Player({
     if (mode === "seek") {
       if (pauseDragMode) {
         const video = videoRefs.current.get(currentIndex)
-        if (video) { video.play().catch(() => { }); isPausedRef.current = false }
+        if (video && wasPlaying) { video.play().catch(() => { }); isPausedRef.current = false }
         return
       }
       const video = videoRefs.current.get(currentIndex)
@@ -724,6 +797,7 @@ export function Player({
           video.pause()
           triggerPlayPauseOverlay("pause")
           isPausedRef.current = true
+          setSeekBarSubtle(false)
           cancelContrastTimer()
           setContrast({ mode: true, transitionMs: 0 })
         }
@@ -801,6 +875,7 @@ export function Player({
 
       <PlayerControls
         controlsOpacity={controlsOpacity}
+        seekBarOpacity={seekBarOpacity}
         overlayTransition={overlayTransition}
         displayedTitle={displayedTitle}
         seekBarVisible={seekBarVisible}

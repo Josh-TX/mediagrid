@@ -1,7 +1,7 @@
 import styles from "./Player.module.css"
 
 const OVERLAY_FADE_DURATION_MS = 600
-const TITLE_ROW_BOTTOM = 28 // SEEK_BAR_WRAPPER_BOTTOM(4) + SEEK_BAR_WRAPPER_HEIGHT(32) + TITLE_SEEK_GAP(-8)
+const TITLE_ROW_BOTTOM = 8
 
 function Spinner() {
   return <div className={styles.spinner} />
@@ -28,6 +28,7 @@ export { Spinner }
 
 export interface PlayerControlsProps {
   controlsOpacity: number
+  seekBarOpacity: number
   overlayTransition: string
   displayedTitle: string
   seekBarVisible: boolean
@@ -45,7 +46,7 @@ export interface PlayerControlsProps {
 }
 
 export function PlayerControls({
-  controlsOpacity, overlayTransition, displayedTitle, seekBarVisible, timeRemaining,
+  controlsOpacity, seekBarOpacity, overlayTransition, displayedTitle, seekBarVisible, timeRemaining,
   seekBarStyle, blackOverlayOpacity, rewindOverlay, playPauseOverlay, forwardOverlay,
   rewindSeconds, fastForwardSeconds, isFullscreen, onClose, onToggleFullscreen,
 }: PlayerControlsProps) {
@@ -65,7 +66,7 @@ export function PlayerControls({
         )}
       </div>
       {seekBarVisible && (
-        <div className={styles.seekBarWrapper} style={{ opacity: controlsOpacity, transition: overlayTransition }}>
+        <div className={styles.seekBarWrapper} style={{ opacity: seekBarOpacity, transition: overlayTransition }}>
           <div className={styles.seekBar} style={seekBarStyle} />
         </div>
       )}
