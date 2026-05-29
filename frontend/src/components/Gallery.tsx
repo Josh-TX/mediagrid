@@ -345,7 +345,7 @@ export function Gallery() {
 
       {presets && (
         <SettingsModal
-          key={modalState.key}
+          key={`modal-${modalState.key}`}
           open={modalState.open}
           onOpenChange={handleModalOpenChange}
           presets={presets}
@@ -375,7 +375,7 @@ export function Gallery() {
 
       {shuffleId !== null && (
         <Player
-          key={playerState.sessionKey}
+          key={`player-${playerState.sessionKey}`}
           open={playerState.open}
           initialIndex={playerState.index}
           shuffleId={shuffleId}

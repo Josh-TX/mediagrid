@@ -41,7 +41,7 @@ function VideoTile({ src, style }: VideoTileProps) {
     const video = videoRef.current
     if (!video) return
     const obs = new IntersectionObserver(([entry]) => {
-      if (entry?.isIntersecting) video.play().catch(() => {})
+      if (entry?.isIntersecting) video.play().catch(() => { })
       else video.pause()
     })
     obs.observe(video)
@@ -110,9 +110,6 @@ export function Block({ block, onTileClick, galleryWidthPx, tileCropMaxX, tileCr
         const { width: imgW, height: imgH } = computeTileSize(tileW, blockHeightPx, previewAR, tileCropMaxX, tileCropMaxY)
         const imgWc = Math.ceil(imgW)
         const imgHc = Math.ceil(imgH)
-        if (imgHc === 198) {
-          console.log({ blockHeightPx, imgH, imgHc, top: Math.floor((blockHeightPx - imgHc) / 2), tileW, imgW, imgWc, left: Math.floor((tileW - imgWc) / 2) })
-        }
         const mediaStyle: React.CSSProperties = {
           position: "absolute",
           top: Math.floor((blockHeightPx - imgHc) / 2),
