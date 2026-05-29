@@ -1,196 +1,12 @@
 import * as Toast from "@radix-ui/react-toast"
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react"
-import type { BlockInfo } from "@repo/types"
-import { fetchBlocks, fetchPresets, encodePath } from "../api/media"
+import { fetchBlocks, fetchPresets } from "../api/media"
 import { SettingsModal } from "./SettingsModal"
 import { Player } from "./Player"
+import { Block, SkeletonBlock } from "./GalleryBlock"
+import { GalleryToolbar, type SortType, type SortDir } from "./GalleryToolbar"
 import styles from "./Gallery.module.css"
-
-function SkeletonBlock() {
-  return (
-    <div className={styles.block} data-testid="skeleton-block">
-      {Array.from({ length: 3 }, (_, i) => (
-        <div key={i} className={`${styles.cell} ${styles.skeleton}`} style={{ flex: 1 }} />
-      ))}
-    </div>
-  )
-}
-
-interface VideoTileProps {
-  src: string
-  style: React.CSSProperties
-}
-
-function FilmPlaceholder({ ar }: { ar: number }) {
-  const h = 60
-  const w = Math.round(h * ar)
-  const cx = w / 2
-  const triSize = Math.round(Math.min(w, h) * 0.14)
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox={`0 0 ${w} ${h}`}
-      style={{ width: "35%", height: "35%", opacity: 0.4 }}
-    >
-      <rect x="1.25" y="1.25" width={w - 2.5} height={h - 2.5} rx="6" fill="none" stroke="white" strokeWidth="2.5" />
-      <polygon points={`${cx - triSize},${h / 2 - triSize} ${cx - triSize},${h / 2 + triSize} ${cx + triSize},${h / 2}`} fill="white" />
-    </svg>
-  )
-}
-
-function VideoTile({ src, style }: VideoTileProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry?.isIntersecting) {
-        video.play().catch(() => {})
-      } else {
-        video.pause()
-      }
-    })
-    obs.observe(video)
-    return () => obs.disconnect()
-  }, [])
-  return <video ref={videoRef} src={src} autoPlay muted loop playsInline style={style} aria-label="Gallery tile video" />
-}
-
-/** Extracts the display title from a media path: last path segment with extension stripped. */
-function titleFromPath(path: string): string {
-  const filename = path.split("/").pop() ?? ""
-  return filename.replace(/\.[^.]+$/, "")
-}
-
-/**
- * Maps a tile's pixel width to a font size in 2px steps (10–16px).
- * Wider tiles get larger text; narrow tiles stay readable at small sizes.
- */
-function tileFontSize(tileW: number): string {
-  if (tileW < 100) return "10px"
-  if (tileW < 180) return "12px"
-  if (tileW < 280) return "14px"
-  return "16px"
-}
-
-function computeTileSize(
-  tileW: number,
-  blockH: number,
-  previewAR: number,
-  tileCropMaxX: number,
-  tileCropMaxY: number,
-): { width: number; height: number } {
-  const tileAR = tileW / blockH
-
-  if (previewAR === tileAR) {
-    return { width: tileW, height: blockH }
-  }
-
-  if (previewAR < tileAR) {
-    // Portrait preview — crop top/bottom
-    const imgH = tileW / previewAR
-    const maxImgH = tileCropMaxY >= 0.5 ? Infinity : blockH / (1 - 2 * tileCropMaxY)
-    const imgH_final = Math.min(imgH, maxImgH)
-    return { width: imgH_final * previewAR, height: imgH_final }
-  }
-
-  // Landscape preview — crop left/right
-  const imgW = blockH * previewAR
-  const maxImgW = tileCropMaxX >= 0.5 ? Infinity : tileW / (1 - 2 * tileCropMaxX)
-  const imgW_final = Math.min(imgW, maxImgW)
-  return { width: imgW_final, height: imgW_final / previewAR }
-}
-
-interface BlockProps {
-  block: BlockInfo
-  onTileClick: (shuffleIndex: number) => void
-  galleryWidthPx: number
-  tileCropMaxX: number
-  tileCropMaxY: number
-  showTileTitle: boolean
-}
-
-function Block({ block, onTileClick, galleryWidthPx, tileCropMaxX, tileCropMaxY, showTileTitle }: BlockProps) {
-  const blockHeightPx = useMemo(() => {
-    if (block.tiles.length === 0 || galleryWidthPx === 0) return 0
-    const sum = block.tiles.reduce((acc, tile) => {
-      const previewAR = tile.preview.width / tile.preview.height
-      return acc + (tile.width * galleryWidthPx) / previewAR
-    }, 0)
-    return Math.ceil(sum / block.tiles.length)
-  }, [block, galleryWidthPx])
-
-  return (
-    <div className={styles.block}>
-      {block.tiles.map((tile) => {
-        const tileW = tile.width * galleryWidthPx
-        const previewAR = tile.preview.width / tile.preview.height
-        const { width: imgW, height: imgH } = computeTileSize(tileW, blockHeightPx, previewAR, tileCropMaxX, tileCropMaxY)
-        const imgWc = Math.ceil(imgW)
-        const imgHc = Math.ceil(imgH)
-        if (imgHc === 198) {
-          console.log({ blockHeightPx, imgH, imgHc, top: Math.floor((blockHeightPx - imgHc) / 2), tileW, imgW, imgWc, left: Math.floor((tileW - imgWc) / 2) })
-        }
-        const mediaStyle: React.CSSProperties = {
-          position: "absolute",
-          top: Math.floor((blockHeightPx - imgHc) / 2),
-          left: Math.floor((tileW - imgWc) / 2),
-          width: imgWc,
-          height: imgHc,
-        }
-        const { previewType, path } = tile.preview
-        return (
-          <button
-            key={tile.index}
-            type="button"
-            className={styles.cell}
-            style={{
-              width: `${tile.width * 100}%`,
-              height: blockHeightPx,
-              overflow: "hidden",
-              position: "relative",
-            }}
-            onClick={() => onTileClick(tile.index)}
-          >
-            {previewType === "highlight" ? (
-              <VideoTile src={`/highlights/${encodePath(path)}.mp4`} style={mediaStyle} />
-            ) : previewType === "thumbnail" ? (
-              <img src={`/thumbnails/${encodePath(path)}.webp`} alt={path} loading="lazy" style={mediaStyle} />
-            ) : previewType === "original" ? (
-              <img src={`/media/${encodePath(path)}`} alt={path} loading="lazy" style={mediaStyle} />
-            ) : (
-              <div
-                style={{
-                  ...mediaStyle,
-                  background: "#222",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <FilmPlaceholder ar={previewAR} />
-              </div>
-            )}
-            {showTileTitle && (
-              <div className={styles.tileTitleOverlay}>
-                <span
-                  className={styles.tileTitleText}
-                  style={{ fontSize: tileFontSize(tileW) }}
-                >
-                  {titleFromPath(path)}
-                </span>
-              </div>
-            )}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-type SortType = "random" | "size" | "az" | "date"
-type SortDir = "asc" | "desc"
 
 function readUrlParams() {
   const params = new URLSearchParams(window.location.search)
@@ -323,17 +139,11 @@ export function Gallery() {
     queryFn: async ({ pageParam }) => {
       try {
         const res = await fetchBlocks(shuffleIdRef.current, pageParam, debouncedSearch, activePreset, sort, dir)
-        // First response establishes the shuffleId for subsequent pages.
-        if (shuffleIdRef.current === null) {
-          setShuffleId(res.shuffleId)
-        }
+        if (shuffleIdRef.current === null) setShuffleId(res.shuffleId)
         return res
       } catch (err) {
-        if (err instanceof Error && err.message.includes("404")) {
-          handleShuffleExpired()
-        } else {
-          dispatchToast({ type: 'show', message: "Failed to load media" })
-        }
+        if (err instanceof Error && err.message.includes("404")) handleShuffleExpired()
+        else dispatchToast({ type: 'show', message: "Failed to load media" })
         throw err
       }
     },
@@ -347,7 +157,7 @@ export function Gallery() {
   })
 
   function handleShuffleExpired() {
-    shuffleIdRef.current = null // sync so the next queryFn sees null before React re-renders
+    shuffleIdRef.current = null
     setShuffleId(null)
     dispatchPlayer({ type: 'close' })
     queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
@@ -361,16 +171,13 @@ export function Gallery() {
     dispatchToast({ type: 'show', message })
   }
 
-  // Gate scroll trigger until shuffleId is set so the first page response arrives before any extra fetches.
   const canFetchNext = hasNextPage && shuffleId !== null
 
   useEffect(() => {
     const el = sentinelRef.current
     if (!el || !canFetchNext || isFetching) return
     const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) fetchNextPage()
-      },
+      ([entry]) => { if (entry?.isIntersecting) fetchNextPage() },
       { rootMargin: "200px" },
     )
     obs.observe(el)
@@ -385,7 +192,6 @@ export function Gallery() {
     queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, name, sort, dir] })
   }
 
-  /** Re-shuffles random layout by resetting shuffleId (same as changing search/preset). */
   function handleReshuffle() {
     shuffleIdRef.current = null
     setShuffleId(null)
@@ -398,7 +204,6 @@ export function Gallery() {
     setSort(newSort)
     setShuffleId(null)
     window.scrollTo(0, 0)
-    // Reset dir to asc when switching to a non-random sort for the first time.
     if (newSort !== "random" && sort === "random") setDir("asc")
   }
 
@@ -407,6 +212,16 @@ export function Gallery() {
     setDir((d) => (d === "asc" ? "desc" : "asc"))
     setShuffleId(null)
     window.scrollTo(0, 0)
+  }
+
+  function handleSearchChange(v: string) {
+    setSearch(v)
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(v)
+      setShuffleId(null)
+      window.scrollTo(0, 0)
+    }, 400)
   }
 
   function handleModalOpenChange(open: boolean) {
@@ -439,103 +254,59 @@ export function Gallery() {
 
   return (
     <Toast.Provider>
-        <div className={styles.toolbar}>
-          <button
-            type="button"
-            className={styles.sortDirBtn}
-            onClick={sort === "random" ? handleReshuffle : handleDirToggle}
-            aria-label={sort === "random" ? "Re-shuffle" : dir === "asc" ? "Sort ascending" : "Sort descending"}
-            title={sort === "random" ? "Re-shuffle" : dir === "asc" ? "Ascending" : "Descending"}
-          >
-            {sort === "random" ? "↺" : dir === "asc" ? "↑" : "↓"}
-          </button>
-          <select
-            className={styles.sortSelect}
-            value={sort}
-            onChange={(e) => handleSortChange(e.target.value as SortType)}
-            aria-label="Sort"
-          >
-            <option value="random">Rand</option>
-            <option value="size">Size</option>
-            <option value="az">A–Z</option>
-            <option value="date">Date</option>
-          </select>
-          <input
-            className={styles.search}
-            type="search"
-            placeholder="Search"
-            value={search}
-            onChange={(e) => {
-              const v = e.target.value
-              setSearch(v)
-              if (debounceTimer.current) clearTimeout(debounceTimer.current)
-              debounceTimer.current = setTimeout(() => {
-                setDebouncedSearch(v)
-                setShuffleId(null)
-                window.scrollTo(0, 0)
-              }, 400)
-            }}
-            aria-label="Search"
+      <GalleryToolbar
+        sort={sort}
+        dir={dir}
+        search={search}
+        presets={presets}
+        activePreset={activePreset}
+        onSortDirAction={sort === "random" ? handleReshuffle : handleDirToggle}
+        onSortChange={handleSortChange}
+        onSearchChange={handleSearchChange}
+        onPresetChange={handlePresetChange}
+        onSettingsOpen={() => dispatchModal({ type: 'open' })}
+      />
+
+      <div ref={galleryRef} className={styles.gallery} data-testid="gallery">
+        {loadedBlocks.map((block) => (
+          <Block
+            key={block.index}
+            block={block}
+            onTileClick={handleTileClick}
+            galleryWidthPx={galleryWidthPx}
+            tileCropMaxX={tileCropMaxX}
+            tileCropMaxY={tileCropMaxY}
+            showTileTitle={showTileTitle}
           />
-          {presets && (
-            <select
-              className={styles.presetSelect}
-              value={activePreset}
-              onChange={(e) => handlePresetChange(e.target.value)}
-              aria-label="Active preset"
-            >
-              {presets.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          )}
-          <button type="button" className={styles.settingsBtn} onClick={() => dispatchModal({ type: 'open' })} aria-label="Settings">
-            ⚙
-          </button>
-        </div>
+        ))}
 
-        <div ref={galleryRef} className={styles.gallery} data-testid="gallery">
-          {loadedBlocks.map((block) => (
-            <Block
-              key={block.index}
-              block={block}
-              onTileClick={handleTileClick}
-              galleryWidthPx={galleryWidthPx}
-              tileCropMaxX={tileCropMaxX}
-              tileCropMaxY={tileCropMaxY}
-              showTileTitle={showTileTitle}
-            />
-          ))}
+        {showSkeleton && <SkeletonBlock />}
 
-          {showSkeleton && <SkeletonBlock />}
+        {isEmpty && (
+          <div className={styles.centerText} data-testid="gallery-empty">
+            No results
+          </div>
+        )}
 
-          {isEmpty && (
-            <div className={styles.centerText} data-testid="gallery-empty">
-              No results
-            </div>
-          )}
+        {!allLoaded && !isError && !isFetching && (
+          <div ref={sentinelRef} className={styles.sentinel} />
+        )}
 
-          {!allLoaded && !isError && !isFetching && (
-            <div ref={sentinelRef} className={styles.sentinel} />
-          )}
+        {allLoaded && !isEmpty && (
+          <div ref={sentinelRef} className={styles.centerText} data-testid="gallery-end">
+            ({totalMedia} results)
+          </div>
+        )}
+      </div>
 
-          {allLoaded && !isEmpty && (
-            <div ref={sentinelRef} className={styles.centerText} data-testid="gallery-end">
-              ({totalMedia} results)
-            </div>
-          )}
-        </div>
-
-        {presets && (
-          <SettingsModal
-            key={modalState.key}
-            open={modalState.open}
-            onOpenChange={handleModalOpenChange}
-            presets={presets}
-            activePreset={activePreset}
-            onPresetsUpdate={(updated) => {
+      {presets && (
+        <SettingsModal
+          key={modalState.key}
+          open={modalState.open}
+          onOpenChange={handleModalOpenChange}
+          presets={presets}
+          activePreset={activePreset}
+          onPresetsUpdate={(updated) => {
             const currentPreset = presets?.find((p) => p.name === activePreset)
             const newPreset = updated.find((p) => p.name === activePreset)
             if (currentPreset && newPreset && JSON.stringify(currentPreset) !== JSON.stringify(newPreset)) {
@@ -545,37 +316,37 @@ export function Gallery() {
             }
             queryClient.setQueryData(["presets"], updated)
           }}
-          />
-        )}
+        />
+      )}
 
-        <Toast.Root
-          className={styles.toast}
-          open={toastState.open}
-          onOpenChange={(o) => { if (!o) dispatchToast({ type: 'hide' }) }}
-          duration={5000}
-        >
-          <Toast.Title className={styles.toastTitle}>{toastState.message}</Toast.Title>
-        </Toast.Root>
-        <Toast.Viewport className={styles.toastViewport} />
+      <Toast.Root
+        className={styles.toast}
+        open={toastState.open}
+        onOpenChange={(o) => { if (!o) dispatchToast({ type: 'hide' }) }}
+        duration={5000}
+      >
+        <Toast.Title className={styles.toastTitle}>{toastState.message}</Toast.Title>
+      </Toast.Root>
+      <Toast.Viewport className={styles.toastViewport} />
 
-        {shuffleId !== null && (
-          <Player
-            key={playerState.sessionKey}
-            open={playerState.open}
-            initialIndex={playerState.index}
-            shuffleId={shuffleId}
-            onClose={() => dispatchPlayer({ type: 'close' })}
-            onShowToast={handleShowToast}
-            onShuffleExpired={handleShuffleExpired}
-            forwardPreloadCount={forwardPreloadCount}
-            backwardPreloadCount={backwardPreloadCount}
-            oneFileAtATime={oneFileAtATime}
-            playerCropMaxX={playerCropMaxX}
-            playerCropMaxY={playerCropMaxY}
-            rewindSeconds={rewindSeconds}
-            fastForwardSeconds={fastForwardSeconds}
-          />
-        )}
+      {shuffleId !== null && (
+        <Player
+          key={playerState.sessionKey}
+          open={playerState.open}
+          initialIndex={playerState.index}
+          shuffleId={shuffleId}
+          onClose={() => dispatchPlayer({ type: 'close' })}
+          onShowToast={handleShowToast}
+          onShuffleExpired={handleShuffleExpired}
+          forwardPreloadCount={forwardPreloadCount}
+          backwardPreloadCount={backwardPreloadCount}
+          oneFileAtATime={oneFileAtATime}
+          playerCropMaxX={playerCropMaxX}
+          playerCropMaxY={playerCropMaxY}
+          rewindSeconds={rewindSeconds}
+          fastForwardSeconds={fastForwardSeconds}
+        />
+      )}
     </Toast.Provider>
   )
 }
