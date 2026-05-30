@@ -14,11 +14,12 @@ interface SettingsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   presets: readonly Preset[]
-  isTemp: boolean
+  permanentPresets: readonly Preset[]
   sessionId: string | null
   activePreset: string
   onSavePermanently: () => void
   onSaveTemporarily: (newSessionId: string, presets: Preset[]) => void
+  onResetTemp: () => void
 }
 
 const ASPECT_RATIO_OPTIONS: { label: string; value: number | null }[] = [
@@ -89,41 +90,58 @@ function NumberInput({ value, min, className, onChange, id, "aria-label": ariaLa
 
 interface PresetsTabProps {
   localPresets: Preset[]
+  isDirty: boolean
   selectedName: string
   saveError: boolean
-  isTemp: boolean
   onSelectChange: (name: string) => void
   onRename: () => void
   onNewPreset: () => void
   onDelete: () => void
   onUpdatePreset: (patch: Partial<Preset>) => void
-  onSavePermanently: () => void
-  onSaveTemporarily: () => void
+  onSavePermanently: () => Promise<boolean>
+  onReset: () => void
   onCancel: () => void
 }
 
 function PresetsTab({
   localPresets,
+  isDirty,
   selectedName,
   saveError,
-  isTemp,
   onSelectChange,
   onRename,
   onNewPreset,
   onDelete,
   onUpdatePreset,
   onSavePermanently,
-  onSaveTemporarily,
+  onReset,
   onCancel,
 }: PresetsTabProps) {
   const selectedPreset = localPresets.find((p) => p.name === selectedName) ?? localPresets[0]
   const isDefault = selectedName === "default"
+  const [confirmMsg, setConfirmMsg] = useState<string | null>(null)
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function showConfirm(msg: string) {
+    if (confirmTimer.current) clearTimeout(confirmTimer.current)
+    setConfirmMsg(msg)
+    confirmTimer.current = setTimeout(() => setConfirmMsg(null), 2000)
+  }
+
+  async function handleSaveClick() {
+    const ok = await onSavePermanently()
+    if (ok) showConfirm("Saved")
+  }
+
+  function handleRevertClick() {
+    onReset()
+    showConfirm("Presets reverted")
+  }
 
   if (!selectedPreset) return null
 
   return (
     <div className={styles.presetsTab}>
-      {isTemp && <div className={styles.tempLabel}>Using temporary presets</div>}
       <div className={styles.presetHeader}>
         <select
           className={styles.presetHeaderSelect}
@@ -286,9 +304,15 @@ function PresetsTab({
       <div className={styles.footer}>
         <button type="button" className={styles.closeBtn} onClick={onCancel}>Close</button>
         <div className={styles.footerRight}>
-          {saveError && <span className={styles.saveError}>Save failed</span>}
-          <button type="button" className={styles.closeBtn} onClick={onSaveTemporarily}>Save Temporarily</button>
-          <button type="button" className={styles.closeBtn} onClick={onSavePermanently}>Save Permanently</button>
+          {confirmMsg ? (
+            <span className={styles.confirmMsg}>{confirmMsg}</span>
+          ) : (
+            <>
+              {saveError && <span className={styles.saveError}>Save failed</span>}
+              <button type="button" className={styles.closeBtn} onClick={handleRevertClick} disabled={!isDirty}>Revert</button>
+              <button type="button" className={styles.closeBtn} onClick={() => void handleSaveClick()}>Save Permanently</button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -724,16 +748,19 @@ export function SettingsModal({
   open,
   onOpenChange,
   presets,
-  isTemp,
+  permanentPresets,
   sessionId,
   activePreset,
   onSavePermanently,
   onSaveTemporarily,
+  onResetTemp,
 }: SettingsModalProps) {
   const [localPresets, setLocalPresets] = useState<Preset[]>(() => [...presets])
   const [selectedName, setSelectedName] = useState(activePreset)
   const [saveError, setSaveError] = useState(false)
   const [activeTab, setActiveTab] = useState("presets")
+  const [baselineJson, setBaselineJson] = useState(() => JSON.stringify(presets))
+  const isDirty = JSON.stringify(localPresets) !== baselineJson
 
   function updateSelectedPreset(patch: Partial<Preset>) {
     setLocalPresets((prev) =>
@@ -783,29 +810,47 @@ export function SettingsModal({
     writeUrlPreset("default", true)
   }
 
-  async function handleSavePermanently() {
+  const isSavingRef = useRef(false)
+
+  async function handleSavePermanently(): Promise<boolean> {
+    isSavingRef.current = true
     setSaveError(false)
     try {
       await putPresets(localPresets)
       onSavePermanently()
-      onOpenChange(false)
+      setBaselineJson(JSON.stringify(localPresets))
+      return true
     } catch {
       setSaveError(true)
+      return false
+    } finally {
+      isSavingRef.current = false
     }
   }
 
-  async function handleSaveTemporarily() {
-    setSaveError(false)
-    try {
-      const result = await putTempPresets(localPresets, sessionId)
-      onSaveTemporarily(result.sessionId, localPresets)
-      onOpenChange(false)
-    } catch {
-      setSaveError(true)
+  function handleReset() {
+    setLocalPresets([...permanentPresets])
+    setBaselineJson(JSON.stringify(permanentPresets))
+    const nameExists = permanentPresets.some((p) => p.name === selectedName)
+    if (!nameExists) {
+      setSelectedName("default")
+      writeUrlPreset("default", true)
     }
   }
 
-  function handleCancel() {
+  async function handleCancel() {
+    if (!isSavingRef.current) {
+      if (isDirty) {
+        try {
+          const result = await putTempPresets(localPresets, sessionId)
+          onSaveTemporarily(result.sessionId, localPresets)
+        } catch {
+          // auto-save failed; close anyway
+        }
+      } else if (sessionId !== null) {
+        onResetTemp()
+      }
+    }
     onOpenChange(false)
   }
 
@@ -816,9 +861,11 @@ export function SettingsModal({
         <Dialog.Content
           className={styles.content}
           onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => { e.preventDefault(); void handleCancel() }}
         >
           <Dialog.Title className={styles.srOnly}>Settings</Dialog.Title>
-          <Dialog.Close className={styles.close} aria-label="Close">✕</Dialog.Close>
+          <Dialog.Description className={styles.srOnly}>Configure presets and tasks</Dialog.Description>
+          <button type="button" className={styles.close} aria-label="Close" onClick={() => void handleCancel()}>✕</button>
           <Tabs.Root value={activeTab} onValueChange={setActiveTab} className={styles.tabsRoot}>
             <Tabs.List className={styles.tabList}>
               <Tabs.Trigger className={styles.tab} value="presets">Presets</Tabs.Trigger>
@@ -829,26 +876,26 @@ export function SettingsModal({
             <Tabs.Content className={styles.tabPanel} value="presets">
               <PresetsTab
                 localPresets={localPresets}
+                isDirty={isDirty}
                 selectedName={selectedName}
                 saveError={saveError}
-                isTemp={isTemp}
                 onSelectChange={handleSelectChange}
                 onRename={handleRename}
                 onNewPreset={handleNewPreset}
                 onDelete={handleDelete}
                 onUpdatePreset={updateSelectedPreset}
                 onSavePermanently={handleSavePermanently}
-                onSaveTemporarily={handleSaveTemporarily}
+                onReset={handleReset}
                 onCancel={handleCancel}
               />
             </Tabs.Content>
 
             <Tabs.Content className={styles.tabPanel} value="tasks">
-              {activeTab === "tasks" && open && <TasksTab onClose={handleCancel} />}
+              {activeTab === "tasks" && open && <TasksTab onClose={() => void handleCancel()} />}
             </Tabs.Content>
 
             <Tabs.Content className={styles.tabPanel} value="previews">
-              {activeTab === "previews" && open && <PreviewsTab presets={presets} sessionId={sessionId} onClose={handleCancel} />}
+              {activeTab === "previews" && open && <PreviewsTab presets={presets} sessionId={sessionId} onClose={() => void handleCancel()} />}
             </Tabs.Content>
           </Tabs.Root>
         </Dialog.Content>

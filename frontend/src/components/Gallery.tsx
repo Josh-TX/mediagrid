@@ -55,13 +55,19 @@ function modalReducer(s: { open: boolean; key: number }, a: ModalAction) {
 export function Gallery() {
   const queryClient = useQueryClient()
   const [sessionId, setSessionId] = useState<string | null>(() => sessionStorage.getItem("presetSessionId"))
+  const needsRefreshRef = useRef(false)
 
   const { data: presetsData, isError: presetsError } = useQuery({
     queryKey: ["presets", sessionId],
     queryFn: () => fetchPresets(sessionId ?? undefined),
   })
   const presets = presetsData?.presets
-  const isTemp = presetsData?.isTemp ?? false
+
+  const { data: permanentPresetsData } = useQuery({
+    queryKey: ["presets", null],
+    queryFn: () => fetchPresets(),
+  })
+  const permanentPresets = permanentPresetsData?.presets ?? presets ?? []
 
   // When the server no longer recognizes the sessionId (e.g. after restart), clear it.
   useEffect(() => {
@@ -279,11 +285,15 @@ export function Gallery() {
   function handleModalOpenChange(open: boolean) {
     if (!open) {
       const { preset: urlPreset } = readUrlParams()
-      if (urlPreset !== activePreset) {
-        window.scrollTo(0, 0)
-        setShuffleId(null)
-      }
+      const presetChanged = urlPreset !== activePreset
       setActivePreset(urlPreset)
+      if (presetChanged || needsRefreshRef.current) {
+        shuffleIdRef.current = null
+        setShuffleId(null)
+        window.scrollTo(0, 0)
+        queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, urlPreset, sort, dir] })
+      }
+      needsRefreshRef.current = false
       dispatchModal({ type: 'close' })
     }
   }
@@ -351,29 +361,35 @@ export function Gallery() {
         )}
       </div>
 
-      {presets && (
+      {presets && permanentPresetsData && (
         <SettingsModal
           key={`modal-${modalState.key}`}
           open={modalState.open}
           onOpenChange={handleModalOpenChange}
           presets={presets}
-          isTemp={isTemp}
+          permanentPresets={permanentPresetsData.presets}
           sessionId={sessionId}
           activePreset={activePreset}
           onSavePermanently={() => {
+            const { preset: urlPreset } = readUrlParams()
             shuffleIdRef.current = null
             setShuffleId(null)
-            queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
+            window.scrollTo(0, 0)
+            queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, urlPreset, sort, dir] })
             sessionStorage.removeItem("presetSessionId")
             setSessionId(null)
+            queryClient.invalidateQueries({ queryKey: ["presets", null] })
           }}
           onSaveTemporarily={(newSessionId, updatedPresets) => {
-            shuffleIdRef.current = null
-            setShuffleId(null)
-            queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
+            needsRefreshRef.current = true
             sessionStorage.setItem("presetSessionId", newSessionId)
             queryClient.setQueryData(["presets", newSessionId], { presets: updatedPresets, isTemp: true })
             setSessionId(newSessionId)
+          }}
+          onResetTemp={() => {
+            needsRefreshRef.current = true
+            sessionStorage.removeItem("presetSessionId")
+            setSessionId(null)
           }}
         />
       )}
