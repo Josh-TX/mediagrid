@@ -371,11 +371,12 @@ export function Gallery() {
             sessionStorage.removeItem("presetSessionId")
             setSessionId(null)
           }}
-          onSaveTemporarily={(newSessionId) => {
+          onSaveTemporarily={(newSessionId, updatedPresets) => {
             shuffleIdRef.current = null
             setShuffleId(null)
             queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
             sessionStorage.setItem("presetSessionId", newSessionId)
+            queryClient.setQueryData(["presets", newSessionId], { presets: updatedPresets, isTemp: true })
             setSessionId(newSessionId)
           }}
         />

@@ -18,7 +18,7 @@ interface SettingsModalProps {
   sessionId: string | null
   activePreset: string
   onSavePermanently: () => void
-  onSaveTemporarily: (newSessionId: string) => void
+  onSaveTemporarily: (newSessionId: string, presets: Preset[]) => void
 }
 
 const ASPECT_RATIO_OPTIONS: { label: string; value: number | null }[] = [
@@ -798,7 +798,7 @@ export function SettingsModal({
     setSaveError(false)
     try {
       const result = await putTempPresets(localPresets, sessionId)
-      onSaveTemporarily(result.sessionId)
+      onSaveTemporarily(result.sessionId, localPresets)
       onOpenChange(false)
     } catch {
       setSaveError(true)
