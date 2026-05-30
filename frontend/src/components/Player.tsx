@@ -232,6 +232,7 @@ export function Player({
   const animStartTimeRef = useRef<number>(0)
   const queuedCommitRef = useRef<{ direction: 1 | -1 } | null>(null)
   const seekDragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const preventNextClickRef = useRef(false)
 
   // ── Fullscreen ──────────────────────────────────────────────────────────────
   const { isFullscreen, toggleFullscreen } = useFullscreen()
@@ -764,25 +765,27 @@ export function Player({
       void commitAdvance(direction)
     } else {
       snapBack()
+      handleTap(lastX, lastY)
+      preventNextClickRef.current = true
+      setTimeout(() => { preventNextClickRef.current = false }, 600)
     }
   }
 
-  // ── Tap zone click handler ───────────────────────────────────────────────────
-  function onPlayerClick(e: React.MouseEvent) {
-    if (isSeekBarHit(e.clientY, vpH)) return
+  // ── Tap zone handler (shared by touch and mouse) ────────────────────────────
+  function handleTap(clientX: number, clientY: number) {
+    if (isSeekBarHit(clientY, vpH)) return
 
     const currentMedia = slots[CURRENT_SLOT_IDX]
     const isVideo = !!currentMedia && currentMedia !== "loading" && currentMedia.media_type === 1
     const video = isVideo ? videoRefs.current.get(currentIndex) : undefined
-    const x = e.clientX
 
-    if (isVideo && x < vpW * 0.25) {
+    if (isVideo && clientX < vpW * 0.25) {
       if (video) { video.currentTime = Math.max(0, video.currentTime - rewindSeconds); triggerRewindOverlay() }
       enterContrastMode()
       return
     }
 
-    if (isVideo && x > vpW * 0.75) {
+    if (isVideo && clientX > vpW * 0.75) {
       if (video) {
         const maxTime = Math.max(0, (video.duration || 0) - SEEK_END_BUFFER)
         video.currentTime = Math.min(maxTime, video.currentTime + fastForwardSeconds)
@@ -817,6 +820,11 @@ export function Player({
     } else {
       enterContrastMode()
     }
+  }
+
+  function onPlayerClick(e: React.MouseEvent) {
+    if (preventNextClickRef.current) return
+    handleTap(e.clientX, e.clientY)
   }
 
   function getVideoRef(mediaIdx: number): React.RefCallback<HTMLVideoElement> {
