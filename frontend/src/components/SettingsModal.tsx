@@ -64,11 +64,6 @@ function humanDuration(ms: number): string {
 
 function NumberInput({ value, min, className, onChange, id, "aria-label": ariaLabel }: { value: number; min?: number; className?: string | undefined; onChange: (n: number) => void; id?: string; "aria-label"?: string }) {
   const [str, setStr] = useState(String(value))
-  const prevValueRef = useRef(value)
-  if (prevValueRef.current !== value) {
-    prevValueRef.current = value
-    setStr(String(value))
-  }
   return (
     <input
       id={id}
@@ -86,11 +81,34 @@ function NumberInput({ value, min, className, onChange, id, "aria-label": ariaLa
   )
 }
 
+function NullableNumberInput({ value, min, className, onChange, id, "aria-label": ariaLabel }: { value: number | null; min?: number; className?: string | undefined; onChange: (n: number | null) => void; id?: string; "aria-label"?: string }) {
+  const [str, setStr] = useState(value === null ? "" : String(value))
+  return (
+    <input
+      id={id}
+      type="number"
+      className={className}
+      value={str}
+      placeholder="No limit"
+      aria-label={ariaLabel}
+      onChange={(e) => setStr(e.target.value)}
+      onBlur={() => {
+        if (str === "") { onChange(null); return }
+        const n = min !== undefined ? Math.max(min, Number(str) || min) : (Number(str) || 0)
+        setStr(String(n))
+        onChange(n)
+      }}
+    />
+  )
+}
+
 // ---- Presets Tab ----
 
 interface PresetsTabProps {
   localPresets: Preset[]
   isDirty: boolean
+  isTempSaving: boolean
+  isTemp: boolean
   selectedName: string
   saveError: boolean
   onSelectChange: (name: string) => void
@@ -106,6 +124,8 @@ interface PresetsTabProps {
 function PresetsTab({
   localPresets,
   isDirty,
+  isTempSaving,
+  isTemp,
   selectedName,
   saveError,
   onSelectChange,
@@ -121,6 +141,7 @@ function PresetsTab({
   const isDefault = selectedName === "default"
   const [confirmMsg, setConfirmMsg] = useState<string | null>(null)
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [resetKey, setResetKey] = useState(0)
 
   function showConfirm(msg: string) {
     if (confirmTimer.current) clearTimeout(confirmTimer.current)
@@ -135,6 +156,7 @@ function PresetsTab({
 
   function handleRevertClick() {
     onReset()
+    setResetKey(k => k + 1)
     showConfirm("Presets reverted")
   }
 
@@ -163,11 +185,11 @@ function PresetsTab({
           <legend className={styles.sectionLabel}>Gallery</legend>
           <label className={styles.field} htmlFor="targetTilePercent">
             <span>Target tile % of screen</span>
-            <NumberInput id="targetTilePercent" className={styles.numberInput} value={selectedPreset.targetTilePercent} min={1} aria-label="Target tile % of screen" onChange={(n) => onUpdatePreset({ targetTilePercent: n })} />
+            <NumberInput key={`${selectedName}-${resetKey}-targetTilePercent`} id="targetTilePercent" className={styles.numberInput} value={selectedPreset.targetTilePercent} min={1} aria-label="Target tile % of screen" onChange={(n) => onUpdatePreset({ targetTilePercent: n })} />
           </label>
           <label className={styles.field} htmlFor="maxTilePercent">
             <span>Max tile % of screen</span>
-            <NumberInput id="maxTilePercent" className={styles.numberInput} value={selectedPreset.maxTilePercent} min={1} aria-label="Max tile % of screen" onChange={(n) => onUpdatePreset({ maxTilePercent: n })} />
+            <NumberInput key={`${selectedName}-${resetKey}-maxTilePercent`} id="maxTilePercent" className={styles.numberInput} value={selectedPreset.maxTilePercent} min={1} aria-label="Max tile % of screen" onChange={(n) => onUpdatePreset({ maxTilePercent: n })} />
           </label>
           <label className={styles.field}>
             <span>Clusters</span>
@@ -223,11 +245,11 @@ function PresetsTab({
           </label>
           <label className={styles.field}>
             <span>Min duration (s)</span>
-            <input type="number" aria-label="Min duration (s)" className={styles.numberInput} value={selectedPreset.minDuration ?? ""} placeholder="No limit" min={0} onChange={(e) => onUpdatePreset({ minDuration: e.target.value === "" ? null : Number(e.target.value) })} />
+            <NullableNumberInput key={`${selectedName}-${resetKey}-minDuration`} aria-label="Min duration (s)" className={styles.numberInput} value={selectedPreset.minDuration} min={0} onChange={(n) => onUpdatePreset({ minDuration: n })} />
           </label>
           <label className={styles.field}>
             <span>Max duration (s)</span>
-            <input type="number" aria-label="Max duration (s)" className={styles.numberInput} value={selectedPreset.maxDuration ?? ""} placeholder="No limit" min={0} onChange={(e) => onUpdatePreset({ maxDuration: e.target.value === "" ? null : Number(e.target.value) })} />
+            <NullableNumberInput key={`${selectedName}-${resetKey}-maxDuration`} aria-label="Max duration (s)" className={styles.numberInput} value={selectedPreset.maxDuration} min={0} onChange={(n) => onUpdatePreset({ maxDuration: n })} />
           </label>
           <label className={styles.field}>
             <span>Exclude contains</span>
@@ -292,24 +314,24 @@ function PresetsTab({
           ))}
           <label className={styles.field}>
             <span>Rewind seconds</span>
-            <input type="number" aria-label="Rewind seconds" className={styles.numberInput} value={selectedPreset.rewindSeconds} onChange={(e) => onUpdatePreset({ rewindSeconds: Number(e.target.value) })} />
+            <NumberInput key={`${selectedName}-${resetKey}-rewindSeconds`} aria-label="Rewind seconds" className={styles.numberInput} value={selectedPreset.rewindSeconds} min={1} onChange={(n) => onUpdatePreset({ rewindSeconds: n })} />
           </label>
           <label className={styles.field}>
             <span>Fast-forward seconds</span>
-            <input type="number" aria-label="Fast-forward seconds" className={styles.numberInput} value={selectedPreset.fastForwardSeconds} onChange={(e) => onUpdatePreset({ fastForwardSeconds: Number(e.target.value) })} />
+            <NumberInput key={`${selectedName}-${resetKey}-fastForwardSeconds`} aria-label="Fast-forward seconds" className={styles.numberInput} value={selectedPreset.fastForwardSeconds} min={1} onChange={(n) => onUpdatePreset({ fastForwardSeconds: n })} />
           </label>
         </fieldset>
       </div>
 
       <div className={styles.footer}>
-        <button type="button" className={styles.closeBtn} onClick={onCancel}>Close</button>
+        <button type="button" className={styles.closeBtn} onClick={onCancel} disabled={isTempSaving}>{isTempSaving ? "Saving…" : "Close"}</button>
         <div className={styles.footerRight}>
           {confirmMsg ? (
             <span className={styles.confirmMsg}>{confirmMsg}</span>
           ) : (
             <>
               {saveError && <span className={styles.saveError}>Save failed</span>}
-              <button type="button" className={styles.closeBtn} onClick={handleRevertClick} disabled={!isDirty}>Revert</button>
+              <button type="button" className={styles.closeBtn} onClick={handleRevertClick} disabled={!isDirty && !isTemp}>Revert</button>
               <button type="button" className={styles.closeBtn} onClick={() => void handleSaveClick()}>Save Permanently</button>
             </>
           )}
@@ -811,6 +833,8 @@ export function SettingsModal({
   }
 
   const isSavingRef = useRef(false)
+  const [isTempSaving, setIsTempSaving] = useState(false)
+  const isTempSavingRef = useRef(false)
 
   async function handleSavePermanently(): Promise<boolean> {
     isSavingRef.current = true
@@ -839,13 +863,19 @@ export function SettingsModal({
   }
 
   async function handleCancel() {
+    if (isTempSavingRef.current) return
     if (!isSavingRef.current) {
       if (isDirty) {
+        isTempSavingRef.current = true
+        setIsTempSaving(true)
         try {
           const result = await putTempPresets(localPresets, sessionId)
           onSaveTemporarily(result.sessionId, localPresets)
         } catch {
           // auto-save failed; close anyway
+        } finally {
+          isTempSavingRef.current = false
+          setIsTempSaving(false)
         }
       } else if (sessionId !== null) {
         onResetTemp()
@@ -877,6 +907,8 @@ export function SettingsModal({
               <PresetsTab
                 localPresets={localPresets}
                 isDirty={isDirty}
+                isTempSaving={isTempSaving}
+                isTemp={sessionId !== null}
                 selectedName={selectedName}
                 saveError={saveError}
                 onSelectChange={handleSelectChange}

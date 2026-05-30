@@ -55,6 +55,8 @@ function modalReducer(s: { open: boolean; key: number }, a: ModalAction) {
 export function Gallery() {
   const queryClient = useQueryClient()
   const [sessionId, setSessionId] = useState<string | null>(() => sessionStorage.getItem("presetSessionId"))
+  const sessionIdRef = useRef<string | null>(sessionId)
+  sessionIdRef.current = sessionId
   const needsRefreshRef = useRef(false)
 
   const { data: presetsData, isError: presetsError } = useQuery({
@@ -184,7 +186,7 @@ export function Gallery() {
     queryKey: ["blocks", debouncedSearch, activePreset, sort, dir],
     queryFn: async ({ pageParam }) => {
       try {
-        const res = await fetchBlocks(shuffleIdRef.current, pageParam, debouncedSearch, activePreset, sort, dir, sessionId ?? undefined)
+        const res = await fetchBlocks(shuffleIdRef.current, pageParam, debouncedSearch, activePreset, sort, dir, sessionIdRef.current ?? undefined)
         if (shuffleIdRef.current === null) {
           setShuffleId(res.shuffleId)
           history.replaceState(null, "", buildUrl(debouncedSearch, activePreset, res.shuffleId, sort, dir, null))
@@ -384,11 +386,13 @@ export function Gallery() {
             needsRefreshRef.current = true
             sessionStorage.setItem("presetSessionId", newSessionId)
             queryClient.setQueryData(["presets", newSessionId], { presets: updatedPresets, isTemp: true })
+            sessionIdRef.current = newSessionId
             setSessionId(newSessionId)
           }}
           onResetTemp={() => {
             needsRefreshRef.current = true
             sessionStorage.removeItem("presetSessionId")
+            sessionIdRef.current = null
             setSessionId(null)
           }}
         />
