@@ -118,7 +118,7 @@ interface PresetsTabProps {
   onUpdatePreset: (patch: Partial<Preset>) => void
   onSavePermanently: () => Promise<boolean>
   onReset: () => void
-  onCancel: () => void
+  onClose: () => void
 }
 
 function PresetsTab({
@@ -135,7 +135,7 @@ function PresetsTab({
   onUpdatePreset,
   onSavePermanently,
   onReset,
-  onCancel,
+  onClose,
 }: PresetsTabProps) {
   const selectedPreset = localPresets.find((p) => p.name === selectedName) ?? localPresets[0]
   const isDefault = selectedName === "default"
@@ -332,7 +332,7 @@ function PresetsTab({
       </div>
 
       <div className={styles.footer}>
-        <button type="button" className={styles.closeBtn} onClick={onCancel} disabled={isTempSaving}>{isTempSaving ? "Saving…" : "Close"}</button>
+        <button type="button" className={styles.closeBtn} onClick={onClose} disabled={isTempSaving}>{isTempSaving ? "Saving…" : "Close"}</button>
         <div className={styles.footerRight}>
           {confirmMsg ? (
             <span className={styles.confirmMsg}>{confirmMsg}</span>
@@ -394,7 +394,7 @@ function TasksTab({ onClose }: { onClose: () => void }) {
     }
   }
 
-  async function handleCancel(id: number) {
+  async function handleClose(id: number) {
     await cancelTask(id)
     await queryClient.invalidateQueries({ queryKey: ["tasks"] })
   }
@@ -432,7 +432,7 @@ function TasksTab({ onClose }: { onClose: () => void }) {
               type="button"
               className={styles.cancelBtn}
               disabled={active.cancelling}
-              onClick={() => handleCancel(active.id)}
+              onClick={() => handleClose(active.id)}
             >
               Cancel
             </button>
@@ -449,7 +449,7 @@ function TasksTab({ onClose }: { onClose: () => void }) {
             <div key={t.id} className={styles.taskItem}>
               <span className={styles.taskType}>{taskLabel(t.type)}</span>
               <span className={styles.taskStatus}>{timeAgo(t.enqueuedAt)}</span>
-              <button type="button" className={styles.cancelBtn} onClick={() => handleCancel(t.id)}>Cancel</button>
+              <button type="button" className={styles.cancelBtn} onClick={() => handleClose(t.id)}>Cancel</button>
             </div>
           ))
         )}
@@ -870,7 +870,24 @@ export function SettingsModal({
     }
   }
 
-  async function handleCancel() {
+  async function handleTabChange(newTab: string) {
+    if (activeTab === "presets" && newTab !== "presets" && isDirty && !isTempSavingRef.current && !isSavingRef.current) {
+      isTempSavingRef.current = true
+      setIsTempSaving(true)
+      try {
+        const result = await putTempPresets(localPresets, sessionId)
+        onSaveTemporarily(result.sessionId, localPresets)
+      } catch {
+        // auto-save failed; switch tabs anyway
+      } finally {
+        isTempSavingRef.current = false
+        setIsTempSaving(false)
+      }
+    }
+    setActiveTab(newTab)
+  }
+
+  async function handleClose() {
     if (isTempSavingRef.current) return
     if (!isSavingRef.current) {
       if (isDirty) {
@@ -899,12 +916,12 @@ export function SettingsModal({
         <Dialog.Content
           className={styles.content}
           onInteractOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => { e.preventDefault(); void handleCancel() }}
+          onEscapeKeyDown={(e) => { e.preventDefault(); void handleClose() }}
         >
           <Dialog.Title className={styles.srOnly}>Settings</Dialog.Title>
           <Dialog.Description className={styles.srOnly}>Configure presets and tasks</Dialog.Description>
-          <button type="button" className={styles.close} aria-label="Close" onClick={() => void handleCancel()}>✕</button>
-          <Tabs.Root value={activeTab} onValueChange={setActiveTab} className={styles.tabsRoot}>
+          <button type="button" className={styles.close} aria-label="Close" onClick={() => void handleClose()}>✕</button>
+          <Tabs.Root value={activeTab} onValueChange={(v) => void handleTabChange(v)} className={styles.tabsRoot}>
             <Tabs.List className={styles.tabList}>
               <Tabs.Trigger className={styles.tab} value="presets">Presets</Tabs.Trigger>
               <Tabs.Trigger className={styles.tab} value="tasks">Tasks</Tabs.Trigger>
@@ -926,16 +943,16 @@ export function SettingsModal({
                 onUpdatePreset={updateSelectedPreset}
                 onSavePermanently={handleSavePermanently}
                 onReset={handleReset}
-                onCancel={handleCancel}
+                onClose={handleClose}
               />
             </Tabs.Content>
 
             <Tabs.Content className={styles.tabPanel} value="tasks">
-              {activeTab === "tasks" && open && <TasksTab onClose={() => void handleCancel()} />}
+              {activeTab === "tasks" && open && <TasksTab onClose={() => void handleClose()} />}
             </Tabs.Content>
 
             <Tabs.Content className={styles.tabPanel} value="previews">
-              {activeTab === "previews" && open && <PreviewsTab presets={presets} sessionId={sessionId} onClose={() => void handleCancel()} />}
+              {activeTab === "previews" && open && <PreviewsTab presets={presets} sessionId={sessionId} onClose={() => void handleClose()} />}
             </Tabs.Content>
           </Tabs.Root>
         </Dialog.Content>

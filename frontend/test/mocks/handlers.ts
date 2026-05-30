@@ -31,8 +31,8 @@ export const DEFAULT_PRESET: Preset = {
   maxAspectRatio: null,
   minDuration: null,
   maxDuration: null,
-  playerCropMaxX: 0.1,
-  playerCropMaxY: 0.1,
+  playerCropMaxX: 0,
+  playerCropMaxY: 0,
   tileCropMaxX: 0.1,
   tileCropMaxY: 0.1,
   excludeContainsCsv: null,
@@ -40,10 +40,11 @@ export const DEFAULT_PRESET: Preset = {
   mediaType: "all",
   forwardPreloadCount: 1,
   backwardPreloadCount: 1,
-  oneFileAtATime: false,
+  oneFileAtATime: true,
   rewindSeconds: 10,
   fastForwardSeconds: 10,
   showTileTitle: true,
+  videoEndBehavior: "loop",
 }
 
 // Fixed shuffleId used by the mock — not a real cache, just a stable value for tests.
