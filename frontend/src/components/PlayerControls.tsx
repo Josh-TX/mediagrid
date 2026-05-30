@@ -9,7 +9,7 @@ function Spinner() {
 
 function PlayIcon() {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="white">
+    <svg width="56" height="56" viewBox="0 0 48 48" fill="white" style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))" }}>
       <polygon points="14,8 40,24 14,40" />
     </svg>
   )
@@ -17,7 +17,7 @@ function PlayIcon() {
 
 function PauseIcon() {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="white">
+    <svg width="56" height="56" viewBox="0 0 48 48" fill="white" style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))" }}>
       <rect x="11" y="8" width="10" height="32" />
       <rect x="27" y="8" width="10" height="32" />
     </svg>

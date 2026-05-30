@@ -763,7 +763,11 @@ export function Player({
       startMediaFade(newTitle, newSeekBarVisible)
       void commitAdvance(direction)
     } else {
-      snapBack()
+      if (Math.abs(dy) > 5) {
+        snapBack()
+      } else {
+        setDragOffset(0)
+      }
       handleTap(lastX, lastY)
       preventNextClickRef.current = true
       setTimeout(() => { preventNextClickRef.current = false }, 600)
