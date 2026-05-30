@@ -112,6 +112,12 @@
   gap: 10px;
 }
 
+.tempLabel {
+  font-size: 0.8rem;
+  color: #f90;
+  flex-shrink: 0;
+}
+
 .presetHeader {
   display: flex;
   align-items: center;

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Preset } from "@repo/types"
 import {
-  putPresets, fetchTasks, postScan, postClean, cancelTask,
+  putPresets, putTempPresets, fetchTasks, postScan, postClean, cancelTask,
   fetchPreviewSettings, postGenThumbnails, postGenHighlights,
 } from "../api/media"
 import styles from "./SettingsModal.module.css"
@@ -14,8 +14,11 @@ interface SettingsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   presets: readonly Preset[]
+  isTemp: boolean
+  sessionId: string | null
   activePreset: string
-  onPresetsUpdate: (presets: Preset[]) => void
+  onSavePermanently: (presets: Preset[]) => void
+  onSaveTemporarily: (presets: Preset[], newSessionId: string) => void
 }
 
 const ASPECT_RATIO_OPTIONS: { label: string; value: number | null }[] = [
@@ -88,12 +91,14 @@ interface PresetsTabProps {
   localPresets: Preset[]
   selectedName: string
   saveError: boolean
+  isTemp: boolean
   onSelectChange: (name: string) => void
   onRename: () => void
-  onDuplicate: () => void
+  onNewPreset: () => void
   onDelete: () => void
   onUpdatePreset: (patch: Partial<Preset>) => void
-  onSave: () => void
+  onSavePermanently: () => void
+  onSaveTemporarily: () => void
   onCancel: () => void
 }
 
@@ -101,12 +106,14 @@ function PresetsTab({
   localPresets,
   selectedName,
   saveError,
+  isTemp,
   onSelectChange,
   onRename,
-  onDuplicate,
+  onNewPreset,
   onDelete,
   onUpdatePreset,
-  onSave,
+  onSavePermanently,
+  onSaveTemporarily,
   onCancel,
 }: PresetsTabProps) {
   const selectedPreset = localPresets.find((p) => p.name === selectedName) ?? localPresets[0]
@@ -116,6 +123,7 @@ function PresetsTab({
 
   return (
     <div className={styles.presetsTab}>
+      {isTemp && <div className={styles.tempLabel}>Using temporary presets</div>}
       <div className={styles.presetHeader}>
         <select
           className={styles.presetHeaderSelect}
@@ -128,7 +136,7 @@ function PresetsTab({
           ))}
         </select>
         <button type="button" className={styles.iconBtn} onClick={onRename} disabled={isDefault}>Rename</button>
-        <button type="button" className={styles.iconBtn} onClick={onDuplicate}>Duplicate</button>
+        <button type="button" className={styles.iconBtn} onClick={onNewPreset}>New Preset</button>
         <button type="button" className={styles.iconBtn} onClick={onDelete} disabled={isDefault}>Delete</button>
       </div>
 
@@ -276,10 +284,11 @@ function PresetsTab({
       </div>
 
       <div className={styles.footer}>
-        <button type="button" className={styles.closeBtn} onClick={onCancel}>Close</button>
+        <div>{saveError && <span className={styles.saveError}>Save failed</span>}</div>
         <div className={styles.footerRight}>
-          {saveError && <span className={styles.saveError}>Save failed</span>}
-          <button type="button" className={styles.saveBtn} onClick={onSave}>Save</button>
+          <button type="button" className={styles.closeBtn} onClick={onCancel}>Cancel</button>
+          <button type="button" className={styles.closeBtn} onClick={onSaveTemporarily}>Save Temporarily</button>
+          <button type="button" className={styles.closeBtn} onClick={onSavePermanently}>Save Permanently</button>
         </div>
       </div>
     </div>
@@ -507,7 +516,7 @@ function FilterSection({
   )
 }
 
-function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose: () => void }) {
+function PreviewsTab({ presets, sessionId, onClose }: { presets: readonly Preset[]; sessionId: string | null; onClose: () => void }) {
   const queryClient = useQueryClient()
   const [activeForm, setActiveForm] = useState<string>("thumbnails")
 
@@ -550,6 +559,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
           simpleFilter: thumbSimpleFilter,
           usePresetFilter: thumbUsePresetFilter,
           presetName: thumbUsePresetFilter ? thumbPresetName : null,
+          ...(sessionId ? { sessionId } : {}),
         })
       } else {
         await postGenHighlights({
@@ -558,6 +568,7 @@ function PreviewsTab({ presets, onClose }: { presets: readonly Preset[]; onClose
           simpleFilter: hlSimpleFilter,
           usePresetFilter: hlUsePresetFilter,
           presetName: hlUsePresetFilter ? hlPresetName : null,
+          ...(sessionId ? { sessionId } : {}),
           highlightDuration: hlDuration,
           segmentCount: hlSegmentCount,
           ffmpegArg: hlFfmpegArg,
@@ -713,8 +724,11 @@ export function SettingsModal({
   open,
   onOpenChange,
   presets,
+  isTemp,
+  sessionId,
   activePreset,
-  onPresetsUpdate,
+  onSavePermanently,
+  onSaveTemporarily,
 }: SettingsModalProps) {
   const [localPresets, setLocalPresets] = useState<Preset[]>(() => [...presets])
   const [selectedName, setSelectedName] = useState(activePreset)
@@ -747,17 +761,17 @@ export function SettingsModal({
     writeUrlPreset(trimmed, false)
   }
 
-  function handleDuplicate() {
-    const newName = prompt("Name for the duplicate:")
+  function handleNewPreset() {
+    const newName = prompt("Name for the new preset:")
     if (!newName?.trim()) return
     const trimmed = newName.trim()
     if (localPresets.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
       alert(`A preset named "${trimmed}" already exists.`)
       return
     }
-    const selected = localPresets.find((p) => p.name === selectedName)
-    if (!selected) return
-    const copy: Preset = { ...selected, name: trimmed }
+    const defaultPreset = localPresets.find((p) => p.name.toLowerCase() === "default") ?? localPresets[0]
+    if (!defaultPreset) return
+    const copy: Preset = { ...defaultPreset, name: trimmed }
     setLocalPresets((prev) => [...prev, copy])
     setSelectedName(trimmed)
     writeUrlPreset(trimmed, true)
@@ -769,15 +783,25 @@ export function SettingsModal({
     writeUrlPreset("default", true)
   }
 
-  async function handleSave() {
+  async function handleSavePermanently() {
     setSaveError(false)
     try {
       await putPresets(localPresets)
-      onPresetsUpdate(localPresets)
+      onSavePermanently(localPresets)
       onOpenChange(false)
     } catch {
       setSaveError(true)
-      alert("Failed to save presets. Please try again.")
+    }
+  }
+
+  async function handleSaveTemporarily() {
+    setSaveError(false)
+    try {
+      const result = await putTempPresets(localPresets, sessionId)
+      onSaveTemporarily(localPresets, result.sessionId)
+      onOpenChange(false)
+    } catch {
+      setSaveError(true)
     }
   }
 
@@ -807,12 +831,14 @@ export function SettingsModal({
                 localPresets={localPresets}
                 selectedName={selectedName}
                 saveError={saveError}
+                isTemp={isTemp}
                 onSelectChange={handleSelectChange}
                 onRename={handleRename}
-                onDuplicate={handleDuplicate}
+                onNewPreset={handleNewPreset}
                 onDelete={handleDelete}
                 onUpdatePreset={updateSelectedPreset}
-                onSave={handleSave}
+                onSavePermanently={handleSavePermanently}
+                onSaveTemporarily={handleSaveTemporarily}
                 onCancel={handleCancel}
               />
             </Tabs.Content>
@@ -822,7 +848,7 @@ export function SettingsModal({
             </Tabs.Content>
 
             <Tabs.Content className={styles.tabPanel} value="previews">
-              {activeTab === "previews" && open && <PreviewsTab presets={presets} onClose={handleCancel} />}
+              {activeTab === "previews" && open && <PreviewsTab presets={presets} sessionId={sessionId} onClose={handleCancel} />}
             </Tabs.Content>
           </Tabs.Root>
         </Dialog.Content>

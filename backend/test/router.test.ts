@@ -71,12 +71,13 @@ async function put(h: typeof handle, path: string, body: unknown) {
 }
 
 describe("GET /api/presets", () => {
-  it("returns the default preset when populated", async () => {
+  it("returns the default preset with isTemp false when no sessionId", async () => {
     const r = await get(handle, "/api/presets")
     expect(r.status).toBe(200)
-    const body = r.body as { name: string }[]
-    expect(Array.isArray(body)).toBe(true)
-    expect(body[0]?.name).toBe("default")
+    const body = r.body as { presets: { name: string }[]; isTemp: boolean }
+    expect(Array.isArray(body.presets)).toBe(true)
+    expect(body.presets[0]?.name).toBe("default")
+    expect(body.isTemp).toBe(false)
   })
 
   it("auto-inserts default preset when table is empty", async () => {
@@ -85,8 +86,9 @@ describe("GET /api/presets", () => {
     const h = HttpApp.toWebHandlerLayer(router, Layer.merge(BunFileSystem.layer, emptyDb)).handler
     const r = await get(h, "/api/presets")
     expect(r.status).toBe(200)
-    const body = r.body as { name: string }[]
-    expect(body[0]?.name).toBe("default")
+    const body = r.body as { presets: { name: string }[]; isTemp: boolean }
+    expect(body.presets[0]?.name).toBe("default")
+    expect(body.isTemp).toBe(false)
   })
 
   it("auto-inserts default preset when it is missing but other presets exist", async () => {
@@ -95,9 +97,9 @@ describe("GET /api/presets", () => {
     const h = HttpApp.toWebHandlerLayer(router, Layer.merge(BunFileSystem.layer, db)).handler
     const r = await get(h, "/api/presets")
     expect(r.status).toBe(200)
-    const body = r.body as { name: string }[]
-    expect(body[0]?.name).toBe("default")
-    expect(body.some((p) => p.name === "custom")).toBe(true)
+    const body = r.body as { presets: { name: string }[]; isTemp: boolean }
+    expect(body.presets[0]?.name).toBe("default")
+    expect(body.presets.some((p) => p.name === "custom")).toBe(true)
   })
 
   it("returns default first regardless of alphabetical order", async () => {
@@ -110,8 +112,57 @@ describe("GET /api/presets", () => {
     const db = makeMockDb([], presets)
     const h = HttpApp.toWebHandlerLayer(router, Layer.merge(BunFileSystem.layer, db)).handler
     const r = await get(h, "/api/presets")
-    const body = r.body as { name: string }[]
-    expect(body[0]?.name).toBe("default")
+    const body = r.body as { presets: { name: string }[]; isTemp: boolean }
+    expect(body.presets[0]?.name).toBe("default")
+  })
+
+  it("returns isTemp false when sessionId is not in temp store", async () => {
+    const r = await get(handle, "/api/presets?sessionId=nonexistent-id")
+    expect(r.status).toBe(200)
+    const body = r.body as { presets: { name: string }[]; isTemp: boolean }
+    expect(body.isTemp).toBe(false)
+  })
+})
+
+describe("PUT /api/presets/temp", () => {
+  it("creates a new session and returns a sessionId", async () => {
+    const r = await put(handle, "/api/presets/temp", { presets: [DEFAULT_PRESET] })
+    expect(r.status).toBe(200)
+    const body = r.body as { sessionId: string }
+    expect(typeof body.sessionId).toBe("string")
+    expect(body.sessionId.length).toBeGreaterThan(0)
+  })
+
+  it("returns temp presets via GET with the sessionId", async () => {
+    const customPreset: Preset = { ...DEFAULT_PRESET, name: "temp-test", clusterCount: 7 }
+    const putRes = await put(handle, "/api/presets/temp", { presets: [DEFAULT_PRESET, customPreset] })
+    const { sessionId } = putRes.body as { sessionId: string }
+    const getRes = await get(handle, `/api/presets?sessionId=${sessionId}`)
+    const body = getRes.body as { presets: { name: string }[]; isTemp: boolean }
+    expect(body.isTemp).toBe(true)
+    expect(body.presets.some((p) => p.name === "temp-test")).toBe(true)
+  })
+
+  it("reuses the same sessionId when provided", async () => {
+    const first = await put(handle, "/api/presets/temp", { presets: [DEFAULT_PRESET] })
+    const { sessionId } = first.body as { sessionId: string }
+    const second = await put(handle, "/api/presets/temp", { presets: [DEFAULT_PRESET], sessionId })
+    expect((second.body as { sessionId: string }).sessionId).toBe(sessionId)
+  })
+
+  it("injects default preset if missing from temp array", async () => {
+    const customOnly: Preset = { ...DEFAULT_PRESET, name: "custom-only" }
+    const putRes = await put(handle, "/api/presets/temp", { presets: [customOnly] })
+    const { sessionId } = putRes.body as { sessionId: string }
+    const getRes = await get(handle, `/api/presets?sessionId=${sessionId}`)
+    const body = getRes.body as { presets: { name: string }[]; isTemp: boolean }
+    // default should be injected automatically
+    expect(body.presets.some((p) => p.name === "default")).toBe(true)
+  })
+
+  it("returns 400 when body has no presets array", async () => {
+    const r = await put(handle, "/api/presets/temp", { notPresets: [] })
+    expect(r.status).toBe(400)
   })
 })
 

@@ -54,10 +54,22 @@ function modalReducer(s: { open: boolean; key: number }, a: ModalAction) {
 
 export function Gallery() {
   const queryClient = useQueryClient()
-  const { data: presets, isError: presetsError } = useQuery({
-    queryKey: ["presets"],
-    queryFn: fetchPresets,
+  const [sessionId, setSessionId] = useState<string | null>(() => sessionStorage.getItem("presetSessionId"))
+
+  const { data: presetsData, isError: presetsError } = useQuery({
+    queryKey: ["presets", sessionId],
+    queryFn: () => fetchPresets(sessionId ?? undefined),
   })
+  const presets = presetsData?.presets
+  const isTemp = presetsData?.isTemp ?? false
+
+  // When the server no longer recognizes the sessionId (e.g. after restart), clear it.
+  useEffect(() => {
+    if (presetsData && !presetsData.isTemp && sessionId !== null) {
+      sessionStorage.removeItem("presetSessionId")
+      setSessionId(null)
+    }
+  }, [presetsData?.isTemp])
 
   const initialParams = useMemo(() => readUrlParams(), [])
   const [search, setSearch] = useState(initialParams.q)
@@ -170,7 +182,7 @@ export function Gallery() {
     queryKey: ["blocks", debouncedSearch, activePreset, sort, dir],
     queryFn: async ({ pageParam }) => {
       try {
-        const res = await fetchBlocks(shuffleIdRef.current, pageParam, debouncedSearch, activePreset, sort, dir)
+        const res = await fetchBlocks(shuffleIdRef.current, pageParam, debouncedSearch, activePreset, sort, dir, sessionId ?? undefined)
         if (shuffleIdRef.current === null) {
           setShuffleId(res.shuffleId)
           history.replaceState(null, "", buildUrl(debouncedSearch, activePreset, res.shuffleId, sort, dir, null))
@@ -349,16 +361,30 @@ export function Gallery() {
           open={modalState.open}
           onOpenChange={handleModalOpenChange}
           presets={presets}
+          isTemp={isTemp}
+          sessionId={sessionId}
           activePreset={activePreset}
-          onPresetsUpdate={(updated) => {
+          onSavePermanently={(updated) => {
             const currentPreset = presets?.find((p) => p.name === activePreset)
             const newPreset = updated.find((p) => p.name === activePreset)
             if (currentPreset && newPreset && JSON.stringify(currentPreset) !== JSON.stringify(newPreset)) {
               shuffleIdRef.current = null
               setShuffleId(null)
-              queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset] })
+              queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
             }
-            queryClient.setQueryData(["presets"], updated)
+            sessionStorage.removeItem("presetSessionId")
+            setSessionId(null)
+          }}
+          onSaveTemporarily={(updated, newSessionId) => {
+            const currentPreset = presets?.find((p) => p.name === activePreset)
+            const newPreset = updated.find((p) => p.name === activePreset)
+            if (currentPreset && newPreset && JSON.stringify(currentPreset) !== JSON.stringify(newPreset)) {
+              shuffleIdRef.current = null
+              setShuffleId(null)
+              queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
+            }
+            sessionStorage.setItem("presetSessionId", newSessionId)
+            setSessionId(newSessionId)
           }}
         />
       )}

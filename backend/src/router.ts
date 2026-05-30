@@ -14,6 +14,15 @@ import type { InternalBlockInfo } from "./cluster-shuffle"
 import type { GenThumbnailsParams } from "./gen-thumbnails"
 import type { GenHighlightsParams } from "./gen-highlights"
 
+/** In-memory temp preset store keyed by sessionId. Cleared on server restart. */
+const tempPresetStore = new Map<string, Preset[]>()
+
+/** Ensures the "default" preset exists in the array, injecting DEFAULT_PRESET if missing. */
+function ensureDefaultPreset(presets: Preset[]): Preset[] {
+  if (presets.some((p) => p.name.toLowerCase() === "default")) return presets
+  return [DEFAULT_PRESET, ...presets]
+}
+
 const MEDIA_DIR = process.env["MEDIA_DIR"] ?? "/media"
 const DATA_DIR = process.env["DATA_DIR"] ?? "/data"
 const STATIC_DIR = process.env["STATIC_DIR"] ?? ""
@@ -48,8 +57,16 @@ function parseIntParam(params: URLSearchParams, key: string): number | null {
   return Number.isInteger(n) ? n : null
 }
 
-/** Resolves a preset by name, falling back to "default" (or hardcoded DEFAULT_PRESET if not in DB). */
-function resolvePreset(name: string | null): Effect.Effect<Preset, never, Database> {
+/**
+ * Resolves a preset by name from the temp store (if provided) or the DB.
+ * Falls back to the temp/permanent default if the name isn't found.
+ */
+function resolvePreset(name: string | null, tempPresets?: Preset[]): Effect.Effect<Preset, never, Database> {
+  if (tempPresets) {
+    const found = tempPresets.find((p) => p.name.toLowerCase() === (name ?? "default").toLowerCase())
+    const fallback = tempPresets.find((p) => p.name.toLowerCase() === "default") ?? DEFAULT_PRESET
+    return Effect.succeed(found ?? fallback)
+  }
   return Effect.gen(function* () {
     const db = yield* Database
     const found = yield* db.getPresetByName(name ?? "default")
@@ -67,13 +84,22 @@ function sortPresets(presets: Preset[]): Preset[] {
 }
 
 const presetsGetHandler = Effect.gen(function* () {
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const url = new URL(req.url, "http://localhost")
+  const sessionId = url.searchParams.get("sessionId")
+
+  if (sessionId && tempPresetStore.has(sessionId)) {
+    const presets = sortPresets(ensureDefaultPreset(tempPresetStore.get(sessionId)!))
+    return yield* HttpServerResponse.json({ presets, isTemp: true })
+  }
+
   const db = yield* Database
   let presets = yield* db.getPresets()
   if (!presets.some((p) => p.name.toLowerCase() === "default")) {
     presets = [DEFAULT_PRESET, ...presets]
     yield* db.putPresets(presets)
   }
-  return yield* HttpServerResponse.json(sortPresets(presets))
+  return yield* HttpServerResponse.json({ presets: sortPresets(presets), isTemp: false })
 })
 
 const presetsPutHandler = Effect.gen(function* () {
@@ -85,6 +111,17 @@ const presetsPutHandler = Effect.gen(function* () {
   const db = yield* Database
   yield* db.putPresets(body as Preset[])
   return yield* HttpServerResponse.json({ ok: true })
+})
+
+const presetsTempPutHandler = Effect.gen(function* () {
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const body = (yield* req.json) as { sessionId?: string; presets: Preset[] }
+  if (!Array.isArray(body?.presets)) {
+    return yield* HttpServerResponse.json({ error: "expected presets array" }, { status: 400 })
+  }
+  const sessionId = typeof body.sessionId === "string" && body.sessionId ? body.sessionId : crypto.randomUUID()
+  tempPresetStore.set(sessionId, ensureDefaultPreset(body.presets as Preset[]))
+  return yield* HttpServerResponse.json({ sessionId })
 })
 
 const blocksHandler = Effect.gen(function* () {
@@ -106,7 +143,9 @@ const blocksHandler = Effect.gen(function* () {
 
   const shuffleIdParam = parseIntParam(url.searchParams, "s")
   const presetName = url.searchParams.get("preset")
-  const preset: Preset = yield* resolvePreset(presetName)
+  const sessionId = url.searchParams.get("sessionId")
+  const tempPresets = sessionId ? tempPresetStore.get(sessionId) : undefined
+  const preset: Preset = yield* resolvePreset(presetName, tempPresets)
 
   let shuffleId: number
   let totalBlocks: number
@@ -224,7 +263,7 @@ const previewSettingsGetHandler = Effect.gen(function* () {
 
 const genThumbnailsPostHandler = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
-  const body = (yield* req.json) as GenThumbnailsParams
+  const body = (yield* req.json) as GenThumbnailsParams & { sessionId?: string }
 
   const params: GenThumbnailsParams = {
     compression: body.compression,
@@ -233,6 +272,13 @@ const genThumbnailsPostHandler = Effect.gen(function* () {
     simpleFilter: body.simpleFilter,
     usePresetFilter: body.usePresetFilter,
     presetName: body.presetName,
+  }
+
+  if (params.usePresetFilter && params.presetName !== null && body.sessionId) {
+    const tempPresets = tempPresetStore.get(body.sessionId)
+    if (tempPresets) {
+      params.presetData = yield* resolvePreset(params.presetName, tempPresets)
+    }
   }
 
   const db = yield* Database
@@ -252,7 +298,7 @@ const genThumbnailsPostHandler = Effect.gen(function* () {
 
 const genHighlightsPostHandler = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
-  const body = (yield* req.json) as GenHighlightsParams
+  const body = (yield* req.json) as GenHighlightsParams & { sessionId?: string }
 
   const params: GenHighlightsParams = {
     resolution: body.resolution,
@@ -263,6 +309,13 @@ const genHighlightsPostHandler = Effect.gen(function* () {
     highlightDuration: body.highlightDuration,
     segmentCount: body.segmentCount,
     ffmpegArg: body.ffmpegArg,
+  }
+
+  if (params.usePresetFilter && params.presetName !== null && body.sessionId) {
+    const tempPresets = tempPresetStore.get(body.sessionId)
+    if (tempPresets) {
+      params.presetData = yield* resolvePreset(params.presetName, tempPresets)
+    }
   }
 
   const db = yield* Database
@@ -357,6 +410,7 @@ const apiRoutes = (r: typeof HttpRouter.empty) =>
   r.pipe(
     HttpRouter.get("/api/presets", presetsGetHandler),
     HttpRouter.put("/api/presets", presetsPutHandler),
+    HttpRouter.put("/api/presets/temp", presetsTempPutHandler),
     HttpRouter.get("/api/blocks", blocksHandler),
     HttpRouter.get("/api/media-info", mediaInfoHandler),
     HttpRouter.get("/api/tasks", tasksGetHandler),

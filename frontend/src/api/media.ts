@@ -7,11 +7,13 @@ import { Schema } from "@effect/schema"
 import { Effect } from "effect"
 import { BlockResponse, MediaInfo, Preset, PreviewSettings, TasksResponse } from "@repo/types"
 
-export async function fetchPresets(): Promise<readonly Preset[]> {
-  const res = await fetch("/api/presets")
+export async function fetchPresets(sessionId?: string): Promise<{ presets: readonly Preset[]; isTemp: boolean }> {
+  const params = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ""
+  const res = await fetch(`/api/presets${params}`)
   if (!res.ok) throw new Error(`API error: ${res.status}`)
-  const json: unknown = await res.json()
-  return Effect.runSync(Schema.decodeUnknown(Schema.Array(Preset))(json))
+  const json = (await res.json()) as { presets: unknown; isTemp: boolean }
+  const presets = Effect.runSync(Schema.decodeUnknown(Schema.Array(Preset))(json.presets))
+  return { presets, isTemp: json.isTemp }
 }
 
 export async function putPresets(presets: Preset[]): Promise<void> {
@@ -21,6 +23,16 @@ export async function putPresets(presets: Preset[]): Promise<void> {
     body: JSON.stringify(presets),
   })
   if (!res.ok) throw new Error(`API error: ${res.status}`)
+}
+
+export async function putTempPresets(presets: Preset[], sessionId: string | null): Promise<{ sessionId: string }> {
+  const res = await fetch("/api/presets/temp", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ presets, sessionId: sessionId ?? undefined }),
+  })
+  if (!res.ok) throw new Error(`API error: ${res.status}`)
+  return (await res.json()) as { sessionId: string }
 }
 
 export async function fetchTasks(): Promise<typeof TasksResponse.Type> {
@@ -67,6 +79,7 @@ export interface GenThumbnailsBody {
   simpleFilter: string
   usePresetFilter: boolean
   presetName: string | null
+  sessionId?: string
 }
 
 export interface GenHighlightsBody {
@@ -75,6 +88,7 @@ export interface GenHighlightsBody {
   simpleFilter: string
   usePresetFilter: boolean
   presetName: string | null
+  sessionId?: string
   highlightDuration: number
   segmentCount: number
   ffmpegArg: string
@@ -125,8 +139,10 @@ export async function fetchBlocks(
   preset = "default",
   sort = "random",
   dir = "asc",
+  sessionId?: string,
 ): Promise<typeof BlockResponse.Type> {
   const params = new URLSearchParams({ indices: indices.join(",") })
+  if (sessionId) params.set("sessionId", sessionId)
   if (shuffleId !== null) {
     params.set("s", String(shuffleId))
   } else {

@@ -68,7 +68,7 @@ function buildResponse(previews: PreviewInfo[], requestedIndices: number[], bloc
 
 export const handlers = [
   http.get("/api/presets", () => {
-    return HttpResponse.json([DEFAULT_PRESET])
+    return HttpResponse.json({ presets: [DEFAULT_PRESET], isTemp: false })
   }),
 
   http.get("/api/blocks", ({ request }) => {

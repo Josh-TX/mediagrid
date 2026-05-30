@@ -6,6 +6,7 @@ import * as child_process from "node:child_process"
 import { promisify } from "node:util"
 import { Database } from "./db"
 import { applySimpleFilter, applyPresetFilter } from "./filter"
+import type { Preset } from "@repo/types"
 
 const execFile = promisify(child_process.execFile)
 
@@ -18,6 +19,8 @@ export interface GenHighlightsParams {
   simpleFilter: string
   usePresetFilter: boolean
   presetName: string | null
+  /** Preset snapshotted at task-creation time when temp presets are active. Takes precedence over DB lookup. */
+  presetData?: Preset
   highlightDuration: number
   segmentCount: number
   ffmpegArg: string
@@ -53,9 +56,13 @@ export function runGenHighlights(
 
     let filtered = applySimpleFilter(all, params.simpleFilter)
 
-    if (params.usePresetFilter && params.presetName !== null) {
-      const preset = yield* db.getPresetByName(params.presetName)
-      if (preset) filtered = applyPresetFilter(filtered, preset)
+    if (params.usePresetFilter) {
+      if (params.presetData) {
+        filtered = applyPresetFilter(filtered, params.presetData)
+      } else if (params.presetName !== null) {
+        const preset = yield* db.getPresetByName(params.presetName)
+        if (preset) filtered = applyPresetFilter(filtered, preset)
+      }
     }
 
     filtered = filtered.filter((m) => m.media_type === 1)
