@@ -1,6 +1,6 @@
 import * as Toast from "@radix-ui/react-toast"
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react"
+import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { fetchBlocks, fetchPresets } from "../api/media"
 import { SettingsModal } from "./SettingsModal"
 import { Player } from "./Player"
@@ -87,19 +87,15 @@ export function Gallery() {
   const [modalState, dispatchModal] = useReducer(modalReducer, { open: false, key: 0 })
   const galleryRef = useRef<HTMLDivElement>(null)
 
-  const subscribeToGalleryWidth = useCallback((onStoreChange: () => void) => {
+  const [galleryWidthPx, setGalleryWidthPx] = useState(() => window.innerWidth)
+  useEffect(() => {
     const el = galleryRef.current
-    if (!el) return () => {}
-    const obs = new ResizeObserver(onStoreChange)
+    if (!el) return
+    setGalleryWidthPx(el.clientWidth)
+    const obs = new ResizeObserver(() => setGalleryWidthPx(el.clientWidth))
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
-
-  const galleryWidthPx = useSyncExternalStore(
-    subscribeToGalleryWidth,
-    () => galleryRef.current?.clientWidth ?? window.innerWidth,
-    () => window.innerWidth,
-  )
 
   const activePresetData = presets?.find((p) => p.name === activePreset)
   const tileCropMaxX = activePresetData?.tileCropMaxX ?? 0.1
