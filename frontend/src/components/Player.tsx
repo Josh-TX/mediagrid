@@ -73,7 +73,8 @@ function renderSlot(
   ofoatAnimating: boolean,
   onError: () => void,
   hasError: boolean,
-  mediaStyle?: React.CSSProperties,
+  mediaStyle: React.CSSProperties | undefined,
+  isPausedRef: React.RefObject<boolean>,
 ) {
   const className = `${styles.item}${ofoatAnimating ? ` ${styles.itemOfoatAnimating}` : ""}`
   const style: React.CSSProperties = { top: topOffset, width: dims.width, height: dims.height, left: dims.offsetX }
@@ -102,7 +103,7 @@ function renderSlot(
           autoPlay={isCurrent && open}
           muted={false}
           onError={onError}
-          onCanPlay={isCurrent && open ? (e) => { e.currentTarget.play().catch(() => { }) } : undefined}
+          onCanPlay={isCurrent && open ? (e) => { if (!isPausedRef.current) e.currentTarget.play().catch(() => { }) } : undefined}
           aria-label="Media player"
         >
           <track kind="captions" />
@@ -325,14 +326,12 @@ export function Player({
   const loadWindow = useCallback(
     async (idx: number) => {
       const indices = Array.from({ length: TOTAL_SLOTS }, (_, i) => idx - effectiveBackward + i)
-      console.log("[Player] loadWindow start", { idx, indices, shuffleId })
       try {
         const res = await queryClient.fetchQuery({
           queryKey: ['media-info', shuffleId, indices],
           queryFn: () => fetchMediaInfo(shuffleId, indices),
           staleTime: 60_000,
         })
-        console.log("[Player] loadWindow result", res.map((r, i) => `[${indices[i]}]=${r ? r.path : r}`))
         setSlots(res.map((item) => item ?? null))
       } catch (err) {
         console.error("[Player] loadWindow error", err)
@@ -341,13 +340,6 @@ export function Player({
     },
     [shuffleId, TOTAL_SLOTS, effectiveBackward, queryClient],
   )
-
-  useEffect(() => {
-    console.log("[Player] slots changed", slots.map((s, i) => {
-      const label = s === "loading" ? "loading" : s === null ? "null" : s.path.split("/").pop()
-      return `[${currentIndex + (i - CURRENT_SLOT_IDX)}]=${label}`
-    }))
-  }, [slots])
 
   useEffect(() => {
     if (!open) return
@@ -382,11 +374,10 @@ export function Player({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!queuedCommitRef.current) return
-    if (animatingRef.current) { console.log("[Player] queued commit waiting: still animating"); return }
+    if (animatingRef.current) return
     const { direction } = queuedCommitRef.current
     const targetSlot = slots[CURRENT_SLOT_IDX + direction]
-    if (!targetSlot || targetSlot === "loading") { console.log("[Player] queued commit waiting: target slot", targetSlot); return }
-    console.log("[Player] queued commit firing", { direction })
+    if (!targetSlot || targetSlot === "loading") return
     queuedCommitRef.current = null
     const newTitle = titleFromPath(targetSlot.path)
     const newSeekBarVisible = targetSlot.media_type === 1
@@ -515,7 +506,6 @@ export function Player({
     setCurrentIndex(newIndex)
 
     const edgeIdx = direction === 1 ? newIndex + effectiveForward : newIndex - effectiveBackward
-    console.log("[Player] OFOAT edge fetch start", { edgeIdx, direction })
     try {
       const res = await queryClient.fetchQuery({
         queryKey: ['media-info', shuffleId, [edgeIdx]],
@@ -523,7 +513,6 @@ export function Player({
         staleTime: 60_000,
       })
       const edgeItem = res[0] ?? null
-      console.log("[Player] OFOAT edge fetch result", { edgeIdx, edgeItem: edgeItem ? edgeItem.path : edgeItem })
       setSlots((prev) =>
         direction === 1 ? [...prev.slice(0, -1), edgeItem] : [edgeItem, ...prev.slice(1)],
       )
@@ -596,7 +585,6 @@ export function Player({
     setCurrentIndex(newIndex)
 
     const edgeIdx = direction === 1 ? newIndex + effectiveForward : newIndex - effectiveBackward
-    console.log("[Player] default edge fetch start", { edgeIdx, direction })
     try {
       const res = await queryClient.fetchQuery({
         queryKey: ['media-info', shuffleId, [edgeIdx]],
@@ -604,7 +592,6 @@ export function Player({
         staleTime: 60_000,
       })
       const edgeItem = res[0] ?? null
-      console.log("[Player] default edge fetch result", { edgeIdx, edgeItem: edgeItem ? edgeItem.path : edgeItem })
       setSlots((prev) =>
         direction === 1 ? [...prev.slice(0, -1), edgeItem] : [edgeItem, ...prev.slice(1)],
       )
@@ -653,6 +640,7 @@ export function Player({
       seekDragTimerRef.current = setTimeout(() => {
         if (!touchRef.current || touchRef.current.mode !== "seek") return
         touchRef.current.pauseDragMode = true
+        cancelContrastTimer()
         const video = videoRefs.current.get(capturedIdx)
         if (video && video.duration) {
           video.pause()
@@ -749,6 +737,7 @@ export function Player({
       if (pauseDragMode) {
         const video = videoRefs.current.get(currentIndex)
         if (video && wasPlaying) { video.play().catch(() => { }); isPausedRef.current = false }
+        enterContrastMode()
         return
       }
       const video = videoRefs.current.get(currentIndex)
@@ -892,7 +881,7 @@ export function Player({
           const onError = () => setErrorIndices((prev) => new Set(prev).add(mediaIdx))
           return renderSlot(
             mediaIdx, item, slotDims, getItemTop(i), i === CURRENT_SLOT_IDX,
-            open, getVideoRef(mediaIdx), ofoatAnimating, onError, errorIndices.has(mediaIdx), mediaStyle,
+            open, getVideoRef(mediaIdx), ofoatAnimating, onError, errorIndices.has(mediaIdx), mediaStyle, isPausedRef,
           )
         })}
       </div>
