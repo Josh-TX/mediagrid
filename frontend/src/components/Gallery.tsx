@@ -116,6 +116,7 @@ export function Gallery() {
   const rewindSeconds = activePresetData?.rewindSeconds ?? 10
   const fastForwardSeconds = activePresetData?.fastForwardSeconds ?? 10
   const showTileTitle = activePresetData?.showTileTitle ?? true
+  const videoEndBehavior = activePresetData?.videoEndBehavior ?? "loop"
 
   // Keep a ref so the queryFn closure always has the latest shuffleId without being in the key.
   const shuffleIdRef = useRef<number | null>(shuffleId)
@@ -427,6 +428,7 @@ export function Gallery() {
           playerCropMaxY={playerCropMaxY}
           rewindSeconds={rewindSeconds}
           fastForwardSeconds={fastForwardSeconds}
+          videoEndBehavior={videoEndBehavior}
         />
       )}
     </Toast.Provider>

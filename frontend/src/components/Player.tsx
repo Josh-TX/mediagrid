@@ -30,6 +30,7 @@ interface PlayerProps {
   playerCropMaxY: number
   rewindSeconds: number
   fastForwardSeconds: number
+  videoEndBehavior: "loop" | "stop" | "next"
 }
 
 interface Dims {
@@ -75,6 +76,7 @@ function renderSlot(
   hasError: boolean,
   mediaStyle: React.CSSProperties | undefined,
   isPausedRef: React.RefObject<boolean>,
+  onEnded?: () => void,
 ) {
   const className = `${styles.item}${ofoatAnimating ? ` ${styles.itemOfoatAnimating}` : ""}`
   const style: React.CSSProperties = { top: topOffset, width: dims.width, height: dims.height, left: dims.offsetX }
@@ -98,12 +100,12 @@ function renderSlot(
           src={`/media/${encodePath(item.path)}`}
           className={mediaClass}
           style={mediaStyle}
-          loop
           playsInline
           autoPlay={isCurrent && open}
           muted={false}
           onError={onError}
           onCanPlay={isCurrent && open ? (e) => { if (!isPausedRef.current) e.currentTarget.play().catch(() => { }) } : undefined}
+          onEnded={isCurrent ? onEnded : undefined}
           aria-label="Media player"
         >
           <track kind="captions" />
@@ -172,6 +174,7 @@ export function Player({
   playerCropMaxY,
   rewindSeconds,
   fastForwardSeconds,
+  videoEndBehavior,
 }: PlayerProps) {
   const effectiveForward = oneFileAtATime ? 1 : forwardPreloadCount
   const effectiveBackward = oneFileAtATime ? 1 : backwardPreloadCount
@@ -830,6 +833,9 @@ export function Player({
     handleTap(e.clientX, e.clientY)
   }
 
+  const videoEndBehaviorRef = useRef(videoEndBehavior)
+  videoEndBehaviorRef.current = videoEndBehavior
+
   function getVideoRef(mediaIdx: number): React.RefCallback<HTMLVideoElement> {
     return (el) => {
       if (el) videoRefs.current.set(mediaIdx, el)
@@ -883,9 +889,23 @@ export function Player({
             slotDims = allDims[i] ?? fallbackDims
           }
           const onError = () => setErrorIndices((prev) => new Set(prev).add(mediaIdx))
+          const onEnded = i === CURRENT_SLOT_IDX ? () => {
+            const behavior = videoEndBehaviorRef.current
+            if (behavior === "loop") {
+              videoRefs.current.get(mediaIdx)?.play().catch(() => {})
+            } else if (behavior === "stop") {
+              isPausedRef.current = true
+              setSeekBarSubtle(false)
+              cancelContrastTimer()
+              setContrast({ mode: true, transitionMs: 0 })
+            } else if (behavior === "next") {
+              void commitAdvance(1)
+            }
+          } : undefined
           return renderSlot(
             mediaIdx, item, slotDims, getItemTop(i), i === CURRENT_SLOT_IDX,
             open, getVideoRef(mediaIdx), ofoatAnimating, onError, errorIndices.has(mediaIdx), mediaStyle, isPausedRef,
+            onEnded,
           )
         })}
       </div>

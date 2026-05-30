@@ -22,6 +22,7 @@ export const Preset = Schema.Struct({
   rewindSeconds: Schema.Int,
   fastForwardSeconds: Schema.Int,
   showTileTitle: Schema.Boolean,
+  videoEndBehavior: Schema.Literal("loop", "stop", "next"),
 })
 export type Preset = typeof Preset.Type
 

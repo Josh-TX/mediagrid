@@ -313,6 +313,14 @@ function PresetsTab({
             </label>
           ))}
           <label className={styles.field}>
+            <span>When video ends</span>
+            <select value={selectedPreset.videoEndBehavior} onChange={(e) => onUpdatePreset({ videoEndBehavior: e.target.value as "loop" | "stop" | "next" })}>
+              <option value="loop">Loop</option>
+              <option value="stop">Stop</option>
+              <option value="next">Next</option>
+            </select>
+          </label>
+          <label className={styles.field}>
             <span>Rewind seconds</span>
             <NumberInput key={`${selectedName}-${resetKey}-rewindSeconds`} aria-label="Rewind seconds" className={styles.numberInput} value={selectedPreset.rewindSeconds} min={1} onChange={(n) => onUpdatePreset({ rewindSeconds: n })} />
           </label>

@@ -53,6 +53,7 @@ export const DEFAULT_PRESET: Preset = {
   rewindSeconds: 10,
   fastForwardSeconds: 10,
   showTileTitle: true,
+  videoEndBehavior: "loop",
 }
 
 export const DatabaseLive = Layer.sync(Database, () => {
@@ -90,7 +91,8 @@ export const DatabaseLive = Layer.sync(Database, () => {
       oneFileAtATime INTEGER NOT NULL DEFAULT 0,
       rewindSeconds INTEGER NOT NULL DEFAULT 10,
       fastForwardSeconds INTEGER NOT NULL DEFAULT 10,
-      showTileTitle INTEGER NOT NULL DEFAULT 1
+      showTileTitle INTEGER NOT NULL DEFAULT 1,
+      videoEndBehavior TEXT NOT NULL DEFAULT 'loop'
     )
   `)
 
@@ -123,8 +125,8 @@ export const DatabaseLive = Layer.sync(Database, () => {
     INSERT INTO preset (name, targetTilePercent, maxTilePercent, clusterCount, minAspectRatio, maxAspectRatio,
       minDuration, maxDuration, playerCropMaxX, playerCropMaxY, tileCropMaxX, tileCropMaxY,
       excludeContainsCsv, excludeNotContainsCsv, mediaType, forwardPreloadCount, backwardPreloadCount, oneFileAtATime,
-      rewindSeconds, fastForwardSeconds, showTileTitle)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      rewindSeconds, fastForwardSeconds, showTileTitle, videoEndBehavior)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
   const deleteAllPresetsStmt = db.prepare(`DELETE FROM preset`)
@@ -177,6 +179,7 @@ export const DatabaseLive = Layer.sync(Database, () => {
       rewindSeconds: row["rewindSeconds"] as number,
       fastForwardSeconds: row["fastForwardSeconds"] as number,
       showTileTitle: Boolean(row["showTileTitle"]),
+      videoEndBehavior: (row["videoEndBehavior"] as Preset["videoEndBehavior"]) ?? "loop",
     }
   }
 
@@ -203,6 +206,7 @@ export const DatabaseLive = Layer.sync(Database, () => {
       preset.rewindSeconds,
       preset.fastForwardSeconds,
       preset.showTileTitle ? 1 : 0,
+      preset.videoEndBehavior,
     )
   }
 
