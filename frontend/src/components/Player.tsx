@@ -14,7 +14,7 @@ const SEEK_BAR_WRAPPER_HEIGHT = 32
 const SEEK_BAR_PAD = 12
 const CONTRAST_HOLD_MS = 800
 const CONTRAST_FADE_MS = 800
-const MEDIA_CROSSFADE_MS = 150
+const MEDIA_CROSSFADE_MS = 100
 
 interface PlayerProps {
   open: boolean
@@ -181,6 +181,8 @@ export function Player({
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [slots, setSlots] = useState<SlotItem[]>(() => Array<SlotItem>(TOTAL_SLOTS).fill("loading"))
+  const slotsRef = useRef<SlotItem[]>(slots)
+  slotsRef.current = slots
   const [errorIndices, setErrorIndices] = useState<Set<number>>(new Set())
 
   // isOpen lags one frame behind mount so the browser paints translateX(100%)
@@ -228,7 +230,6 @@ export function Player({
     lastTime: number
   } | null>(null)
   const animStartTimeRef = useRef<number>(0)
-  const isCommitAnimRef = useRef(false)
   const queuedCommitRef = useRef<{ direction: 1 | -1 } | null>(null)
   const seekDragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -418,7 +419,7 @@ export function Player({
   }
 
   async function commitAdvanceOFOAT(direction: 1 | -1) {
-    const snapSlots = slots
+    const snapSlots = slotsRef.current
     const snapAllDims = allDims
     const snapRestingTops = restingOfoatTops!
     const snapDragOffset = dragOffset
@@ -428,7 +429,6 @@ export function Player({
       : snapSlots[CURRENT_SLOT_IDX - 1] === null
 
     animatingRef.current = true
-    isCommitAnimRef.current = true
     animStartTimeRef.current = performance.now()
 
     // Phase 1: snapshot visual positions, collapse stack translateY (no CSS transition)
@@ -440,7 +440,7 @@ export function Player({
 
     await new Promise<void>((r) => requestAnimationFrame(() => r()))
 
-    // Phase 2: animate slot divs AND within-div media alignment simultaneously (both 300ms).
+    // Phase 2: animate slot divs AND within-div media alignment simultaneously (both 200ms).
     const targetTops: number[] = direction === 1 ? [-2 * vpH, -vpH, 0] : [0, vpH, 2 * vpH]
 
     const c = CURRENT_SLOT_IDX
@@ -460,10 +460,15 @@ export function Player({
     setOfoatAnimating(true)
     setMediaTargetTops(mediaTargets)
 
-    await new Promise<void>((r) => setTimeout(r, 300))
+    await new Promise<void>((r) => setTimeout(r, 100))
+    const incomingVideoOfoat = videoRefs.current.get(currentIndex + direction)
+    if (incomingVideoOfoat) {
+      incomingVideoOfoat.play().catch(() => {})
+      if (incomingVideoOfoat.duration) setSeekProgress(incomingVideoOfoat.currentTime / incomingVideoOfoat.duration)
+    }
+    await new Promise<void>((r) => setTimeout(r, 100))
 
     animatingRef.current = false
-    isCommitAnimRef.current = false
 
     if (isWrapping) {
       setOfoatAnimating(false)
@@ -520,7 +525,7 @@ export function Player({
       ? slots[CURRENT_SLOT_IDX + 1] === null
       : slots[CURRENT_SLOT_IDX - 1] === null
 
-    const snapSlots = slots
+    const snapSlots = slotsRef.current
     const snapAllDims = allDims
     const snapCurrDims = snapAllDims[CURRENT_SLOT_IDX]!
     const snapNeighborDims = (direction === 1
@@ -534,13 +539,17 @@ export function Player({
     setDragOffset(animOffset)
     setAnimating(true)
     animatingRef.current = true
-    isCommitAnimRef.current = true
     animStartTimeRef.current = performance.now()
 
-    await new Promise<void>((r) => setTimeout(r, 300))
+    await new Promise<void>((r) => setTimeout(r, 100))
+    const incomingVideo = videoRefs.current.get(currentIndex + direction)
+    if (incomingVideo) {
+      incomingVideo.play().catch(() => {})
+      if (incomingVideo.duration) setSeekProgress(incomingVideo.currentTime / incomingVideo.duration)
+    }
+    await new Promise<void>((r) => setTimeout(r, 100))
 
     animatingRef.current = false
-    isCommitAnimRef.current = false
 
     if (isWrapping) {
       baseYRef.current = 0
@@ -698,21 +707,18 @@ export function Player({
     if (pendingTouchRef.current) {
       const { startY, startTime, lastY, lastTime } = pendingTouchRef.current
       pendingTouchRef.current = null
-      if (animatingRef.current) {
-        if (isCommitAnimRef.current && performance.now() - animStartTimeRef.current >= 200) {
-          const dy = lastY - startY
-          const dt = Math.max(lastTime - startTime, 1)
-          const velocity = Math.abs(dy) / dt
-          if (velocity > SWIPE_VELOCITY_THRESHOLD) {
-            queuedCommitRef.current = { direction: dy < 0 ? 1 : -1 }
-          }
-        }
-        return
-      }
+      const elapsed = performance.now() - animStartTimeRef.current
+      const stillAnimating = animatingRef.current
       const dy = lastY - startY
       const dt = Math.max(lastTime - startTime, 1)
       const velocity = Math.abs(dy) / dt
-      if (velocity > SWIPE_VELOCITY_THRESHOLD) {
+      const meetsVelocity = velocity > SWIPE_VELOCITY_THRESHOLD
+      const canQueue = stillAnimating && elapsed >= 100 && meetsVelocity
+      if (stillAnimating) {
+        if (canQueue) queuedCommitRef.current = { direction: dy < 0 ? 1 : -1 }
+        return
+      }
+      if (meetsVelocity) {
         const direction = dy < 0 ? 1 : -1
         const targetSlot = slots[CURRENT_SLOT_IDX + direction]
         const newTitle = targetSlot && targetSlot !== "loading" ? titleFromPath(targetSlot.path) : ""
@@ -860,7 +866,7 @@ export function Player({
               height: mDims.height,
               left: mDims.offsetX,
               top: mediaTopInDiv,
-              transition: mediaTargetTops ? "top 0.3s ease" : undefined,
+              transition: mediaTargetTops ? "top 0.2s ease" : undefined,
             }
           } else {
             slotDims = allDims[i] ?? fallbackDims
