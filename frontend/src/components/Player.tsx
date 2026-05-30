@@ -325,19 +325,29 @@ export function Player({
   const loadWindow = useCallback(
     async (idx: number) => {
       const indices = Array.from({ length: TOTAL_SLOTS }, (_, i) => idx - effectiveBackward + i)
+      console.log("[Player] loadWindow start", { idx, indices, shuffleId })
       try {
         const res = await queryClient.fetchQuery({
           queryKey: ['media-info', shuffleId, indices],
           queryFn: () => fetchMediaInfo(shuffleId, indices),
           staleTime: 60_000,
         })
+        console.log("[Player] loadWindow result", res.map((r, i) => `[${indices[i]}]=${r ? r.path : r}`))
         setSlots(res.map((item) => item ?? null))
       } catch (err) {
+        console.error("[Player] loadWindow error", err)
         if (err instanceof Error && err.message.includes("404")) onShuffleExpiredRef.current()
       }
     },
     [shuffleId, TOTAL_SLOTS, effectiveBackward, queryClient],
   )
+
+  useEffect(() => {
+    console.log("[Player] slots changed", slots.map((s, i) => {
+      const label = s === "loading" ? "loading" : s === null ? "null" : s.path.split("/").pop()
+      return `[${currentIndex + (i - CURRENT_SLOT_IDX)}]=${label}`
+    }))
+  }, [slots])
 
   useEffect(() => {
     if (!open) return
@@ -371,10 +381,12 @@ export function Player({
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!queuedCommitRef.current || animatingRef.current) return
+    if (!queuedCommitRef.current) return
+    if (animatingRef.current) { console.log("[Player] queued commit waiting: still animating"); return }
     const { direction } = queuedCommitRef.current
     const targetSlot = slots[CURRENT_SLOT_IDX + direction]
-    if (!targetSlot || targetSlot === "loading") return
+    if (!targetSlot || targetSlot === "loading") { console.log("[Player] queued commit waiting: target slot", targetSlot); return }
+    console.log("[Player] queued commit firing", { direction })
     queuedCommitRef.current = null
     const newTitle = titleFromPath(targetSlot.path)
     const newSeekBarVisible = targetSlot.media_type === 1
@@ -495,17 +507,15 @@ export function Player({
     }
 
     const newIndex = currentIndex + direction
-    const newSlots: SlotItem[] = direction === 1
-      ? [...snapSlots.slice(1), "loading"]
-      : ["loading", ...snapSlots.slice(0, -1)]
 
     setOfoatAnimating(false)
     setItemTops(null)
     setMediaTargetTops(null)
-    setSlots(newSlots)
+    setSlots(prev => direction === 1 ? [...prev.slice(1), "loading"] : ["loading", ...prev.slice(0, -1)])
     setCurrentIndex(newIndex)
 
     const edgeIdx = direction === 1 ? newIndex + effectiveForward : newIndex - effectiveBackward
+    console.log("[Player] OFOAT edge fetch start", { edgeIdx, direction })
     try {
       const res = await queryClient.fetchQuery({
         queryKey: ['media-info', shuffleId, [edgeIdx]],
@@ -513,10 +523,12 @@ export function Player({
         staleTime: 60_000,
       })
       const edgeItem = res[0] ?? null
+      console.log("[Player] OFOAT edge fetch result", { edgeIdx, edgeItem: edgeItem ? edgeItem.path : edgeItem })
       setSlots((prev) =>
         direction === 1 ? [...prev.slice(0, -1), edgeItem] : [edgeItem, ...prev.slice(1)],
       )
     } catch (err) {
+      console.error("[Player] OFOAT edge fetch error", err)
       if (err instanceof Error && err.message.includes("404")) onShuffleExpired()
     }
   }
@@ -526,7 +538,6 @@ export function Player({
       ? slots[CURRENT_SLOT_IDX + 1] === null
       : slots[CURRENT_SLOT_IDX - 1] === null
 
-    const snapSlots = slotsRef.current
     const snapAllDims = allDims
     const snapCurrDims = snapAllDims[CURRENT_SLOT_IDX]!
     const snapNeighborDims = (direction === 1
@@ -579,16 +590,13 @@ export function Player({
     if (direction === 1) baseYRef.current += snapCurrDims.height
     else baseYRef.current -= snapNeighborDims.height
 
-    const newSlots: SlotItem[] = direction === 1
-      ? [...snapSlots.slice(1), "loading"]
-      : ["loading", ...snapSlots.slice(0, -1)]
-
     setAnimating(false)
     setDragOffset(0)
-    setSlots(newSlots)
+    setSlots(prev => direction === 1 ? [...prev.slice(1), "loading"] : ["loading", ...prev.slice(0, -1)])
     setCurrentIndex(newIndex)
 
     const edgeIdx = direction === 1 ? newIndex + effectiveForward : newIndex - effectiveBackward
+    console.log("[Player] default edge fetch start", { edgeIdx, direction })
     try {
       const res = await queryClient.fetchQuery({
         queryKey: ['media-info', shuffleId, [edgeIdx]],
@@ -596,10 +604,12 @@ export function Player({
         staleTime: 60_000,
       })
       const edgeItem = res[0] ?? null
+      console.log("[Player] default edge fetch result", { edgeIdx, edgeItem: edgeItem ? edgeItem.path : edgeItem })
       setSlots((prev) =>
         direction === 1 ? [...prev.slice(0, -1), edgeItem] : [edgeItem, ...prev.slice(1)],
       )
     } catch (err) {
+      console.error("[Player] default edge fetch error", err)
       if (err instanceof Error && err.message.includes("404")) onShuffleExpired()
     }
   }
