@@ -17,8 +17,8 @@ interface SettingsModalProps {
   isTemp: boolean
   sessionId: string | null
   activePreset: string
-  onSavePermanently: (presets: Preset[]) => void
-  onSaveTemporarily: (presets: Preset[], newSessionId: string) => void
+  onSavePermanently: () => void
+  onSaveTemporarily: (newSessionId: string) => void
 }
 
 const ASPECT_RATIO_OPTIONS: { label: string; value: number | null }[] = [
@@ -136,8 +136,8 @@ function PresetsTab({
           ))}
         </select>
         <button type="button" className={styles.iconBtn} onClick={onRename} disabled={isDefault}>Rename</button>
-        <button type="button" className={styles.iconBtn} onClick={onNewPreset}>New Preset</button>
         <button type="button" className={styles.iconBtn} onClick={onDelete} disabled={isDefault}>Delete</button>
+        <button type="button" className={styles.iconBtn} onClick={onNewPreset}>New Preset</button>
       </div>
 
       <div className={styles.settingsScroll}>
@@ -284,9 +284,9 @@ function PresetsTab({
       </div>
 
       <div className={styles.footer}>
-        <div>{saveError && <span className={styles.saveError}>Save failed</span>}</div>
+        <button type="button" className={styles.closeBtn} onClick={onCancel}>Close</button>
         <div className={styles.footerRight}>
-          <button type="button" className={styles.closeBtn} onClick={onCancel}>Cancel</button>
+          {saveError && <span className={styles.saveError}>Save failed</span>}
           <button type="button" className={styles.closeBtn} onClick={onSaveTemporarily}>Save Temporarily</button>
           <button type="button" className={styles.closeBtn} onClick={onSavePermanently}>Save Permanently</button>
         </div>
@@ -787,7 +787,7 @@ export function SettingsModal({
     setSaveError(false)
     try {
       await putPresets(localPresets)
-      onSavePermanently(localPresets)
+      onSavePermanently()
       onOpenChange(false)
     } catch {
       setSaveError(true)
@@ -798,7 +798,7 @@ export function SettingsModal({
     setSaveError(false)
     try {
       const result = await putTempPresets(localPresets, sessionId)
-      onSaveTemporarily(localPresets, result.sessionId)
+      onSaveTemporarily(result.sessionId)
       onOpenChange(false)
     } catch {
       setSaveError(true)

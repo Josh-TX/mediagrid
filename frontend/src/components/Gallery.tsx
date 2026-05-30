@@ -364,25 +364,17 @@ export function Gallery() {
           isTemp={isTemp}
           sessionId={sessionId}
           activePreset={activePreset}
-          onSavePermanently={(updated) => {
-            const currentPreset = presets?.find((p) => p.name === activePreset)
-            const newPreset = updated.find((p) => p.name === activePreset)
-            if (currentPreset && newPreset && JSON.stringify(currentPreset) !== JSON.stringify(newPreset)) {
-              shuffleIdRef.current = null
-              setShuffleId(null)
-              queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
-            }
+          onSavePermanently={() => {
+            shuffleIdRef.current = null
+            setShuffleId(null)
+            queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
             sessionStorage.removeItem("presetSessionId")
             setSessionId(null)
           }}
-          onSaveTemporarily={(updated, newSessionId) => {
-            const currentPreset = presets?.find((p) => p.name === activePreset)
-            const newPreset = updated.find((p) => p.name === activePreset)
-            if (currentPreset && newPreset && JSON.stringify(currentPreset) !== JSON.stringify(newPreset)) {
-              shuffleIdRef.current = null
-              setShuffleId(null)
-              queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
-            }
+          onSaveTemporarily={(newSessionId) => {
+            shuffleIdRef.current = null
+            setShuffleId(null)
+            queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
             sessionStorage.setItem("presetSessionId", newSessionId)
             setSessionId(newSessionId)
           }}
