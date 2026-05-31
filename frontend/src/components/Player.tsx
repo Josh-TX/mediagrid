@@ -830,8 +830,82 @@ export function Player({
 
   function onPlayerClick(e: React.MouseEvent) {
     if (preventNextClickRef.current) return
+    if (isSeekBarHit(e.clientY, vpH)) {
+      const video = videoRefs.current.get(currentIndex)
+      if (video && video.duration) {
+        const progress = clampSeekProgress(seekProgressFromX(e.clientX, vpW), video.duration)
+        video.currentTime = progress * video.duration
+        setSeekProgress(progress)
+        enterContrastMode()
+      }
+      return
+    }
     handleTap(e.clientX, e.clientY)
   }
+
+  const keyHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null)
+  keyHandlerRef.current = (e: KeyboardEvent) => {
+    if (!open || animatingRef.current) return
+    const currentMedia = slots[CURRENT_SLOT_IDX]
+    const isVideo = !!currentMedia && currentMedia !== "loading" && currentMedia.media_type === 1
+    const video = isVideo ? videoRefs.current.get(currentIndex) : undefined
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      const targetSlot = slots[CURRENT_SLOT_IDX + 1]
+      const newTitle = targetSlot && targetSlot !== "loading" ? titleFromPath(targetSlot.path) : ""
+      const newSeekBarVisible = !!(targetSlot && targetSlot !== "loading" && targetSlot.media_type === 1)
+      startMediaFade(newTitle, newSeekBarVisible)
+      void commitAdvance(1)
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      const targetSlot = slots[CURRENT_SLOT_IDX - 1]
+      const newTitle = targetSlot && targetSlot !== "loading" ? titleFromPath(targetSlot.path) : ""
+      const newSeekBarVisible = !!(targetSlot && targetSlot !== "loading" && targetSlot.media_type === 1)
+      startMediaFade(newTitle, newSeekBarVisible)
+      void commitAdvance(-1)
+    } else if (e.key === " " && isVideo && video) {
+      e.preventDefault()
+      if (video.paused) {
+        video.play().catch(() => {})
+        triggerPlayPauseOverlay("play")
+        isPausedRef.current = false
+        enterContrastMode()
+      } else {
+        video.pause()
+        triggerPlayPauseOverlay("pause")
+        isPausedRef.current = true
+        setSeekBarSubtle(false)
+        cancelContrastTimer()
+        setContrast({ mode: true, transitionMs: 0 })
+      }
+    } else if (e.key === "ArrowLeft" && video) {
+      e.preventDefault()
+      video.currentTime = Math.max(0, video.currentTime - rewindSeconds)
+      triggerRewindOverlay()
+      enterContrastMode()
+    } else if (e.key === "ArrowRight" && video) {
+      e.preventDefault()
+      const maxTime = Math.max(0, (video.duration || 0) - SEEK_END_BUFFER)
+      video.currentTime = Math.min(maxTime, video.currentTime + fastForwardSeconds)
+      triggerForwardOverlay()
+      enterContrastMode()
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => keyHandlerRef.current?.(e)
+    document.addEventListener("keydown", handler)
+    return () => document.removeEventListener("keydown", handler)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = prev }
+  }, [open])
 
   const videoEndBehaviorRef = useRef(videoEndBehavior)
   videoEndBehaviorRef.current = videoEndBehavior
