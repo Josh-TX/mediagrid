@@ -79,7 +79,9 @@ export function probeAndInsert(
         Effect.catchAll(() => Effect.succeed(null)),
       )
       if (!dims?.width || !dims?.height) return false
-      return yield* db.insertMedia({ path: rel, width: dims.width, height: dims.height, filesize, mdate, duration: null, media_type: 2 })
+      const o = (dims as any).orientation ?? 1
+      const [width, height] = o >= 5 && o <= 8 ? [dims.height, dims.width] : [dims.width, dims.height]
+      return yield* db.insertMedia({ path: rel, width, height, filesize, mdate, duration: null, media_type: 2 })
     }
   })
 }
