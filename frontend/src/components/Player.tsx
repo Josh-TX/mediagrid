@@ -900,6 +900,25 @@ export function Player({
     return () => document.removeEventListener("keydown", handler)
   }, [open])
 
+  const wheelHandlerRef = useRef<((e: WheelEvent) => void) | null>(null)
+  wheelHandlerRef.current = (e: WheelEvent) => {
+    if (!open || animatingRef.current) return
+    e.preventDefault()
+    const direction = e.deltaY > 0 ? 1 : -1
+    const targetSlot = slots[CURRENT_SLOT_IDX + direction]
+    const newTitle = targetSlot && targetSlot !== "loading" ? titleFromPath(targetSlot.path) : ""
+    const newSeekBarVisible = !!(targetSlot && targetSlot !== "loading" && targetSlot.media_type === 1)
+    startMediaFade(newTitle, newSeekBarVisible)
+    void commitAdvance(direction)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: WheelEvent) => wheelHandlerRef.current?.(e)
+    document.addEventListener("wheel", handler, { passive: false })
+    return () => document.removeEventListener("wheel", handler)
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     const prev = document.body.style.overflow
