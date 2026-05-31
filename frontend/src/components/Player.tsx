@@ -10,7 +10,7 @@ const SWIPE_COMMIT_THRESHOLD = 0.5 // fraction of current item's rendered height
 const SEEK_END_BUFFER = 0.5
 
 const SEEK_BAR_WRAPPER_BOTTOM = 0
-const SEEK_BAR_WRAPPER_HEIGHT = 32
+const SEEK_BAR_WRAPPER_HEIGHT = 42
 const SEEK_BAR_PAD = 12
 const CONTRAST_HOLD_MS = 800
 const CONTRAST_FADE_MS = 800
@@ -255,6 +255,10 @@ export function Player({
   // ── Title display ───────────────────────────────────────────────────────────
   const displayedTitle = fadeTitle ?? currentSlotTitle
 
+  const [infoTooltipOpen, setInfoTooltipOpen] = useState(false)
+
+  useEffect(() => { setInfoTooltipOpen(false) }, [currentIndex])
+
   // ── Contrast / subtle visibility mode ───────────────────────────────────────
   const [contrast, setContrast] = useState({ mode: true, transitionMs: 0 })
   const [mediaFadingOut, setMediaFadingOut] = useState(false)
@@ -470,7 +474,7 @@ export function Player({
     await new Promise<void>((r) => setTimeout(r, 100))
     const incomingVideoOfoat = videoRefs.current.get(currentIndex + direction)
     if (incomingVideoOfoat) {
-      incomingVideoOfoat.play().catch(() => {})
+      incomingVideoOfoat.play().catch(() => { })
       if (incomingVideoOfoat.duration) setSeekProgress(incomingVideoOfoat.currentTime / incomingVideoOfoat.duration)
     }
     await new Promise<void>((r) => setTimeout(r, 100))
@@ -548,7 +552,7 @@ export function Player({
     await new Promise<void>((r) => setTimeout(r, 100))
     const incomingVideo = videoRefs.current.get(currentIndex + direction)
     if (incomingVideo) {
-      incomingVideo.play().catch(() => {})
+      incomingVideo.play().catch(() => { })
       if (incomingVideo.duration) setSeekProgress(incomingVideo.currentTime / incomingVideo.duration)
     }
     await new Promise<void>((r) => setTimeout(r, 100))
@@ -779,6 +783,7 @@ export function Player({
 
   // ── Tap zone handler (shared by touch and mouse) ────────────────────────────
   function handleTap(clientX: number, clientY: number) {
+    if (infoTooltipOpen) { setInfoTooltipOpen(false); return }
     if (isSeekBarHit(clientY, vpH)) return
 
     const currentMedia = slots[CURRENT_SLOT_IDX]
@@ -830,6 +835,7 @@ export function Player({
 
   function onPlayerClick(e: React.MouseEvent) {
     if (preventNextClickRef.current) return
+    if (infoTooltipOpen) { setInfoTooltipOpen(false); return }
     if (isSeekBarHit(e.clientY, vpH)) {
       const video = videoRefs.current.get(currentIndex)
       if (video && video.duration) {
@@ -867,7 +873,7 @@ export function Player({
     } else if (e.key === " " && isVideo && video) {
       e.preventDefault()
       if (video.paused) {
-        video.play().catch(() => {})
+        video.play().catch(() => { })
         triggerPlayPauseOverlay("play")
         isPausedRef.current = false
         enterContrastMode()
@@ -937,7 +943,7 @@ export function Player({
   }
 
   const seekBarStyle: React.CSSProperties = {
-    background: `linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,1) ${seekProgress * 100}%, rgba(255,255,255,0.2) ${seekProgress * 100}%, rgba(255,255,255,0.2) 100%)`,
+    background: `linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,1) ${seekProgress * 100}%, rgba(96,96,96,0.8) ${seekProgress * 100}%, rgba(96,96,96,0.8) 100%)`,
   }
 
   const overlayTransition = `opacity ${contrast.transitionMs}ms ease`
@@ -985,7 +991,7 @@ export function Player({
           const onEnded = i === CURRENT_SLOT_IDX ? () => {
             const behavior = videoEndBehaviorRef.current
             if (behavior === "loop") {
-              videoRefs.current.get(mediaIdx)?.play().catch(() => {})
+              videoRefs.current.get(mediaIdx)?.play().catch(() => { })
             } else if (behavior === "stop") {
               isPausedRef.current = true
               setSeekBarSubtle(false)
@@ -1018,6 +1024,9 @@ export function Player({
         rewindSeconds={rewindSeconds}
         fastForwardSeconds={fastForwardSeconds}
         isFullscreen={isFullscreen}
+        currentMedia={currentSlot && currentSlot !== "loading" ? currentSlot : null}
+        infoTooltipOpen={infoTooltipOpen}
+        onInfoToggle={(e) => { e.stopPropagation(); setInfoTooltipOpen((v) => !v) }}
         onClose={onClose}
         onToggleFullscreen={toggleFullscreen}
       />

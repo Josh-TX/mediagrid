@@ -154,7 +154,7 @@
 .titleRow {
   position: fixed;
   left: 12px;
-  right: 12px;
+  right: 32px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -184,6 +184,45 @@
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
+.infoBtn {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  z-index: 11;
+  background: none;
+  opacity: 0.5;
+  border: none;
+  cursor: pointer;
+  padding: 18px 8px 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.infoBtn:active {
+  opacity: 0.9;
+}
+
+.infoTooltip {
+  position: fixed;
+  bottom: 44px;
+  right: 12px;
+  background: rgba(40, 40, 40, 0.92);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  max-width: 300px;
+  z-index: 15;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
 /* ── Seek bar ─────────────────────────────────────────────────────────────── */
 
 /**
@@ -198,7 +237,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 32px;
+  height: 42px;
   z-index: 10;
   pointer-events: none;
 }

@@ -109,5 +109,7 @@ export const MediaInfo = Schema.Struct({
   height: Schema.Int,
   duration: Schema.NullOr(Schema.Int),
   media_type: Schema.Int,
+  filesize: Schema.Int,
+  mdate: Schema.Int,
 })
 export type MediaInfo = typeof MediaInfo.Type

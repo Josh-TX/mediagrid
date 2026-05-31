@@ -219,7 +219,7 @@ const mediaInfoHandler = Effect.gen(function* () {
   const result: (MediaInfo | null)[] = requestedIndexes.map((i) => {
     if (i < 0 || i >= cached.media.length) return null
     const m = cached.media[i]!
-    return { path: m.path, width: m.width, height: m.height, duration: m.duration, media_type: m.media_type }
+    return { path: m.path, width: m.width, height: m.height, duration: m.duration, media_type: m.media_type, filesize: m.filesize, mdate: m.mdate }
   })
 
   return yield* HttpServerResponse.json(result)

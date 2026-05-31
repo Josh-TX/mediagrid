@@ -1,3 +1,4 @@
+import type { MediaInfo } from "@repo/types"
 import styles from "./Player.module.css"
 
 const OVERLAY_FADE_DURATION_MS = 600
@@ -24,6 +25,36 @@ function PauseIcon() {
   )
 }
 
+function InfoIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4" />
+      <path d="M12 8h.01" strokeWidth="3" />
+    </svg>
+  )
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+}
+
+function formatDate(mdate: number): string {
+  return new Date(mdate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+}
+
+function formatDuration(ms: number): string {
+  const totalSec = Math.floor(ms / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+  return `${m}:${String(s).padStart(2, "0")}`
+}
+
 export { Spinner }
 
 export interface PlayerControlsProps {
@@ -41,6 +72,9 @@ export interface PlayerControlsProps {
   rewindSeconds: number
   fastForwardSeconds: number
   isFullscreen: boolean
+  currentMedia: MediaInfo | null
+  infoTooltipOpen: boolean
+  onInfoToggle: (e: React.MouseEvent) => void
   onClose: () => void
   onToggleFullscreen: () => void
 }
@@ -48,7 +82,8 @@ export interface PlayerControlsProps {
 export function PlayerControls({
   controlsOpacity, seekBarOpacity, overlayTransition, displayedTitle, seekBarVisible, timeRemaining,
   seekBarStyle, blackOverlayOpacity, rewindOverlay, playPauseOverlay, forwardOverlay,
-  rewindSeconds, fastForwardSeconds, isFullscreen, onClose, onToggleFullscreen,
+  rewindSeconds, fastForwardSeconds, isFullscreen, currentMedia, infoTooltipOpen, onInfoToggle,
+  onClose, onToggleFullscreen,
 }: PlayerControlsProps) {
   return (
     <>
@@ -65,6 +100,26 @@ export function PlayerControls({
           <span className={styles.timeRemaining}>{timeRemaining}</span>
         )}
       </div>
+      <button
+        type="button"
+        className={styles.infoBtn}
+        onClick={onInfoToggle}
+        onTouchStart={(e) => e.stopPropagation()}
+        aria-label="Media info"
+      >
+        <InfoIcon />
+      </button>
+      {infoTooltipOpen && currentMedia && (
+        <div className={styles.infoTooltip}>
+          <span>{currentMedia.path}</span>
+          <span>{formatDate(currentMedia.mdate)}</span>
+          <span>{formatBytes(currentMedia.filesize)}</span>
+          <span>{currentMedia.width}w × {currentMedia.height}h</span>
+          {currentMedia.duration != null && (
+            <span>{formatDuration(currentMedia.duration)}</span>
+          )}
+        </div>
+      )}
       {seekBarVisible && (
         <div className={styles.seekBarWrapper} style={{ opacity: seekBarOpacity, transition: overlayTransition }}>
           <div className={styles.seekBar} style={seekBarStyle} />
