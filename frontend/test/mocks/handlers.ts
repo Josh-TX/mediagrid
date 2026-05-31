@@ -45,6 +45,7 @@ export const DEFAULT_PRESET: Preset = {
   fastForwardSeconds: 10,
   showTileTitle: true,
   videoEndBehavior: "loop",
+  defaultSort: "random",
 }
 
 // Fixed shuffleId used by the mock — not a real cache, just a stable value for tests.

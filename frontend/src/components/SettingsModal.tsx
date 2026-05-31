@@ -211,6 +211,15 @@ function PresetsTab({
             </label>
           ))}
           <label className={styles.field}>
+            <span>Default sort</span>
+            <select value={selectedPreset.defaultSort} onChange={(e) => onUpdatePreset({ defaultSort: e.target.value as Preset["defaultSort"] })}>
+              <option value="random">Random</option>
+              <option value="size">Size</option>
+              <option value="az">A–Z</option>
+              <option value="date">Date</option>
+            </select>
+          </label>
+          <label className={styles.field}>
             <span>Show tile title</span>
             <input
               type="checkbox"

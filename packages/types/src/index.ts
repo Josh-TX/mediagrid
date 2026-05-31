@@ -23,6 +23,7 @@ export const Preset = Schema.Struct({
   fastForwardSeconds: Schema.Int,
   showTileTitle: Schema.Boolean,
   videoEndBehavior: Schema.Literal("loop", "stop", "next"),
+  defaultSort: Schema.Literal("random", "size", "az", "date"),
 })
 export type Preset = typeof Preset.Type
 

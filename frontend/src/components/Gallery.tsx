@@ -10,10 +10,10 @@ import styles from "./Gallery.module.css"
 
 function readUrlParams() {
   const params = new URLSearchParams(window.location.search)
-  const sortRaw = params.get("sort") ?? "random"
-  const sort: SortType = (sortRaw === "size" || sortRaw === "az" || sortRaw === "date") ? sortRaw : "random"
-  const dirRaw = params.get("dir") ?? "asc"
-  const dir: SortDir = dirRaw === "desc" ? "desc" : "asc"
+  const sortRaw = params.get("sort")
+  const sort: SortType | null = (sortRaw === "size" || sortRaw === "az" || sortRaw === "date" || sortRaw === "random") ? sortRaw : null
+  const dirRaw = params.get("dir")
+  const dir: SortDir = dirRaw === "desc" ? "desc" : dirRaw === "asc" ? "asc" : (sort !== null && sort !== "random" ? defaultDirForSort(sort) : "asc")
   const iRaw = params.get("i")
   return {
     q: params.get("q") ?? "",
@@ -25,12 +25,17 @@ function readUrlParams() {
   }
 }
 
-function buildUrl(q: string, preset: string, shuffleId: number | null, sort: SortType, dir: SortDir, playerIndex: number | null): string {
+function defaultDirForSort(sort: SortType): SortDir {
+  if (sort === "az") return "asc"
+  return "desc" // date, size
+}
+
+function buildUrl(q: string, preset: string, shuffleId: number | null, sort: SortType, dir: SortDir, playerIndex: number | null, presetDefaultSort: SortType): string {
   const params = new URLSearchParams()
   if (q.trim()) params.set("q", q.trim())
   if (preset !== "default") params.set("preset", preset)
-  if (sort !== "random") params.set("sort", sort)
-  if (dir !== "asc") params.set("dir", dir)
+  if (sort !== presetDefaultSort) params.set("sort", sort)
+  if (sort !== "random" && dir !== defaultDirForSort(sort)) params.set("dir", dir)
   if (shuffleId !== null) params.set("s", String(shuffleId))
   if (playerIndex !== null) params.set("i", String(playerIndex))
   const qs = params.toString()
@@ -86,8 +91,9 @@ export function Gallery() {
   const [debouncedSearch, setDebouncedSearch] = useState(initialParams.q)
   const [activePreset, setActivePreset] = useState(initialParams.preset)
   const [shuffleId, setShuffleId] = useState<number | null>(initialParams.s)
-  const [sort, setSort] = useState<SortType>(initialParams.sort)
+  const [sort, setSort] = useState<SortType>(initialParams.sort ?? "random")
   const [dir, setDir] = useState<SortDir>(initialParams.dir)
+  const sortExplicitRef = useRef(initialParams.sort !== null)
   const [toastState, dispatchToast] = useReducer(toastReducer, { open: false, message: '' })
   const [playerState, dispatchPlayer] = useReducer(playerReducer, {
     open: initialParams.s !== null && initialParams.i !== null,
@@ -107,7 +113,11 @@ export function Gallery() {
     return () => obs.disconnect()
   }, [])
 
+  const latestPresetsRef = useRef(presets)
+  latestPresetsRef.current = presets
+
   const activePresetData = presets?.find((p) => p.name === activePreset)
+  const presetDefaultSort: SortType = activePresetData?.defaultSort ?? "random"
   const tileCropMaxX = activePresetData?.tileCropMaxX ?? 0.1
   const tileCropMaxY = activePresetData?.tileCropMaxY ?? 0.1
   const playerCropMaxX = activePresetData?.playerCropMaxX ?? 0
@@ -152,26 +162,46 @@ export function Gallery() {
   latestSortRef.current = sort
   const latestDirRef = useRef(dir)
   latestDirRef.current = dir
+  const latestPresetDefaultSortRef = useRef(presetDefaultSort)
+  latestPresetDefaultSortRef.current = presetDefaultSort
 
   useEffect(() => () => { if (debounceTimer.current) clearTimeout(debounceTimer.current) }, [])
+
+  useEffect(() => {
+    if (presets && !sortExplicitRef.current) {
+      sortExplicitRef.current = true
+      const preset = presets.find(p => p.name === activePreset)
+      const newSort = preset?.defaultSort ?? "random"
+      const newDir = newSort !== "random" ? defaultDirForSort(newSort) : "asc"
+      // Pre-update the prev refs so the sync comparison block doesn't see a sort/dir
+      // "change" and clear shuffleIdRef — the shuffleId from the URL is still valid.
+      prevSortRef.current = newSort
+      prevDirRef.current = newDir
+      setSort(newSort)
+      setDir(newDir)
+      history.replaceState(null, "", buildUrl(debouncedSearch, activePreset, shuffleId, newSort, newDir, null, newSort))
+    }
+  }, [presets])
 
   // Popstate: sync React state from URL when the user navigates back/forward.
   useEffect(() => {
     function handlePopState() {
       if (debounceTimer.current) { clearTimeout(debounceTimer.current); debounceTimer.current = null }
       const p = readUrlParams()
+      const resolvedSort = p.sort ?? latestPresetsRef.current?.find(pst => pst.name === p.preset)?.defaultSort ?? "random"
+      const resolvedDir = p.sort !== null ? p.dir : (resolvedSort !== "random" ? defaultDirForSort(resolvedSort) : "asc")
       // Set ref immediately so the queryFn reads the correct shuffleId before React re-renders.
       shuffleIdRef.current = p.s
       setSearch(p.q)
       setDebouncedSearch(p.q)
       setActivePreset(p.preset)
       setShuffleId(p.s)
-      setSort(p.sort)
-      setDir(p.dir)
+      setSort(resolvedSort)
+      setDir(resolvedDir)
       if (p.i !== null) dispatchPlayer({ type: 'open', index: p.i })
       else dispatchPlayer({ type: 'close' })
       // Reset cached data so the gallery refetches with the restored shuffleId.
-      queryClient.resetQueries({ queryKey: ["blocks", p.q, p.preset, p.sort, p.dir] })
+      queryClient.resetQueries({ queryKey: ["blocks", p.q, p.preset, resolvedSort, resolvedDir] })
     }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
@@ -192,7 +222,7 @@ export function Gallery() {
         const res = await fetchBlocks(shuffleIdRef.current, pageParam, debouncedSearch, activePreset, sort, dir, sessionIdRef.current ?? undefined)
         if (shuffleIdRef.current === null) {
           setShuffleId(res.shuffleId)
-          history.replaceState(null, "", buildUrl(debouncedSearch, activePreset, res.shuffleId, sort, dir, null))
+          history.replaceState(null, "", buildUrl(debouncedSearch, activePreset, res.shuffleId, sort, dir, null, presetDefaultSort))
         }
         return res
       } catch (err) {
@@ -206,7 +236,7 @@ export function Gallery() {
       const totalFetched = allPages.reduce((sum, p) => sum + p.blocks.length, 0)
       return totalFetched < lastPage.totalBlocks ? [totalFetched] : undefined
     },
-    enabled: !!presets,
+    enabled: !!presets && sortExplicitRef.current,
     gcTime: 0,
   })
 
@@ -214,13 +244,13 @@ export function Gallery() {
     shuffleIdRef.current = null
     setShuffleId(null)
     dispatchPlayer({ type: 'close' })
-    history.replaceState(null, "", buildUrl(debouncedSearch, activePreset, null, sort, dir, null))
+    history.replaceState(null, "", buildUrl(debouncedSearch, activePreset, null, sort, dir, null, presetDefaultSort))
     queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
   }
 
   function handleTileClick(shuffleIndex: number) {
     dispatchPlayer({ type: 'open', index: shuffleIndex })
-    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, shuffleId, sort, dir, shuffleIndex))
+    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, shuffleId, sort, dir, shuffleIndex, presetDefaultSort))
   }
 
   function handleShowToast(message: string) {
@@ -242,28 +272,33 @@ export function Gallery() {
 
   function handlePresetChange(name: string) {
     shuffleIdRef.current = null
+    const newPreset = presets?.find((p) => p.name === name)
+    const newSort = newPreset?.defaultSort ?? sort
+    const newDir = newSort !== "random" ? defaultDirForSort(newSort) : dir
     setActivePreset(name)
+    setSort(newSort)
+    setDir(newDir)
     setShuffleId(null)
-    history.pushState(null, "", buildUrl(debouncedSearch, name, null, sort, dir, null))
+    history.pushState(null, "", buildUrl(debouncedSearch, name, null, newSort, newDir, null, newPreset?.defaultSort ?? "random"))
     window.scrollTo(0, 0)
-    queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, name, sort, dir] })
+    queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, name, newSort, newDir] })
   }
 
   function handleReshuffle() {
     shuffleIdRef.current = null
     setShuffleId(null)
-    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, null, sort, dir, null))
+    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, null, sort, dir, null, presetDefaultSort))
     window.scrollTo(0, 0)
     queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, activePreset, sort, dir] })
   }
 
   function handleSortChange(newSort: SortType) {
     shuffleIdRef.current = null
-    const newDir = newSort !== "random" && sort === "random" ? "asc" : dir
+    const newDir = newSort !== "random" ? defaultDirForSort(newSort) : dir
     setSort(newSort)
+    setDir(newDir)
     setShuffleId(null)
-    if (newSort !== "random" && sort === "random") setDir("asc")
-    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, null, newSort, newDir, null))
+    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, null, newSort, newDir, null, presetDefaultSort))
     window.scrollTo(0, 0)
   }
 
@@ -272,7 +307,7 @@ export function Gallery() {
     const newDir = dir === "asc" ? "desc" : "asc"
     setDir(newDir)
     setShuffleId(null)
-    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, null, sort, newDir, null))
+    history.pushState(null, "", buildUrl(debouncedSearch, activePreset, null, sort, newDir, null, presetDefaultSort))
     window.scrollTo(0, 0)
   }
 
@@ -282,7 +317,7 @@ export function Gallery() {
     debounceTimer.current = setTimeout(() => {
       setDebouncedSearch(v)
       setShuffleId(null)
-      history.pushState(null, "", buildUrl(v, latestPresetRef.current, null, latestSortRef.current, latestDirRef.current, null))
+      history.pushState(null, "", buildUrl(v, latestPresetRef.current, null, latestSortRef.current, latestDirRef.current, null, latestPresetDefaultSortRef.current))
       window.scrollTo(0, 0)
     }, 400)
   }
@@ -293,10 +328,19 @@ export function Gallery() {
       const presetChanged = urlPreset !== activePreset
       setActivePreset(urlPreset)
       if (presetChanged || needsRefreshRef.current) {
+        // Read from cache directly — temp presets were just saved before this runs
+        const cachedData = (sessionIdRef.current
+          ? queryClient.getQueryData<{ presets: readonly { name: string; defaultSort: SortType }[] }>(["presets", sessionIdRef.current])
+          : undefined) ?? queryClient.getQueryData<{ presets: readonly { name: string; defaultSort: SortType }[] }>(["presets", null])
+        const latestPreset = (cachedData?.presets ?? presets ?? []).find(p => p.name === urlPreset)
+        const newSort = latestPreset?.defaultSort ?? "random"
+        const newDir = newSort !== "random" ? defaultDirForSort(newSort) : "asc"
+        setSort(newSort)
+        setDir(newDir)
         shuffleIdRef.current = null
         setShuffleId(null)
         window.scrollTo(0, 0)
-        queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, urlPreset, sort, dir] })
+        queryClient.resetQueries({ queryKey: ["blocks", debouncedSearch, urlPreset, newSort, newDir] })
       }
       needsRefreshRef.current = false
       dispatchModal({ type: 'close' })
@@ -419,7 +463,7 @@ export function Gallery() {
           shuffleId={shuffleId}
           onClose={() => {
             dispatchPlayer({ type: 'close' })
-            history.pushState(null, "", buildUrl(debouncedSearch, activePreset, shuffleId, sort, dir, null))
+            history.pushState(null, "", buildUrl(debouncedSearch, activePreset, shuffleId, sort, dir, null, presetDefaultSort))
           }}
           onShowToast={handleShowToast}
           onShuffleExpired={handleShuffleExpired}

@@ -54,6 +54,7 @@ export const DEFAULT_PRESET: Preset = {
   fastForwardSeconds: 10,
   showTileTitle: true,
   videoEndBehavior: "loop",
+  defaultSort: "random",
 }
 
 export const DatabaseLive = Layer.sync(Database, () => {
@@ -92,9 +93,11 @@ export const DatabaseLive = Layer.sync(Database, () => {
       rewindSeconds INTEGER NOT NULL DEFAULT 10,
       fastForwardSeconds INTEGER NOT NULL DEFAULT 10,
       showTileTitle INTEGER NOT NULL DEFAULT 1,
-      videoEndBehavior TEXT NOT NULL DEFAULT 'loop'
+      videoEndBehavior TEXT NOT NULL DEFAULT 'loop',
+      defaultSort TEXT NOT NULL DEFAULT 'random'
     )
   `)
+  try { db.run(`ALTER TABLE preset ADD COLUMN defaultSort TEXT NOT NULL DEFAULT 'random'`) } catch { /* already exists */ }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS last_preview_settings (
@@ -125,8 +128,8 @@ export const DatabaseLive = Layer.sync(Database, () => {
     INSERT INTO preset (name, targetTilePercent, maxTilePercent, clusterCount, minAspectRatio, maxAspectRatio,
       minDuration, maxDuration, playerCropMaxX, playerCropMaxY, tileCropMaxX, tileCropMaxY,
       excludeContainsCsv, excludeNotContainsCsv, mediaType, forwardPreloadCount, backwardPreloadCount, oneFileAtATime,
-      rewindSeconds, fastForwardSeconds, showTileTitle, videoEndBehavior)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      rewindSeconds, fastForwardSeconds, showTileTitle, videoEndBehavior, defaultSort)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
   const deleteAllPresetsStmt = db.prepare(`DELETE FROM preset`)
@@ -180,6 +183,7 @@ export const DatabaseLive = Layer.sync(Database, () => {
       fastForwardSeconds: row["fastForwardSeconds"] as number,
       showTileTitle: Boolean(row["showTileTitle"]),
       videoEndBehavior: (row["videoEndBehavior"] as Preset["videoEndBehavior"]) ?? "loop",
+      defaultSort: (row["defaultSort"] as Preset["defaultSort"]) ?? "random",
     }
   }
 
@@ -207,6 +211,7 @@ export const DatabaseLive = Layer.sync(Database, () => {
       preset.fastForwardSeconds,
       preset.showTileTitle ? 1 : 0,
       preset.videoEndBehavior,
+      preset.defaultSort,
     )
   }
 
