@@ -786,6 +786,7 @@ export function SettingsModal({
   onResetTemp,
 }: SettingsModalProps) {
   const [localPresets, setLocalPresets] = useState<Preset[]>(() => [...presets])
+  const localPresetsRef = useRef<Preset[]>(localPresets)
   const [selectedName, setSelectedName] = useState(activePreset)
   const [saveError, setSaveError] = useState(false)
   const [activeTab, setActiveTab] = useState("presets")
@@ -793,9 +794,9 @@ export function SettingsModal({
   const isDirty = JSON.stringify(localPresets) !== baselineJson
 
   function updateSelectedPreset(patch: Partial<Preset>) {
-    setLocalPresets((prev) =>
-      prev.map((p) => (p.name === selectedName ? { ...p, ...patch } : p)),
-    )
+    const next = localPresetsRef.current.map((p) => (p.name === selectedName ? { ...p, ...patch } : p))
+    localPresetsRef.current = next
+    setLocalPresets(next)
   }
 
   function handleSelectChange(name: string) {
@@ -861,8 +862,13 @@ export function SettingsModal({
   }
 
   function handleReset() {
-    setLocalPresets([...permanentPresets])
+    const next = [...permanentPresets]
+    localPresetsRef.current = next
+    setLocalPresets(next)
     setBaselineJson(JSON.stringify(permanentPresets))
+    if (sessionId !== null) {
+      onResetTemp()
+    }
     const nameExists = permanentPresets.some((p) => p.name === selectedName)
     if (!nameExists) {
       setSelectedName("default")
@@ -871,12 +877,17 @@ export function SettingsModal({
   }
 
   async function handleTabChange(newTab: string) {
-    if (activeTab === "presets" && newTab !== "presets" && isDirty && !isTempSavingRef.current && !isSavingRef.current) {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    const latestPresets = localPresetsRef.current
+    const latestDirty = JSON.stringify(latestPresets) !== baselineJson
+    if (activeTab === "presets" && newTab !== "presets" && latestDirty && !isTempSavingRef.current && !isSavingRef.current) {
       isTempSavingRef.current = true
       setIsTempSaving(true)
       try {
-        const result = await putTempPresets(localPresets, sessionId)
-        onSaveTemporarily(result.sessionId, localPresets)
+        const result = await putTempPresets(latestPresets, sessionId)
+        onSaveTemporarily(result.sessionId, latestPresets)
       } catch {
         // auto-save failed; switch tabs anyway
       } finally {
@@ -890,12 +901,14 @@ export function SettingsModal({
   async function handleClose() {
     if (isTempSavingRef.current) return
     if (!isSavingRef.current) {
-      if (isDirty) {
+      const latestPresets = localPresetsRef.current
+      const latestDirty = JSON.stringify(latestPresets) !== baselineJson
+      if (latestDirty) {
         isTempSavingRef.current = true
         setIsTempSaving(true)
         try {
-          const result = await putTempPresets(localPresets, sessionId)
-          onSaveTemporarily(result.sessionId, localPresets)
+          const result = await putTempPresets(latestPresets, sessionId)
+          onSaveTemporarily(result.sessionId, latestPresets)
         } catch {
           // auto-save failed; close anyway
         } finally {

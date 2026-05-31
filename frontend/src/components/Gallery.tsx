@@ -62,12 +62,14 @@ export function Gallery() {
   const { data: presetsData, isError: presetsError } = useQuery({
     queryKey: ["presets", sessionId],
     queryFn: () => fetchPresets(sessionId ?? undefined),
+    staleTime: Infinity,
   })
   const presets = presetsData?.presets
 
   const { data: permanentPresetsData } = useQuery({
     queryKey: ["presets", null],
     queryFn: () => fetchPresets(),
+    staleTime: Infinity,
   })
   const permanentPresets = permanentPresetsData?.presets ?? presets ?? []
 

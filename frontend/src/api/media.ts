@@ -142,10 +142,10 @@ export async function fetchBlocks(
   sessionId?: string,
 ): Promise<typeof BlockResponse.Type> {
   const params = new URLSearchParams({ indices: indices.join(",") })
-  if (sessionId) params.set("sessionId", sessionId)
   if (shuffleId !== null) {
     params.set("s", String(shuffleId))
   } else {
+    if (sessionId) params.set("sessionId", sessionId)
     if (query.trim()) params.set("q", query.trim())
     if (preset !== "default") params.set("preset", preset)
     if (sort !== "random") params.set("sort", sort)
