@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
     libwebp-dev \
+    zlib1g-dev \
     && find /usr/lib -name 'libwebp*.so*' -delete \
     && rm -rf /var/lib/apt/lists/*
 
@@ -73,6 +74,7 @@ RUN wget -qO /tmp/ffmpeg.tar.xz \
         --extra-libs="-lpthread -lm -lstdc++" \
         \
         --enable-gpl \
+        --enable-zlib \
         --enable-libx264 \
         --enable-libx265 \
         --enable-static \
