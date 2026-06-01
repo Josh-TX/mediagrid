@@ -129,6 +129,7 @@ export function Gallery() {
   const fastForwardSeconds = activePresetData?.fastForwardSeconds ?? 10
   const showTileTitle = activePresetData?.showTileTitle ?? true
   const videoEndBehavior = activePresetData?.videoEndBehavior ?? "loop"
+  const galleryGap = activePresetData?.galleryGap ?? 2
 
   // Keep a ref so the queryFn closure always has the latest shuffleId without being in the key.
   const shuffleIdRef = useRef<number | null>(shuffleId)
@@ -378,7 +379,7 @@ export function Gallery() {
         onSettingsOpen={() => dispatchModal({ type: 'open' })}
       />
 
-      <div ref={galleryRef} className={styles.gallery} data-testid="gallery">
+      <div ref={galleryRef} className={styles.gallery} style={{ gap: galleryGap }} data-testid="gallery">
         {loadedBlocks.map((block) => (
           <Block
             key={block.index}
@@ -388,6 +389,7 @@ export function Gallery() {
             tileCropMaxX={tileCropMaxX}
             tileCropMaxY={tileCropMaxY}
             showTileTitle={showTileTitle}
+            galleryGap={galleryGap}
           />
         ))}
 

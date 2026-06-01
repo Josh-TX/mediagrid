@@ -128,7 +128,6 @@
   padding-top: 48px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
   background: #fff;
   min-height: 100vh;
 }
@@ -136,7 +135,6 @@
 .block {
   display: flex;
   flex-direction: row;
-  gap: 2px;
   align-items: flex-start;
 }
 

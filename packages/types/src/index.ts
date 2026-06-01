@@ -24,6 +24,7 @@ export const Preset = Schema.Struct({
   showTileTitle: Schema.Boolean,
   videoEndBehavior: Schema.Literal("loop", "stop", "next"),
   defaultSort: Schema.Literal("random", "size", "az", "date"),
+  galleryGap: Schema.Literal(0, 1, 2),
 })
 export type Preset = typeof Preset.Type
 

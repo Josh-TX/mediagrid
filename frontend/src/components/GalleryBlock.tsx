@@ -90,9 +90,10 @@ export interface BlockProps {
   tileCropMaxX: number
   tileCropMaxY: number
   showTileTitle: boolean
+  galleryGap: number
 }
 
-export function Block({ block, onTileClick, galleryWidthPx, tileCropMaxX, tileCropMaxY, showTileTitle }: BlockProps) {
+export function Block({ block, onTileClick, galleryWidthPx, tileCropMaxX, tileCropMaxY, showTileTitle, galleryGap }: BlockProps) {
   const blockHeightPx = useMemo(() => {
     if (block.tiles.length === 0 || galleryWidthPx === 0) return 0
     const sum = block.tiles.reduce((acc, tile) => {
@@ -103,7 +104,7 @@ export function Block({ block, onTileClick, galleryWidthPx, tileCropMaxX, tileCr
   }, [block, galleryWidthPx])
 
   return (
-    <div className={styles.block}>
+    <div className={styles.block} style={{ gap: galleryGap }}>
       {block.tiles.map((tile) => {
         const tileW = tile.width * galleryWidthPx
         const previewAR = tile.preview.width / tile.preview.height

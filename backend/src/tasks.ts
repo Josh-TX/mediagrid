@@ -219,7 +219,7 @@ function buildScanEffect(taskId: number): Effect.Effect<void, never, Database | 
     const toProbe: PendingFile[] = []
     for (const abs of allFiles) {
       const info = yield* fs.stat(abs).pipe(Effect.orDie)
-      const rel = path.relative(MEDIA_DIR, abs)
+      const rel = '/' + path.relative(MEDIA_DIR, abs)
       const filesize = Number(info.size)
       if (existingFilesizes.get(rel) === filesize) continue
       const mdate = Option.match(info.mtime, {

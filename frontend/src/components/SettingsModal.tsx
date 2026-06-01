@@ -192,7 +192,7 @@ function PresetsTab({
             <NumberInput key={`${selectedName}-${resetKey}-maxTilePercent`} id="maxTilePercent" className={styles.numberInput} value={selectedPreset.maxTilePercent} min={1} aria-label="Max tile % of screen" onChange={(n) => onUpdatePreset({ maxTilePercent: n })} />
           </label>
           <label className={styles.field}>
-            <span>Clusters</span>
+            <span>Aspect Ratio Clusters</span>
             <select value={selectedPreset.clusterCount} onChange={(e) => onUpdatePreset({ clusterCount: Number(e.target.value) })}>
               {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
@@ -217,6 +217,14 @@ function PresetsTab({
               <option value="size">Size</option>
               <option value="az">A–Z</option>
               <option value="date">Date</option>
+            </select>
+          </label>
+          <label className={styles.field}>
+            <span>Grid gaps</span>
+            <select value={selectedPreset.galleryGap} onChange={(e) => onUpdatePreset({ galleryGap: Number(e.target.value) as Preset["galleryGap"] })}>
+              <option value={2}>2px</option>
+              <option value={1}>1px</option>
+              <option value={0}>0</option>
             </select>
           </label>
           <label className={styles.field}>

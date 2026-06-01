@@ -55,6 +55,7 @@ export const DEFAULT_PRESET: Preset = {
   showTileTitle: true,
   videoEndBehavior: "loop",
   defaultSort: "random",
+  galleryGap: 2,
 }
 
 export const DatabaseLive = Layer.sync(Database, () => {
@@ -94,11 +95,10 @@ export const DatabaseLive = Layer.sync(Database, () => {
       fastForwardSeconds INTEGER NOT NULL DEFAULT 10,
       showTileTitle INTEGER NOT NULL DEFAULT 1,
       videoEndBehavior TEXT NOT NULL DEFAULT 'loop',
-      defaultSort TEXT NOT NULL DEFAULT 'random'
+      defaultSort TEXT NOT NULL DEFAULT 'random',
+      galleryGap INTEGER NOT NULL DEFAULT 2
     )
   `)
-  try { db.run(`ALTER TABLE preset ADD COLUMN defaultSort TEXT NOT NULL DEFAULT 'random'`) } catch { /* already exists */ }
-
   db.run(`
     CREATE TABLE IF NOT EXISTS last_preview_settings (
       id INTEGER PRIMARY KEY,
@@ -128,8 +128,8 @@ export const DatabaseLive = Layer.sync(Database, () => {
     INSERT INTO preset (name, targetTilePercent, maxTilePercent, clusterCount, minAspectRatio, maxAspectRatio,
       minDuration, maxDuration, playerCropMaxX, playerCropMaxY, tileCropMaxX, tileCropMaxY,
       excludeContainsCsv, excludeNotContainsCsv, mediaType, forwardPreloadCount, backwardPreloadCount, oneFileAtATime,
-      rewindSeconds, fastForwardSeconds, showTileTitle, videoEndBehavior, defaultSort)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      rewindSeconds, fastForwardSeconds, showTileTitle, videoEndBehavior, defaultSort, galleryGap)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
   const deleteAllPresetsStmt = db.prepare(`DELETE FROM preset`)
@@ -184,6 +184,7 @@ export const DatabaseLive = Layer.sync(Database, () => {
       showTileTitle: Boolean(row["showTileTitle"]),
       videoEndBehavior: (row["videoEndBehavior"] as Preset["videoEndBehavior"]) ?? "loop",
       defaultSort: (row["defaultSort"] as Preset["defaultSort"]) ?? "random",
+      galleryGap: ((row["galleryGap"] as number | null) ?? 2) as Preset["galleryGap"],
     }
   }
 
@@ -212,6 +213,7 @@ export const DatabaseLive = Layer.sync(Database, () => {
       preset.showTileTitle ? 1 : 0,
       preset.videoEndBehavior,
       preset.defaultSort,
+      preset.galleryGap,
     )
   }
 
