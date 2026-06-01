@@ -177,7 +177,7 @@ const blocksHandler = Effect.gen(function* () {
     const db = yield* Database
     const all = yield* db.getAllMedia()
     const afterQ = applySimpleFilter(all, q)
-    const filtered = applyPresetFilter(afterQ, preset)
+    const filtered = applyPresetFilter(afterQ, preset).map((m) => ({ ...m, path: m.path.replace(/^\//, "") }))
     const layout = sort === "random"
       ? buildShuffleLayout(filtered, preset.clusterCount, preset.targetTilePercent, preset.maxTilePercent, vpW, vpH)
       : buildSortedLayout(filtered, sort, dir, preset.targetTilePercent, preset.maxTilePercent, vpW, vpH)
