@@ -236,6 +236,25 @@ function PresetsTab({
               onChange={(e) => onUpdatePreset({ showTileTitle: e.target.checked })}
             />
           </label>
+          <label className={styles.field}>
+            <span>Video tile type</span>
+            <select value={selectedPreset.videoTileType} onChange={(e) => onUpdatePreset({ videoTileType: e.target.value as Preset["videoTileType"] })}>
+              <option value="highlight-if-available">Highlight if available</option>
+              <option value="thumbnail-only">Thumbnail only</option>
+              <option value="touch-to-highlight">Thumbnail, highlight on touch</option>
+            </select>
+          </label>
+          {selectedPreset.videoTileType !== "thumbnail-only" && (
+            <label className={styles.field}>
+              <span>Fallback to original</span>
+              <input
+                type="checkbox"
+                aria-label="Fallback to original"
+                checked={selectedPreset.videoFallbackToOriginal}
+                onChange={(e) => onUpdatePreset({ videoFallbackToOriginal: e.target.checked })}
+              />
+            </label>
+          )}
         </fieldset>
 
         <fieldset className={styles.section}>

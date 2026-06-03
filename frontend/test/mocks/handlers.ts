@@ -10,6 +10,8 @@ export const PREVIEW_A: PreviewInfo = {
   duration: null,
   media_type: 2,
   previewType: "thumbnail",
+  hasHighlight: false,
+  hasThumbnail: true,
 }
 export const PREVIEW_B: PreviewInfo = {
   path: "b.jpg",
@@ -20,6 +22,8 @@ export const PREVIEW_B: PreviewInfo = {
   duration: null,
   media_type: 2,
   previewType: "thumbnail",
+  hasHighlight: false,
+  hasThumbnail: true,
 }
 
 export const DEFAULT_PRESET: Preset = {
@@ -47,6 +51,8 @@ export const DEFAULT_PRESET: Preset = {
   videoEndBehavior: "loop",
   defaultSort: "random",
   galleryGap: 2,
+  videoTileType: "highlight-if-available",
+  videoFallbackToOriginal: false,
 }
 
 // Fixed shuffleId used by the mock — not a real cache, just a stable value for tests.

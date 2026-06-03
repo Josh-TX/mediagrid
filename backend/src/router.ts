@@ -29,15 +29,16 @@ const STATIC_DIR = process.env["STATIC_DIR"] ?? ""
 const THUMBNAILS_DIR = path.join(DATA_DIR, "thumbnails")
 const HIGHLIGHTS_DIR = path.join(DATA_DIR, "highlights")
 
-function resolvePreviewType(record: MediaRecord): PreviewInfo["previewType"] {
+function resolvePreviewFields(record: MediaRecord): Pick<PreviewInfo, "previewType" | "hasHighlight" | "hasThumbnail"> {
   const thumbPath = path.join(THUMBNAILS_DIR, `${record.path}.webp`)
+  const hasThumbnail = fs.existsSync(thumbPath)
   if (record.media_type === 1) {
     const highlightPath = path.join(HIGHLIGHTS_DIR, `${record.path}.mp4`)
-    if (fs.existsSync(highlightPath)) return "highlight"
-    if (fs.existsSync(thumbPath)) return "thumbnail"
-    return "placeholder"
+    const hasHighlight = fs.existsSync(highlightPath)
+    const previewType = hasHighlight ? "highlight" : hasThumbnail ? "thumbnail" : "placeholder"
+    return { previewType, hasHighlight, hasThumbnail }
   }
-  return fs.existsSync(thumbPath) ? "thumbnail" : "original"
+  return { previewType: hasThumbnail ? "thumbnail" : "original", hasHighlight: false, hasThumbnail }
 }
 
 function toBlockInfo(block: InternalBlockInfo): BlockInfo {
@@ -45,7 +46,7 @@ function toBlockInfo(block: InternalBlockInfo): BlockInfo {
     index: block.index,
     tiles: block.tiles.map((tile) => ({
       ...tile,
-      preview: { ...tile.preview, previewType: resolvePreviewType(tile.preview) },
+      preview: { ...tile.preview, ...resolvePreviewFields(tile.preview) },
     })),
   }
 }

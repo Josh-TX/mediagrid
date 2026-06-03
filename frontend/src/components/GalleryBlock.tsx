@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from "react"
-import type { BlockInfo } from "@repo/types"
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { BlockInfo, Preset } from "@repo/types"
 import { encodePath } from "../api/media"
 import styles from "./Gallery.module.css"
 
@@ -83,6 +83,152 @@ function computeTileSize(
   return { width: imgW_final, height: imgW_final / previewAR }
 }
 
+// Small white corner triangle indicating a video is playable on hover/touch.
+function TouchIndicator() {
+  return (
+    <svg
+      style={{ position: "absolute", top: 6, right: 6, width: 12, height: 12, opacity: 0.85, pointerEvents: "none" }}
+      viewBox="0 0 10 10"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <polygon points="0,0 10,0 10,10" fill="white" />
+    </svg>
+  )
+}
+
+interface TouchToHighlightVideoTileProps {
+  tileIndex: number
+  tileWidth: number
+  blockHeightPx: number
+  path: string
+  mediaStyle: React.CSSProperties
+  previewAR: number
+  hasThumbnail: boolean
+  hasHighlight: boolean
+  videoFallbackToOriginal: boolean
+  showTileTitle: boolean
+  tileW: number
+  activeTouchTileRef: React.MutableRefObject<(() => void) | null>
+  onTileClick: (index: number) => void
+}
+
+function TouchToHighlightVideoTile({
+  tileIndex,
+  tileWidth,
+  blockHeightPx,
+  path,
+  mediaStyle,
+  previewAR,
+  hasThumbnail,
+  hasHighlight,
+  videoFallbackToOriginal,
+  showTileTitle,
+  tileW,
+  activeTouchTileRef,
+  onTileClick,
+}: TouchToHighlightVideoTileProps) {
+  const [isPlaying, setIsPlaying] = useState(false)
+  const isPlayingRef = useRef(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const suppressNextClickRef = useRef(false)
+
+  const videoSrc = hasHighlight
+    ? `/highlights/${encodePath(path)}.mp4`
+    : videoFallbackToOriginal
+      ? `/media/${encodePath(path)}`
+      : null
+
+  const hasVideoToPlay = videoSrc !== null
+
+  function stopPlaying() {
+    isPlayingRef.current = false
+    setIsPlaying(false)
+    // Only clear the shared ref if it still points to us.
+    if (activeTouchTileRef.current === stopPlaying) {
+      activeTouchTileRef.current = null
+    }
+    const video = videoRef.current
+    if (video) { video.pause(); video.currentTime = 0 }
+  }
+
+  function startPlaying() {
+    if (!videoSrc) return
+    activeTouchTileRef.current?.()
+    activeTouchTileRef.current = stopPlaying
+    isPlayingRef.current = true
+    setIsPlaying(true)
+  }
+
+  // Play and observe scroll when isPlaying becomes true.
+  useEffect(() => {
+    if (!isPlaying) return
+    const video = videoRef.current
+    if (!video) return
+    video.play().catch(() => { })
+    const obs = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) stopPlaying()
+    })
+    obs.observe(video)
+    return () => obs.disconnect()
+  }, [isPlaying])
+
+  function handlePointerEnter(e: React.PointerEvent) {
+    if (e.pointerType === "mouse" && hasVideoToPlay) startPlaying()
+  }
+
+  function handlePointerLeave(e: React.PointerEvent) {
+    if (e.pointerType === "mouse") stopPlaying()
+  }
+
+  function handlePointerDown(e: React.PointerEvent) {
+    if (e.pointerType === "touch" && !isPlayingRef.current && hasVideoToPlay) {
+      startPlaying()
+      suppressNextClickRef.current = true
+    }
+  }
+
+  function handleClick() {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false
+      return
+    }
+    onTileClick(tileIndex)
+  }
+
+  const thumbnailSrc = hasThumbnail ? `/thumbnails/${encodePath(path)}.webp` : null
+
+  return (
+    <button
+      type="button"
+      className={styles.cell}
+      style={{ width: `${tileWidth * 100}%`, height: blockHeightPx, overflow: "hidden", position: "relative" }}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+      onPointerDown={handlePointerDown}
+      onClick={handleClick}
+    >
+      {isPlaying && videoSrc ? (
+        <video ref={videoRef} src={videoSrc} muted loop playsInline style={mediaStyle} aria-label="Gallery tile video" />
+      ) : thumbnailSrc ? (
+        <img src={thumbnailSrc} alt={path} loading="lazy" style={mediaStyle} />
+      ) : (
+        <div style={{ ...mediaStyle, background: "#222", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <FilmPlaceholder ar={previewAR} />
+        </div>
+      )}
+      {!isPlaying && hasVideoToPlay && <TouchIndicator />}
+      {showTileTitle && (
+        <div className={styles.tileTitleOverlay}>
+          <span className={styles.tileTitleText} style={{ fontSize: tileFontSize(tileW) }}>
+            {titleFromPath(path)}
+          </span>
+        </div>
+      )}
+    </button>
+  )
+}
+
 export interface BlockProps {
   block: BlockInfo
   onTileClick: (shuffleIndex: number) => void
@@ -91,9 +237,23 @@ export interface BlockProps {
   tileCropMaxY: number
   showTileTitle: boolean
   galleryGap: number
+  videoTileType: Preset["videoTileType"]
+  videoFallbackToOriginal: boolean
+  activeTouchTileRef: React.MutableRefObject<(() => void) | null>
 }
 
-export function Block({ block, onTileClick, galleryWidthPx, tileCropMaxX, tileCropMaxY, showTileTitle, galleryGap }: BlockProps) {
+export function Block({
+  block,
+  onTileClick,
+  galleryWidthPx,
+  tileCropMaxX,
+  tileCropMaxY,
+  showTileTitle,
+  galleryGap,
+  videoTileType,
+  videoFallbackToOriginal,
+  activeTouchTileRef,
+}: BlockProps) {
   const blockHeightPx = useMemo(() => {
     if (block.tiles.length === 0 || galleryWidthPx === 0) return 0
     const sum = block.tiles.reduce((acc, tile) => {
@@ -118,7 +278,31 @@ export function Block({ block, onTileClick, galleryWidthPx, tileCropMaxX, tileCr
           width: imgWc,
           height: imgHc,
         }
-        const { previewType, path } = tile.preview
+        const { previewType, path, hasHighlight, hasThumbnail, media_type } = tile.preview
+        const isVideo = media_type === 1
+
+        // touch-to-highlight: full custom rendering per tile
+        if (isVideo && videoTileType === "touch-to-highlight") {
+          return (
+            <TouchToHighlightVideoTile
+              key={tile.index}
+              tileIndex={tile.index}
+              tileWidth={tile.width}
+              blockHeightPx={blockHeightPx}
+              path={path}
+              mediaStyle={mediaStyle}
+              previewAR={previewAR}
+              hasThumbnail={hasThumbnail}
+              hasHighlight={hasHighlight}
+              videoFallbackToOriginal={videoFallbackToOriginal}
+              showTileTitle={showTileTitle}
+              tileW={tileW}
+              activeTouchTileRef={activeTouchTileRef}
+              onTileClick={onTileClick}
+            />
+          )
+        }
+
         return (
           <button
             key={tile.index}
@@ -127,7 +311,19 @@ export function Block({ block, onTileClick, galleryWidthPx, tileCropMaxX, tileCr
             style={{ width: `${tile.width * 100}%`, height: blockHeightPx, overflow: "hidden", position: "relative" }}
             onClick={() => onTileClick(tile.index)}
           >
-            {previewType === "highlight" ? (
+            {isVideo && videoTileType === "thumbnail-only" ? (
+              // Never show highlight; degrade to thumbnail or placeholder.
+              hasThumbnail ? (
+                <img src={`/thumbnails/${encodePath(path)}.webp`} alt={path} loading="lazy" style={mediaStyle} />
+              ) : (
+                <div style={{ ...mediaStyle, background: "#222", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <FilmPlaceholder ar={previewAR} />
+                </div>
+              )
+            ) : isVideo && videoTileType === "highlight-if-available" && !hasHighlight && videoFallbackToOriginal ? (
+              // Fallback to original video when no highlight exists.
+              <VideoTile src={`/media/${encodePath(path)}`} style={mediaStyle} />
+            ) : previewType === "highlight" ? (
               <VideoTile src={`/highlights/${encodePath(path)}.mp4`} style={mediaStyle} />
             ) : previewType === "thumbnail" ? (
               <img src={`/thumbnails/${encodePath(path)}.webp`} alt={path} loading="lazy" style={mediaStyle} />

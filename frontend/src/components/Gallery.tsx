@@ -130,6 +130,11 @@ export function Gallery() {
   const showTileTitle = activePresetData?.showTileTitle ?? true
   const videoEndBehavior = activePresetData?.videoEndBehavior ?? "loop"
   const galleryGap = activePresetData?.galleryGap ?? 2
+  const videoTileType = activePresetData?.videoTileType ?? "highlight-if-available"
+  const videoFallbackToOriginal = activePresetData?.videoFallbackToOriginal ?? false
+
+  // Shared ref for touch-to-highlight one-at-a-time constraint across all blocks.
+  const activeTouchTileRef = useRef<(() => void) | null>(null)
 
   // Keep a ref so the queryFn closure always has the latest shuffleId without being in the key.
   const shuffleIdRef = useRef<number | null>(shuffleId)
@@ -250,6 +255,7 @@ export function Gallery() {
   }
 
   function handleTileClick(shuffleIndex: number) {
+    activeTouchTileRef.current?.()
     dispatchPlayer({ type: 'open', index: shuffleIndex })
     history.pushState(null, "", buildUrl(debouncedSearch, activePreset, shuffleId, sort, dir, shuffleIndex, presetDefaultSort))
   }
@@ -390,6 +396,9 @@ export function Gallery() {
             tileCropMaxY={tileCropMaxY}
             showTileTitle={showTileTitle}
             galleryGap={galleryGap}
+            videoTileType={videoTileType}
+            videoFallbackToOriginal={videoFallbackToOriginal}
+            activeTouchTileRef={activeTouchTileRef}
           />
         ))}
 

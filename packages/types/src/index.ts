@@ -25,6 +25,8 @@ export const Preset = Schema.Struct({
   videoEndBehavior: Schema.Literal("loop", "stop", "next"),
   defaultSort: Schema.Literal("random", "size", "az", "date"),
   galleryGap: Schema.Literal(0, 1, 2),
+  videoTileType: Schema.Literal("thumbnail-only", "touch-to-highlight", "highlight-if-available"),
+  videoFallbackToOriginal: Schema.Boolean,
 })
 export type Preset = typeof Preset.Type
 
@@ -37,6 +39,10 @@ export const PreviewInfo = Schema.Struct({
   duration: Schema.NullOr(Schema.Int),
   media_type: Schema.Int,
   previewType: Schema.Literal("original", "thumbnail", "highlight", "placeholder"),
+  /** Whether a highlight file exists on disk, regardless of previewType. */
+  hasHighlight: Schema.Boolean,
+  /** Whether a thumbnail file exists on disk, regardless of previewType. */
+  hasThumbnail: Schema.Boolean,
 })
 export type PreviewInfo = typeof PreviewInfo.Type
 

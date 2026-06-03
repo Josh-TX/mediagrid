@@ -56,6 +56,8 @@ export const DEFAULT_PRESET: Preset = {
   videoEndBehavior: "loop",
   defaultSort: "random",
   galleryGap: 2,
+  videoTileType: "highlight-if-available",
+  videoFallbackToOriginal: false,
 }
 
 export const DatabaseLive = Layer.sync(Database, () => {
@@ -96,9 +98,14 @@ export const DatabaseLive = Layer.sync(Database, () => {
       showTileTitle INTEGER NOT NULL DEFAULT 1,
       videoEndBehavior TEXT NOT NULL DEFAULT 'loop',
       defaultSort TEXT NOT NULL DEFAULT 'random',
-      galleryGap INTEGER NOT NULL DEFAULT 2
+      galleryGap INTEGER NOT NULL DEFAULT 2,
+      videoTileType TEXT NOT NULL DEFAULT 'highlight-if-available',
+      videoFallbackToOriginal INTEGER NOT NULL DEFAULT 0
     )
   `)
+  // Migrate existing DBs that predate these columns.
+  try { db.run("ALTER TABLE preset ADD COLUMN videoTileType TEXT NOT NULL DEFAULT 'highlight-if-available'") } catch { /* already exists */ }
+  try { db.run("ALTER TABLE preset ADD COLUMN videoFallbackToOriginal INTEGER NOT NULL DEFAULT 0") } catch { /* already exists */ }
   db.run(`
     CREATE TABLE IF NOT EXISTS last_preview_settings (
       id INTEGER PRIMARY KEY,
@@ -128,8 +135,9 @@ export const DatabaseLive = Layer.sync(Database, () => {
     INSERT INTO preset (name, targetTilePercent, maxTilePercent, clusterCount, minAspectRatio, maxAspectRatio,
       minDuration, maxDuration, playerCropMaxX, playerCropMaxY, tileCropMaxX, tileCropMaxY,
       excludeContainsCsv, excludeNotContainsCsv, mediaType, forwardPreloadCount, backwardPreloadCount, oneFileAtATime,
-      rewindSeconds, fastForwardSeconds, showTileTitle, videoEndBehavior, defaultSort, galleryGap)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      rewindSeconds, fastForwardSeconds, showTileTitle, videoEndBehavior, defaultSort, galleryGap,
+      videoTileType, videoFallbackToOriginal)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
   const deleteAllPresetsStmt = db.prepare(`DELETE FROM preset`)
@@ -185,6 +193,8 @@ export const DatabaseLive = Layer.sync(Database, () => {
       videoEndBehavior: (row["videoEndBehavior"] as Preset["videoEndBehavior"]) ?? "loop",
       defaultSort: (row["defaultSort"] as Preset["defaultSort"]) ?? "random",
       galleryGap: ((row["galleryGap"] as number | null) ?? 2) as Preset["galleryGap"],
+      videoTileType: (row["videoTileType"] as Preset["videoTileType"]) ?? "highlight-if-available",
+      videoFallbackToOriginal: Boolean(row["videoFallbackToOriginal"]),
     }
   }
 
@@ -214,6 +224,8 @@ export const DatabaseLive = Layer.sync(Database, () => {
       preset.videoEndBehavior,
       preset.defaultSort,
       preset.galleryGap,
+      preset.videoTileType,
+      preset.videoFallbackToOriginal ? 1 : 0,
     )
   }
 
