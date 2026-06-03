@@ -825,13 +825,13 @@ export function SettingsModal({
     const newName = prompt("New name for preset:")
     if (!newName?.trim()) return
     const trimmed = newName.trim()
-    if (localPresets.some((p) => p.name.toLowerCase() === trimmed.toLowerCase() && p.name !== selectedName)) {
+    if (localPresetsRef.current.some((p) => p.name.toLowerCase() === trimmed.toLowerCase() && p.name !== selectedName)) {
       alert(`A preset named "${trimmed}" already exists.`)
       return
     }
-    setLocalPresets((prev) =>
-      prev.map((p) => (p.name === selectedName ? { ...p, name: trimmed } : p)),
-    )
+    const next = localPresetsRef.current.map((p) => (p.name === selectedName ? { ...p, name: trimmed } : p))
+    localPresetsRef.current = next
+    setLocalPresets(next)
     setSelectedName(trimmed)
     writeUrlPreset(trimmed, false)
   }
@@ -840,20 +840,24 @@ export function SettingsModal({
     const newName = prompt("Name for the new preset:")
     if (!newName?.trim()) return
     const trimmed = newName.trim()
-    if (localPresets.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
+    if (localPresetsRef.current.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
       alert(`A preset named "${trimmed}" already exists.`)
       return
     }
-    const defaultPreset = localPresets.find((p) => p.name.toLowerCase() === "default") ?? localPresets[0]
+    const defaultPreset = localPresetsRef.current.find((p) => p.name.toLowerCase() === "default") ?? localPresetsRef.current[0]
     if (!defaultPreset) return
     const copy: Preset = { ...defaultPreset, name: trimmed }
-    setLocalPresets((prev) => [...prev, copy])
+    const next = [...localPresetsRef.current, copy]
+    localPresetsRef.current = next
+    setLocalPresets(next)
     setSelectedName(trimmed)
     writeUrlPreset(trimmed, true)
   }
 
   function handleDelete() {
-    setLocalPresets((prev) => prev.filter((p) => p.name !== selectedName))
+    const next = localPresetsRef.current.filter((p) => p.name !== selectedName)
+    localPresetsRef.current = next
+    setLocalPresets(next)
     setSelectedName("default")
     writeUrlPreset("default", true)
   }
