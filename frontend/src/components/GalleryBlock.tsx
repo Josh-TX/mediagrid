@@ -92,7 +92,7 @@ function TouchIndicator() {
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden
     >
-      <polygon points="0,0 10,0 10,10" fill="white" />
+      <polygon points="2,1 2,9 9,5" fill="white" />
     </svg>
   )
 }
@@ -131,7 +131,9 @@ function TouchToHighlightVideoTile({
   const [isPlaying, setIsPlaying] = useState(false)
   const isPlayingRef = useRef(false)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const suppressNextClickRef = useRef(false)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const awaitingClickRef = useRef(false)
+  const awaitingClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const videoSrc = hasHighlight
     ? `/highlights/${encodePath(path)}.mp4`
@@ -173,6 +175,14 @@ function TouchToHighlightVideoTile({
     return () => obs.disconnect()
   }, [isPlaying])
 
+  function clearAwaitingClick() {
+    if (awaitingClickTimerRef.current) {
+      clearTimeout(awaitingClickTimerRef.current)
+      awaitingClickTimerRef.current = null
+    }
+    awaitingClickRef.current = false
+  }
+
   function handlePointerEnter(e: React.PointerEvent) {
     if (e.pointerType === "mouse" && hasVideoToPlay) startPlaying()
   }
@@ -182,17 +192,46 @@ function TouchToHighlightVideoTile({
   }
 
   function handlePointerDown(e: React.PointerEvent) {
-    if (e.pointerType === "touch" && !isPlayingRef.current && hasVideoToPlay) {
+    if (e.pointerType !== "touch" || isPlayingRef.current || !hasVideoToPlay) return
+    touchStartRef.current = { x: e.clientX, y: e.clientY }
+    awaitingClickRef.current = true
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
+    if (e.pointerType !== "touch" || !awaitingClickRef.current || !touchStartRef.current) return
+    const dx = e.clientX - touchStartRef.current.x
+    const dy = e.clientY - touchStartRef.current.y
+    if (dx * dx + dy * dy > 15 * 15) {
+      // Gesture (swipe/scroll) — start immediately, won't generate a click.
+      clearAwaitingClick()
+      touchStartRef.current = null
       startPlaying()
-      suppressNextClickRef.current = true
     }
   }
 
+  function handlePointerUp(e: React.PointerEvent) {
+    if (e.pointerType !== "touch" || !awaitingClickRef.current) return
+    // Finger lifted with minimal movement — wait to see if click fires (tap) or not (hold).
+    awaitingClickTimerRef.current = setTimeout(() => {
+      awaitingClickRef.current = false
+      awaitingClickTimerRef.current = null
+      touchStartRef.current = null
+      startPlaying()
+    }, 350)
+  }
+
+  function handlePointerCancel() {
+    if (!awaitingClickRef.current) return
+    // Browser took over (e.g. scroll snap) — not a tap.
+    clearAwaitingClick()
+    touchStartRef.current = null
+    startPlaying()
+  }
+
   function handleClick() {
-    if (suppressNextClickRef.current) {
-      suppressNextClickRef.current = false
-      return
-    }
+    // Clean tap — cancel any pending play and open player.
+    clearAwaitingClick()
+    touchStartRef.current = null
     onTileClick(tileIndex)
   }
 
@@ -206,6 +245,9 @@ function TouchToHighlightVideoTile({
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
       onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onClick={handleClick}
     >
       {isPlaying && videoSrc ? (
@@ -217,7 +259,7 @@ function TouchToHighlightVideoTile({
           <FilmPlaceholder ar={previewAR} />
         </div>
       )}
-      {!isPlaying && hasVideoToPlay && <TouchIndicator />}
+      {!isPlaying && hasThumbnail && <TouchIndicator />}
       {showTileTitle && (
         <div className={styles.tileTitleOverlay}>
           <span className={styles.tileTitleText} style={{ fontSize: tileFontSize(tileW) }}>
@@ -334,6 +376,10 @@ export function Block({
                 <FilmPlaceholder ar={previewAR} />
               </div>
             )}
+            {isVideo && (
+              (videoTileType === "thumbnail-only" && hasThumbnail) ||
+              (videoTileType === "highlight-if-available" && previewType === "thumbnail" && !videoFallbackToOriginal)
+            ) && <TouchIndicator />}
             {showTileTitle && (
               <div className={styles.tileTitleOverlay}>
                 <span className={styles.tileTitleText} style={{ fontSize: tileFontSize(tileW) }}>
