@@ -786,6 +786,13 @@ function PreviewsTab({ presets, sessionId, onClose }: { presets: readonly Preset
             onUsePresetFilterChange={setHlUsePresetFilter}
             onPresetNameChange={setHlPresetName}
           />
+          <fieldset className={styles.section}>
+            <legend className={styles.sectionLabel}>Supported ffmpeg args</legend>
+            <p className={styles.ffmpegArgNote}>Only x264, x265, and av1 encoders are supported.</p>
+            <div className={styles.ffmpegArgRow}><code className={styles.ffmpegArgCode}>-c:v libx264 -crf 25 -preset fast</code></div>
+            <div className={styles.ffmpegArgRow}><code className={styles.ffmpegArgCode}>-c:v libx265 -crf 28 -preset fast</code></div>
+            <div className={styles.ffmpegArgRow}><code className={styles.ffmpegArgCode}>-c:v libsvtav1 -crf 35 -preset 8</code></div>
+          </fieldset>
         </div>
       )}
 

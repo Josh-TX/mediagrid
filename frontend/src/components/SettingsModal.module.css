@@ -179,6 +179,29 @@
   margin: 0;
 }
 
+.ffmpegArgNote {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.ffmpegArgRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.ffmpegArgCode {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #ccc;
+  background: #1a1a1a;
+  border-radius: 3px;
+  padding: 2px 5px;
+  user-select: all;
+}
+
 .sectionLabel {
   color: #888;
   font-size: 0.75rem;

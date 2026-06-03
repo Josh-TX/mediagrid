@@ -7,6 +7,7 @@ FROM debian:bookworm-slim AS ffmpeg-builder
 
 # ── Version pins ─────────────────────────────────────────────────────────────
 ARG X265_TAG=3.5
+ARG SVTAV1_TAG=v2.2.0
 ARG FFMPEG_VERSION=7.1.1
 
 ENV PREFIX=/opt/ffmpeg
@@ -56,6 +57,19 @@ RUN git clone --depth 1 --branch ${X265_TAG} \
     && cmake --build /tmp/x265/build -j$(nproc) \
     && cmake --install /tmp/x265/build \
     && rm -rf /tmp/x265
+
+# ── libsvtav1 (static, no apps, encode-only) ─────────────────────────────────
+RUN git clone --depth 1 --branch ${SVTAV1_TAG} \
+        https://gitlab.com/AOMediaCodec/SVT-AV1.git /tmp/svtav1 \
+    && cmake -S /tmp/svtav1 -B /tmp/svtav1/build \
+        -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_APPS=OFF \
+        -DBUILD_DEC=OFF \
+    && cmake --build /tmp/svtav1/build -j$(nproc) \
+    && cmake --install /tmp/svtav1/build \
+    && rm -rf /tmp/svtav1
 
 # ── ffmpeg (minimal static-codec / dynamic-glibc binary) ──────────────────────
 # Note: --enable-static here means "build static libav* archives"; the
@@ -108,8 +122,10 @@ RUN wget -qO /tmp/ffmpeg.tar.xz \
         --enable-decoder=rawvideo \
         \
         --enable-libwebp \
+        --enable-libsvtav1 \
         --enable-encoder=libx264 \
         --enable-encoder=libx265 \
+        --enable-encoder=libsvtav1 \
         --enable-encoder=libwebp \
         --enable-encoder=libwebp_anim \
         --enable-encoder=mjpeg \
@@ -185,7 +201,7 @@ RUN echo "=== ffmpeg ===" \
     && echo "=== ffprobe ===" \
     && ${PREFIX}/bin/ffprobe -version \
     && echo "=== encoders ===" \
-    && ${PREFIX}/bin/ffmpeg -encoders 2>/dev/null | grep -E 'libx264|libx265|libwebp' \
+    && ${PREFIX}/bin/ffmpeg -encoders 2>/dev/null | grep -E 'libx264|libx265|libwebp|libsvtav1' \
     && echo "=== binary sizes ===" \
     && ls -lh ${PREFIX}/bin/ffmpeg ${PREFIX}/bin/ffprobe
 
