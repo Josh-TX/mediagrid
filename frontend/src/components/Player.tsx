@@ -28,8 +28,10 @@ interface PlayerProps {
   oneFileAtATime: boolean
   playerCropMaxX: number
   playerCropMaxY: number
-  rewindSeconds: number
-  fastForwardSeconds: number
+  rewindAmount: number
+  fastForwardAmount: number
+  isRewindPercent: boolean
+  isForwardPercent: boolean
   videoEndBehavior: "loop" | "stop" | "next"
 }
 
@@ -172,8 +174,10 @@ export function Player({
   oneFileAtATime,
   playerCropMaxX,
   playerCropMaxY,
-  rewindSeconds,
-  fastForwardSeconds,
+  rewindAmount,
+  fastForwardAmount,
+  isRewindPercent,
+  isForwardPercent,
   videoEndBehavior,
 }: PlayerProps) {
   const effectiveForward = oneFileAtATime ? 1 : forwardPreloadCount
@@ -318,7 +322,7 @@ export function Player({
   }
 
   // ── Tap-feedback overlays ─────────────────────────────────────────────────
-  const { rewindOverlay, forwardOverlay, playPauseOverlay, triggerRewindOverlay, triggerForwardOverlay, triggerPlayPauseOverlay } = useTapOverlays(rewindSeconds, fastForwardSeconds)
+  const { rewindOverlay, forwardOverlay, playPauseOverlay, triggerRewindOverlay, triggerForwardOverlay, triggerPlayPauseOverlay } = useTapOverlays(rewindAmount, isRewindPercent, fastForwardAmount, isForwardPercent)
 
   // ── Startup: begin the contrast auto-fade timer on mount ────────────────────
   useEffect(() => {
@@ -791,16 +795,21 @@ export function Player({
     const video = isVideo ? videoRefs.current.get(currentIndex) : undefined
 
     if (isVideo && clientX < vpW * 0.25) {
-      if (video) { video.currentTime = Math.max(0, video.currentTime - rewindSeconds); triggerRewindOverlay() }
+      if (video) {
+        const delta = isRewindPercent ? Math.round((video.duration || 0) * rewindAmount / 100) : rewindAmount
+        video.currentTime = Math.max(0, video.currentTime - delta)
+        triggerRewindOverlay(delta)
+      }
       enterContrastMode()
       return
     }
 
     if (isVideo && clientX > vpW * 0.75) {
       if (video) {
+        const delta = isForwardPercent ? Math.round((video.duration || 0) * fastForwardAmount / 100) : fastForwardAmount
         const maxTime = Math.max(0, (video.duration || 0) - SEEK_END_BUFFER)
-        video.currentTime = Math.min(maxTime, video.currentTime + fastForwardSeconds)
-        triggerForwardOverlay()
+        video.currentTime = Math.min(maxTime, video.currentTime + delta)
+        triggerForwardOverlay(delta)
       }
       enterContrastMode()
       return
@@ -887,14 +896,16 @@ export function Player({
       }
     } else if (e.key === "ArrowLeft" && video) {
       e.preventDefault()
-      video.currentTime = Math.max(0, video.currentTime - rewindSeconds)
-      triggerRewindOverlay()
+      const delta = isRewindPercent ? Math.round((video.duration || 0) * rewindAmount / 100) : rewindAmount
+      video.currentTime = Math.max(0, video.currentTime - delta)
+      triggerRewindOverlay(delta)
       enterContrastMode()
     } else if (e.key === "ArrowRight" && video) {
       e.preventDefault()
+      const delta = isForwardPercent ? Math.round((video.duration || 0) * fastForwardAmount / 100) : fastForwardAmount
       const maxTime = Math.max(0, (video.duration || 0) - SEEK_END_BUFFER)
-      video.currentTime = Math.min(maxTime, video.currentTime + fastForwardSeconds)
-      triggerForwardOverlay()
+      video.currentTime = Math.min(maxTime, video.currentTime + delta)
+      triggerForwardOverlay(delta)
       enterContrastMode()
     }
   }
@@ -1021,8 +1032,8 @@ export function Player({
         rewindOverlay={rewindOverlay}
         playPauseOverlay={playPauseOverlay}
         forwardOverlay={forwardOverlay}
-        rewindSeconds={rewindSeconds}
-        fastForwardSeconds={fastForwardSeconds}
+        isRewindPercent={isRewindPercent}
+        isForwardPercent={isForwardPercent}
         isFullscreen={isFullscreen}
         currentMedia={currentSlot && currentSlot !== "loading" ? currentSlot : null}
         infoTooltipOpen={infoTooltipOpen}

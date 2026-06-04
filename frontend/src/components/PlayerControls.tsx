@@ -66,11 +66,11 @@ export interface PlayerControlsProps {
   timeRemaining: string | null
   seekBarStyle: React.CSSProperties
   blackOverlayOpacity: number
-  rewindOverlay: { key: number; value: number } | null
+  rewindOverlay: { key: number; seconds: number; percentAccum?: number } | null
   playPauseOverlay: { key: number; action: "play" | "pause" } | null
-  forwardOverlay: { key: number; value: number } | null
-  rewindSeconds: number
-  fastForwardSeconds: number
+  forwardOverlay: { key: number; seconds: number; percentAccum?: number } | null
+  isRewindPercent: boolean
+  isForwardPercent: boolean
   isFullscreen: boolean
   currentMedia: MediaInfo | null
   infoTooltipOpen: boolean
@@ -82,7 +82,7 @@ export interface PlayerControlsProps {
 export function PlayerControls({
   controlsOpacity, seekBarOpacity, overlayTransition, displayedTitle, seekBarVisible, timeRemaining,
   seekBarStyle, blackOverlayOpacity, rewindOverlay, playPauseOverlay, forwardOverlay,
-  rewindSeconds, fastForwardSeconds, isFullscreen, currentMedia, infoTooltipOpen, onInfoToggle,
+  isRewindPercent, isForwardPercent, isFullscreen, currentMedia, infoTooltipOpen, onInfoToggle,
   onClose, onToggleFullscreen,
 }: PlayerControlsProps) {
   return (
@@ -131,7 +131,12 @@ export function PlayerControls({
           className={styles.overlay}
           style={{ left: 0, width: "25%", animationDuration: `${OVERLAY_FADE_DURATION_MS}ms` }}
         >
-          <span className={styles.overlayText}>−{rewindOverlay.value}s</span>
+          <div className={styles.overlayStack}>
+            <span className={styles.overlayText}>−{rewindOverlay.seconds}s</span>
+            {isRewindPercent && rewindOverlay.percentAccum != null && (
+              <span className={styles.overlaySubtext}>{rewindOverlay.percentAccum}%</span>
+            )}
+          </div>
         </div>
       )}
       {playPauseOverlay && (
@@ -149,7 +154,12 @@ export function PlayerControls({
           className={styles.overlay}
           style={{ left: "75%", width: "25%", animationDuration: `${OVERLAY_FADE_DURATION_MS}ms` }}
         >
-          <span className={styles.overlayText}>+{forwardOverlay.value}s</span>
+          <div className={styles.overlayStack}>
+            <span className={styles.overlayText}>+{forwardOverlay.seconds}s</span>
+            {isForwardPercent && forwardOverlay.percentAccum != null && (
+              <span className={styles.overlaySubtext}>{forwardOverlay.percentAccum}%</span>
+            )}
+          </div>
         </div>
       )}
       <button type="button" className={styles.backBtn} onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="Back">

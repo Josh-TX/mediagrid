@@ -38,29 +38,34 @@ export function useViewportSize() {
   return { vpW, vpH }
 }
 
-export function useTapOverlays(rewindSeconds: number, fastForwardSeconds: number) {
-  const [rewindOverlay, setRewindOverlay] = useState<{ key: number; value: number } | null>(null)
-  const [forwardOverlay, setForwardOverlay] = useState<{ key: number; value: number } | null>(null)
+export function useTapOverlays(
+  rewindAmount: number, isRewindPercent: boolean,
+  forwardAmount: number, isForwardPercent: boolean,
+) {
+  const [rewindOverlay, setRewindOverlay] = useState<{ key: number; seconds: number; percentAccum?: number } | null>(null)
+  const [forwardOverlay, setForwardOverlay] = useState<{ key: number; seconds: number; percentAccum?: number } | null>(null)
   const [playPauseOverlay, setPlayPauseOverlay] = useState<{ key: number; action: "play" | "pause" } | null>(null)
-  const rewindAccum = useRef({ value: 0, timer: null as ReturnType<typeof setTimeout> | null, key: 0 })
-  const forwardAccum = useRef({ value: 0, timer: null as ReturnType<typeof setTimeout> | null, key: 0 })
+  const rewindAccum = useRef({ seconds: 0, percentAccum: 0, timer: null as ReturnType<typeof setTimeout> | null, key: 0 })
+  const forwardAccum = useRef({ seconds: 0, percentAccum: 0, timer: null as ReturnType<typeof setTimeout> | null, key: 0 })
   const playPauseKey = useRef(0)
 
-  function triggerRewindOverlay() {
+  function triggerRewindOverlay(computedSeconds: number) {
     const a = rewindAccum.current
     if (a.timer) clearTimeout(a.timer)
-    a.value += rewindSeconds
+    a.seconds += computedSeconds
+    if (isRewindPercent) a.percentAccum += rewindAmount
     a.key++
-    setRewindOverlay({ key: a.key, value: a.value })
-    a.timer = setTimeout(() => { a.value = 0; a.timer = null }, OVERLAY_ACCUMULATE_MS)
+    setRewindOverlay({ key: a.key, seconds: a.seconds, ...(isRewindPercent ? { percentAccum: a.percentAccum } : {}) })
+    a.timer = setTimeout(() => { a.seconds = 0; a.percentAccum = 0; a.timer = null }, OVERLAY_ACCUMULATE_MS)
   }
-  function triggerForwardOverlay() {
+  function triggerForwardOverlay(computedSeconds: number) {
     const a = forwardAccum.current
     if (a.timer) clearTimeout(a.timer)
-    a.value += fastForwardSeconds
+    a.seconds += computedSeconds
+    if (isForwardPercent) a.percentAccum += forwardAmount
     a.key++
-    setForwardOverlay({ key: a.key, value: a.value })
-    a.timer = setTimeout(() => { a.value = 0; a.timer = null }, OVERLAY_ACCUMULATE_MS)
+    setForwardOverlay({ key: a.key, seconds: a.seconds, ...(isForwardPercent ? { percentAccum: a.percentAccum } : {}) })
+    a.timer = setTimeout(() => { a.seconds = 0; a.percentAccum = 0; a.timer = null }, OVERLAY_ACCUMULATE_MS)
   }
   function triggerPlayPauseOverlay(action: "play" | "pause") {
     playPauseKey.current++

@@ -125,8 +125,10 @@ export function Gallery() {
   const forwardPreloadCount = activePresetData?.forwardPreloadCount ?? 1
   const backwardPreloadCount = activePresetData?.backwardPreloadCount ?? 1
   const oneFileAtATime = activePresetData?.oneFileAtATime ?? false
-  const rewindSeconds = activePresetData?.rewindSeconds ?? 10
-  const fastForwardSeconds = activePresetData?.fastForwardSeconds ?? 10
+  const rewindAmount = activePresetData?.rewindAmount ?? 10
+  const fastForwardAmount = activePresetData?.fastForwardAmount ?? 10
+  const isRewindPercent = activePresetData?.isRewindPercent ?? false
+  const isForwardPercent = activePresetData?.isForwardPercent ?? false
   const showTileTitle = activePresetData?.showTileTitle ?? true
   const videoEndBehavior = activePresetData?.videoEndBehavior ?? "loop"
   const galleryGap = activePresetData?.galleryGap ?? 2
@@ -483,8 +485,10 @@ export function Gallery() {
           oneFileAtATime={oneFileAtATime}
           playerCropMaxX={playerCropMaxX}
           playerCropMaxY={playerCropMaxY}
-          rewindSeconds={rewindSeconds}
-          fastForwardSeconds={fastForwardSeconds}
+          rewindAmount={rewindAmount}
+          fastForwardAmount={fastForwardAmount}
+          isRewindPercent={isRewindPercent}
+          isForwardPercent={isForwardPercent}
           videoEndBehavior={videoEndBehavior}
         />
       )}

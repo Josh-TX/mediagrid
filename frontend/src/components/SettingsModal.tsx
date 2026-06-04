@@ -357,12 +357,26 @@ function PresetsTab({
             </select>
           </label>
           <label className={styles.field}>
-            <span>Rewind seconds</span>
-            <NumberInput key={`${selectedName}-${resetKey}-rewindSeconds`} aria-label="Rewind seconds" className={styles.numberInput} value={selectedPreset.rewindSeconds} min={1} onChange={(n) => onUpdatePreset({ rewindSeconds: n })} />
+            <span>Rewind unit type</span>
+            <select value={selectedPreset.isRewindPercent ? "percentage" : "seconds"} onChange={(e) => onUpdatePreset({ isRewindPercent: e.target.value === "percentage" })}>
+              <option value="seconds">Seconds</option>
+              <option value="percentage">Percentage</option>
+            </select>
           </label>
           <label className={styles.field}>
-            <span>Fast-forward seconds</span>
-            <NumberInput key={`${selectedName}-${resetKey}-fastForwardSeconds`} aria-label="Fast-forward seconds" className={styles.numberInput} value={selectedPreset.fastForwardSeconds} min={1} onChange={(n) => onUpdatePreset({ fastForwardSeconds: n })} />
+            <span>{selectedPreset.isRewindPercent ? "Rewind percent" : "Rewind seconds"}</span>
+            <NumberInput key={`${selectedName}-${resetKey}-rewindAmount`} aria-label={selectedPreset.isRewindPercent ? "Rewind percent" : "Rewind seconds"} className={styles.numberInput} value={selectedPreset.rewindAmount} min={1} onChange={(n) => onUpdatePreset({ rewindAmount: n })} />
+          </label>
+          <label className={styles.field}>
+            <span>Fast-forward unit type</span>
+            <select value={selectedPreset.isForwardPercent ? "percentage" : "seconds"} onChange={(e) => onUpdatePreset({ isForwardPercent: e.target.value === "percentage" })}>
+              <option value="seconds">Seconds</option>
+              <option value="percentage">Percentage</option>
+            </select>
+          </label>
+          <label className={styles.field}>
+            <span>{selectedPreset.isForwardPercent ? "Fast-forward percent" : "Fast-forward seconds"}</span>
+            <NumberInput key={`${selectedName}-${resetKey}-fastForwardAmount`} aria-label={selectedPreset.isForwardPercent ? "Fast-forward percent" : "Fast-forward seconds"} className={styles.numberInput} value={selectedPreset.fastForwardAmount} min={1} onChange={(n) => onUpdatePreset({ fastForwardAmount: n })} />
           </label>
         </fieldset>
       </div>

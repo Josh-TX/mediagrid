@@ -50,8 +50,10 @@ export const DEFAULT_PRESET: Preset = {
   forwardPreloadCount: 1,
   backwardPreloadCount: 1,
   oneFileAtATime: true,
-  rewindSeconds: 10,
-  fastForwardSeconds: 10,
+  rewindAmount: 10,
+  fastForwardAmount: 10,
+  isRewindPercent: false,
+  isForwardPercent: false,
   showTileTitle: true,
   videoEndBehavior: "loop",
   defaultSort: "random",
@@ -93,8 +95,10 @@ export const DatabaseLive = Layer.sync(Database, () => {
       forwardPreloadCount INTEGER NOT NULL DEFAULT 1,
       backwardPreloadCount INTEGER NOT NULL DEFAULT 1,
       oneFileAtATime INTEGER NOT NULL DEFAULT 0,
-      rewindSeconds INTEGER NOT NULL DEFAULT 10,
-      fastForwardSeconds INTEGER NOT NULL DEFAULT 10,
+      rewindAmount INTEGER NOT NULL DEFAULT 10,
+      fastForwardAmount INTEGER NOT NULL DEFAULT 10,
+      isRewindPercent INTEGER NOT NULL DEFAULT 0,
+      isForwardPercent INTEGER NOT NULL DEFAULT 0,
       showTileTitle INTEGER NOT NULL DEFAULT 1,
       videoEndBehavior TEXT NOT NULL DEFAULT 'loop',
       defaultSort TEXT NOT NULL DEFAULT 'random',
@@ -106,6 +110,10 @@ export const DatabaseLive = Layer.sync(Database, () => {
   // Migrate existing DBs that predate these columns.
   try { db.run("ALTER TABLE preset ADD COLUMN videoTileType TEXT NOT NULL DEFAULT 'highlight-if-available'") } catch { /* already exists */ }
   try { db.run("ALTER TABLE preset ADD COLUMN videoFallbackToOriginal INTEGER NOT NULL DEFAULT 0") } catch { /* already exists */ }
+  try { db.run("ALTER TABLE preset RENAME COLUMN rewindSeconds TO rewindAmount") } catch { /* already renamed */ }
+  try { db.run("ALTER TABLE preset RENAME COLUMN fastForwardSeconds TO fastForwardAmount") } catch { /* already renamed */ }
+  try { db.run("ALTER TABLE preset ADD COLUMN isRewindPercent INTEGER NOT NULL DEFAULT 0") } catch { /* already exists */ }
+  try { db.run("ALTER TABLE preset ADD COLUMN isForwardPercent INTEGER NOT NULL DEFAULT 0") } catch { /* already exists */ }
   db.run(`
     CREATE TABLE IF NOT EXISTS last_preview_settings (
       id INTEGER PRIMARY KEY,
@@ -135,9 +143,9 @@ export const DatabaseLive = Layer.sync(Database, () => {
     INSERT INTO preset (name, targetTilePercent, maxTilePercent, clusterCount, minAspectRatio, maxAspectRatio,
       minDuration, maxDuration, playerCropMaxX, playerCropMaxY, tileCropMaxX, tileCropMaxY,
       excludeContainsCsv, excludeNotContainsCsv, mediaType, forwardPreloadCount, backwardPreloadCount, oneFileAtATime,
-      rewindSeconds, fastForwardSeconds, showTileTitle, videoEndBehavior, defaultSort, galleryGap,
+      rewindAmount, fastForwardAmount, isRewindPercent, isForwardPercent, showTileTitle, videoEndBehavior, defaultSort, galleryGap,
       videoTileType, videoFallbackToOriginal)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
   const deleteAllPresetsStmt = db.prepare(`DELETE FROM preset`)
@@ -187,8 +195,10 @@ export const DatabaseLive = Layer.sync(Database, () => {
       forwardPreloadCount: row["forwardPreloadCount"] as number,
       backwardPreloadCount: row["backwardPreloadCount"] as number,
       oneFileAtATime: Boolean(row["oneFileAtATime"]),
-      rewindSeconds: row["rewindSeconds"] as number,
-      fastForwardSeconds: row["fastForwardSeconds"] as number,
+      rewindAmount: row["rewindAmount"] as number,
+      fastForwardAmount: row["fastForwardAmount"] as number,
+      isRewindPercent: Boolean(row["isRewindPercent"]),
+      isForwardPercent: Boolean(row["isForwardPercent"]),
       showTileTitle: Boolean(row["showTileTitle"]),
       videoEndBehavior: (row["videoEndBehavior"] as Preset["videoEndBehavior"]) ?? "loop",
       defaultSort: (row["defaultSort"] as Preset["defaultSort"]) ?? "random",
@@ -218,8 +228,10 @@ export const DatabaseLive = Layer.sync(Database, () => {
       preset.forwardPreloadCount,
       preset.backwardPreloadCount,
       preset.oneFileAtATime ? 1 : 0,
-      preset.rewindSeconds,
-      preset.fastForwardSeconds,
+      preset.rewindAmount,
+      preset.fastForwardAmount,
+      preset.isRewindPercent ? 1 : 0,
+      preset.isForwardPercent ? 1 : 0,
       preset.showTileTitle ? 1 : 0,
       preset.videoEndBehavior,
       preset.defaultSort,
