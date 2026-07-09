@@ -54,10 +54,10 @@ Response shape:
     {
       rowi: number,
       h: number,
-      tileW: number,
       tiles: [
         {
           tilei: number,
+          w: number,
           path: string,
           isVid: bool,
           preview: {
@@ -76,7 +76,7 @@ Response shape:
 }
 ```
 
-Note `tileW` lives on the row (all tiles in a row share the same width) rather than per-tile, since this simplifies row layout. The nested `preview` object is kept even though right now it's always identical to the tile's own media data (no real thumbnail/highlight generation exists yet — see "Preview fallback" below); this keeps the shape stable for when real previews are added later.
+`h` lives on the row since every tile in a row shares the same rendered height. `w` lives on each tile since tile widths within a row can differ by up to 1px (see layout algorithm below). The nested `preview` object is kept even though right now it's always identical to the tile's own media data (no real thumbnail/highlight generation exists yet — see "Preview fallback" below); this keeps the shape stable for when real previews are added later.
 
 Required query params: `tilePct`, `screenW`, `screenH` (viewport dimensions in pixels).
 
@@ -99,16 +99,21 @@ Optional query params:
 
 Filtering overall is: SimpleFilter (`f`) AND PresetFilter (whitelist/blacklist/aspect/duration/basePath/type excludes) — all these individual gates AND together, except whitelist/blacklist terms which OR within their own list.
 
-### Row/tile layout algorithm (intentionally simple — will be replaced later)
+### Row/tile layout algorithm
 
-This is a placeholder algorithm; precise adherence to `tilePct` doesn't matter right now:
+Rows are built by walking the filtered/sorted media list once and assigning tiles to rows one at a time, in order. Row assignment is computed for the entire list up front as part of generating the shuffle result (see "Rand-sort caching" below) — `minr`/`maxr` only slice a range out of the already-computed rows; they have no effect on where row boundaries fall.
 
-- `columns = round(1 / tilePct)`, minimum 1
-- `tileW = floor(screenW / columns)`
-- `h = tileW` (square tiles for now)
-- Tiles are assigned to rows sequentially in sort order, `columns` tiles per row (the final row may have fewer)
+A row always holds at least 1 tile and never more than `maxTilesPerRow`, a source constant set to `12`.
 
-Important: even though this algorithm currently produces the same `h` for every row, **the frontend must not assume uniform/constant row height** — a future update will make row height vary per row, and the virtual-scroll implementation needs to already support that (see Gallery section below).
+Given a candidate row currently holding `n` tiles, its dimensions are computed as follows:
+- The available width is `screenW - (n - 1)` (reserving 1px for the gap between each pair of tiles; there is no gap at the gallery's outer edges). Divide this evenly across the `n` tiles: `base = floor(availableWidth / n)`, `remainder = availableWidth % n`. The first `remainder` tiles (in row order) are `base + 1` px wide; the remaining tiles are `base` px wide. (E.g. `screenW = 1000` with 2 tiles: available width is 999, so the tiles are 500px and 499px.)
+- Each tile's individual height is its own width divided by its aspect ratio (`media.width / media.height`, read from the DB — dimensions are never re-derived from `ffprobe` at request time, since that's far too slow to do live).
+- The row's height is the average of the `n` tiles' individual heights.
+- The row's average tile area is `rowHeight * screenW / n`.
+
+Rows are built greedily: start a new row with the next unassigned tile. Before pulling in another tile, compute the current row's average tile area using only the tiles already in the row (per the math above). If that area is `<= tilePct * screenW * screenH`, the row is full — close it as-is and start a new row with the next tile. Otherwise the row's tiles are still too large on average, so add the next tile to the row (which lowers the average tile area, since more, narrower tiles yield less height per tile) and repeat the check. Regardless of area, a row is also closed the moment it reaches `maxTilesPerRow` tiles.
+
+Once a row is closed, its final tile widths are integers by construction (from the pixel-splitting math above); its height is a float internally but rounded to the nearest integer pixel for the API response.
 
 Tile fitting uses a crop-then-letterbox hybrid, governed by `tileCropX`/`tileCropY` (max crop fraction per axis from the preset): try to crop-to-fill the tile; if the crop needed to fully fill exceeds the allowed budget on that axis, crop only up to the budget and letterbox (black bars) the remaining excess. Row/tile gaps are 1px, colored white. Letterboxed areas are black.
 
@@ -125,7 +130,7 @@ Since previews are just the original video file, video tile playback is controll
 
 ### Rand-sort caching
 
-The server caches a shuffled order for `sort=rand`, keyed by a hash of the active filter params (`f`, `exVids`, `exImgs`, `exPort`, `exLand`, `minDur`, `maxDur`, `whitelist`, `blacklist`, `basepath`). TTL is 30 minutes, sliding — every cache hit resets the TTL. The toolbar's re-randomize button explicitly busts the cache for that key (`reshuffle=1`) and generates a fresh order.
+The server caches the shuffled tile order together with its computed row layout for `sort=rand`, keyed by a hash of the active filter params (`f`, `exVids`, `exImgs`, `exPort`, `exLand`, `minDur`, `maxDur`, `whitelist`, `blacklist`, `basepath`) plus `screenW` and `tilePct`, since those two also determine where row boundaries fall. TTL is 30 minutes, sliding — every cache hit resets the TTL. The toolbar's re-randomize button explicitly busts the cache for that key (`reshuffle=1`) and generates a fresh order.
 
 ### `GET /api/presets`
 
@@ -153,7 +158,7 @@ On load, the frontend calls `GET /api/presets` first. If the URL has a `preset` 
 
 ### Gallery: virtual + infinite scroll
 
-Infinite scroll only ever loads rows sequentially from the top, so the scrollable track's total height is just the sum of `h` for all rows loaded so far — there's no need to estimate heights for not-yet-loaded rows. Fetching the next batch (20 rows, via `minr`/`maxr`) is triggered by a numeric check (`scrollTop + clientHeight > totalLoadedHeight - threshold`) inside the same scroll handler that drives virtualization — not a separate IntersectionObserver sentinel, since a sentinel would get unmounted by virtualization itself. As established above, the implementation must treat row height as per-row/variable, not assume a constant, even though the current layout algorithm happens to produce uniform heights.
+Infinite scroll only ever loads rows sequentially from the top, so the scrollable track's total height is just the sum of `h` for all rows loaded so far — there's no need to estimate heights for not-yet-loaded rows. Fetching the next batch (20 rows, via `minr`/`maxr`) is triggered by a numeric check (`scrollTop + clientHeight > totalLoadedHeight - threshold`) inside the same scroll handler that drives virtualization — not a separate IntersectionObserver sentinel, since a sentinel would get unmounted by virtualization itself. Row height varies per row (per the layout algorithm above), so the implementation must treat it as per-row/variable, never assume a constant.
 
 Changing the filter, sort, or preset resets the gallery back to row 0 and re-fetches.
 

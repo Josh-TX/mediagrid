@@ -1,0 +1,144 @@
+
+
+I want to make a new project called MediaGrid, written in GO and vue.js
+
+There should be a route `GET api/shuffle` that returns the following:
+{
+    totalRows: number
+    totalTiles: number
+    rows: [
+        {
+            rowi: number,
+            h: number,
+            tiles: [
+                {
+                    tilei: number,
+                    path: string,
+                    w: number,
+                    isVid: bool,
+                    preview: {
+                        path: string,
+                        w: number,
+                        h: number,
+                        filesize: number,
+                        mdate: number,
+                        duration: number,
+                        isVid: bool
+                    }
+                }
+            ]
+        }
+    ]
+}
+The following queryParams are required:
+* tilePct - the tilePct setting
+* screenW - the viewport width (pixels)
+* screenH - the viewport height (pixels)
+
+The following queryParams are optional
+* minr - the minimum row index to return
+* maxr - the maximum row index to return
+* mint - the minimum tile index to return
+* maxt - the maximum tile index to return
+* f - a SimpleFilter
+* sort - if not present sort is rand. Otherwise set to size/az/date
+* exVids - if set to 1, videos are excluded
+* exImgs - if set to 1, videos are excluded
+* exPort - if set to 1, portrait media is excluded
+* exLand - if set to 1, landscape media is excluded
+* minDur - min duration of video (no affect on images)
+* maxDur - max duration of video (no affect on images)
+* whitelist - a CSV list of terms for filter as a whitelist
+* blacklist - a CSV list of terms for filter as a blacklist
+* basepath - a startswith filter
+
+The preset contains gallery settings, filter settings, and player settings
+
+Gallery Settings:
+* tilePct - The maximum tile area relative to screen area
+* tileCropX - the maximum we can horizontally crop
+* tileCropY - the maximum we can vertically crop
+* Default sort - random/size/A-Z/Date
+* Video Tile type (autoPlayTile)
+* Fallback to original ??
+
+Filter Settings:
+* includeVids - videos are included in the shufflelist
+* includeImages - images are included in the shuffleList
+* includePortrait - media with an aspect ratio of 1 or less is included in shuffleList
+* includeLandscape - media with an aspect ratio of 1 or greater is included in shuffleList
+* minDuration - any media duration less than this is excluded from the shuffleList
+* maxDuration - any media duration greater than this is excluded from the shuffleList
+* whitelistCSV - a CSV of terms. If the media doesn't match any terms, it's excluded from the shuffleList
+* blacklistCSV - a CSV of terms. If the media matches any terms, it's excluded from the shuffleList
+* basePath - excludes all paths that don't start with this
+
+Player Settings:
+* onVidEnd - When video ends, do we loop/stop/next
+* playerCropX - the maximum we can horizontally crop
+* playerCropY - the maximum we can vertically crop
+* rewindSeconds - number of seconds to rewind when it's tapped
+* forwardSeconds - number of seconds to fast forward when it's tapped
+
+There should be this route for loading presets: GET /api/presets. This returns a list of objects, where each object is a preset. The preset object has a property for each setting, and a name property too. The API route should have special logic to check if there exists a "default" preset, and if not it should dynamically create one and include it in the response. The frontend will always immediately call this API before it calls /api/shuffle
+
+If the browser has a preset as a queryParam in the url, it should select that preset. Fall back on selecting the default preset. Then make a call to /api/shuffle to load the gallery, supplying all the preset's relevant settings. Initially specify a maxr of 20 to load 20 rows. 
+
+Each row should be hardcoded to have a min and max heigh based on the API responses' h property on the row. Rows should have a gap of 1px between them. Tiles should also have a gap of 1. The gap should be white. If letterboxing happens, the part of the tile not covered by the preview should be black. 
+
+The rows should employ virtual scrolling. Since the rows all have a fixed height this should be very doable. 
+
+The toolbar should have the following from left to right:
+* A sort/re-randomize button (if the sort is rand, it's a re-randomize button, otherwise it's an up/down arrow showing the current sort direction). 
+* a <select> for the current sort type (rand/size/A-Z/date). This is a narrow select, since space is limited
+* a text input for the filter
+* a <select> for the selectedPreset
+* A gear icon that opens the settings modal
+
+Everything is very minimalistic... no backgrounds... the topleft and topright buttons are just white icons. 
+
+The settings modal shoud have a header with a <select> for the current preset, and to the right of that it has buttons to rename, delete, dupe, and new-preset
+The middle section is a scrollable section for all the settings. I want each row to have a label on the left, and an input on the right. There should be a ? icon that on hover gives more explanation of the setting. 
+
+The footer has a close button on the left, and on a right is a "revert" button and a "save permanently". Edit immediately affect locally, but the backend only saves permanently if save is clicked
+
+The backend should have 2 database tables:
+
+    CREATE TABLE IF NOT EXISTS media (
+      path TEXT PRIMARY KEY,
+      width INTEGER NOT NULL,
+      height INTEGER NOT NULL,
+      filesize INTEGER NOT NULL,
+      mdate INTEGER NOT NULL,
+      duration INTEGER,
+      isvid INTEGER NOT NULL
+    )
+
+and a presets table with a column for each preset. 
+
+There needs to be a scan process that runs on startup, that walks the entire workspace filetree looking for media files (based on file ext)
+
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"])
+const VIDEO_EXTS = new Set([".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v"])
+
+It checks if the file already exists in the media table. If it doesn't it uses ffprobe to get the dimensions and duration, and inserts it into the media folder. 
+
+We will eventually have a more sophisticated system of background tasks, but for now this is the start. 
+
+The player is also out of scope for this. If a tile is clicked on, alert("not implemented")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
