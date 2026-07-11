@@ -17,3 +17,8 @@ Implements the full-viewport Player that slides in over the Gallery when a Tile 
 Date: 2026-07-11
 
 Syncs the Gallery/Player with the URL (`i`, `p`, `sort`, `sortDir`, `f` params) so refresh, bookmarking, and native back/forward work without full page reloads, including opening the Player directly (no slide-in, no gallery previews loaded) on a direct load with `i` present. Backend `/api/shuffle` gains a combined `skipr`/`taker`/`takei` row-range mechanism (replacing `minr`/`maxr`) so one request can serve both the Player's target tile and the Gallery's normal page size, plus a new reusable toast system for invalid-index errors.
+
+# Settings Tasks Tab
+Date: 2026-07-11
+
+Splits the Settings modal into Presets and Tasks tabs, adding a backend in-memory task queue (one active task at a time, plus Queue and Recent Tasks lists) driven by new `/api/scan`, `/api/gen-thumbnails`, `/api/gen-highlights`, `/api/tasks`, and `/api/gen-settings` routes polled every second while the Tasks tab is open. Gen Thumbnails and Gen Highlights each get an inner settings modal (resolution, quality/segments, filters, preset filter) persisted to a new `GenSettings` table, and generate actual thumbnail/highlight files via `ffmpeg` into a new `PREVIEW_ROOT`, mirroring `MEDIA_ROOT`'s folder structure.
