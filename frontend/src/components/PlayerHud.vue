@@ -1,0 +1,606 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { Tile } from '../types'
+import {
+  SEEK_BAND_HEIGHT,
+  HUD_SIDE_PADDING,
+  REWIND_ZONE_RATIO,
+  FORWARD_ZONE_RATIO,
+  TAP_MOVE_THRESHOLD,
+  DIRECTION_DISAMBIGUATION_PX,
+  TAP_OVERLAY_OPACITY,
+  TAP_OVERLAY_FADE_MS,
+  TAP_TEXT_FADE_MS,
+  TAP_ACCUMULATE_WINDOW_MS,
+  CONTRAST_OPACITY_HIGH,
+  CONTRAST_OPACITY_LOW,
+  CONTRAST_FADE_MS,
+  BUTTON_CONTRAST_TRANSITION_MS,
+  BUTTON_BG_LOW_CONTRAST,
+  BUTTON_BG_MEDIUM_CONTRAST,
+  SWAP_MID_MS,
+} from '../playerConstants'
+
+const props = defineProps<{
+  tile: Tile
+  currentTime: number
+  duration: number
+  paused: boolean
+  hudFadeVisible: boolean // false during the first 75ms of a swap
+  contrastPulse: number // bumped by the parent on swap-end / first-ready
+  rewindSeconds: number
+  forwardSeconds: number
+  viewportW: number
+  viewportH: number
+  fullscreenTarget: HTMLElement | null
+}>()
+
+const emit = defineEmits<{
+  back: []
+  'swap-drag': [deltaY: number]
+  'swap-release': [deltaY: number, velocity: number]
+  'seek-preview': [time: number]
+  'seek-commit': [time: number]
+  rewind: []
+  forward: []
+  'toggle-play-pause': []
+}>()
+
+// --- Title / info tooltip ---
+const infoOpen = ref(false)
+const title = computed(() => props.tile.path.split('/').pop() ?? props.tile.path)
+
+function formatFilesize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let val = bytes / 1024
+  let i = 0
+  while (val >= 1024 && i < units.length - 1) {
+    val /= 1024
+    i++
+  }
+  return `${val.toFixed(1)} ${units[i]}`
+}
+
+function formatDate(mdateSeconds: number): string {
+  return new Date(mdateSeconds * 1000).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function formatClock(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds))
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+const dateText = computed(() => formatDate(props.tile.preview.mdate))
+const filesizeText = computed(() => formatFilesize(props.tile.preview.filesize))
+const resolutionText = computed(() => `${props.tile.preview.w}w x ${props.tile.preview.h}h`)
+const durationText = computed(() => formatClock(props.tile.preview.duration))
+
+// --- Seek bar / time-remaining, with a live local preview while scrubbing ---
+const scrubPreviewTime = ref<number | null>(null)
+const displayTime = computed(() => scrubPreviewTime.value ?? props.currentTime)
+const seekPct = computed(() => (props.duration ? Math.min(100, Math.max(0, (displayTime.value / props.duration) * 100)) : 0))
+const timeRemainingText = computed(() => `-${formatClock(Math.max(0, props.duration - displayTime.value))}`)
+
+// --- Fullscreen ---
+const isFullscreen = ref(false)
+function onFullscreenChange() {
+  isFullscreen.value = !!document.fullscreenElement && document.fullscreenElement === props.fullscreenTarget
+}
+function toggleFullscreen() {
+  const el = props.fullscreenTarget as (HTMLElement & { requestFullscreen?: () => Promise<void> }) | null
+  if (!el) return
+  if (!document.fullscreenElement) {
+    el.requestFullscreen?.().catch(() => {})
+  } else {
+    document.exitFullscreen?.().catch(() => {})
+  }
+}
+onMounted(() => document.addEventListener('fullscreenchange', onFullscreenChange))
+onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscreenChange))
+
+// --- Back/fullscreen button contrast: very-low (default) vs medium (paused) ---
+const buttonBg = computed(() => (props.paused ? BUTTON_BG_MEDIUM_CONTRAST : BUTTON_BG_LOW_CONTRAST))
+
+// --- Title-time/seek-bar high/low contrast state machine ---
+const hudContrast = ref<'high' | 'low'>('high')
+const hudTransitionMs = ref(0)
+let holdTimer: ReturnType<typeof setTimeout> | undefined
+
+function setHighThenFade(holdMs: number) {
+  clearTimeout(holdTimer)
+  hudTransitionMs.value = 0
+  hudContrast.value = 'high'
+  holdTimer = setTimeout(() => {
+    hudTransitionMs.value = CONTRAST_FADE_MS
+    hudContrast.value = 'low'
+  }, holdMs)
+}
+
+function setHighNoFade() {
+  clearTimeout(holdTimer)
+  hudTransitionMs.value = 0
+  hudContrast.value = 'high'
+}
+
+// Paused: instantly high, no pending fade. Resumed: instantly high, then
+// immediately starts fading (no hold), per spec.
+watch(
+  () => props.paused,
+  (paused) => (paused ? setHighNoFade() : setHighThenFade(0)),
+)
+
+// Bumped by the parent after a swap completes, or once the very first
+// media is ready — holds high-contrast for a couple seconds first.
+watch(
+  () => props.contrastPulse,
+  () => setHighThenFade(2000),
+)
+
+onBeforeUnmount(() => clearTimeout(holdTimer))
+
+const contrastOpacityStyle = computed(() => ({
+  opacity: hudContrast.value === 'high' ? CONTRAST_OPACITY_HIGH : CONTRAST_OPACITY_LOW,
+  transition: `opacity ${hudTransitionMs.value}ms linear`,
+}))
+
+// --- Tap feedback (rewind / forward / pause-play zones) ---
+function createTapFeedback() {
+  const hasTapped = ref(false)
+  const overlayKey = ref(0)
+  const textKey = ref(0)
+  const text = ref('')
+  let lastTapTime = 0
+  let count = 0
+  function trigger(label: (count: number) => string) {
+    const now = performance.now()
+    count = now - lastTapTime <= TAP_ACCUMULATE_WINDOW_MS ? count + 1 : 1
+    lastTapTime = now
+    text.value = label(count)
+    hasTapped.value = true
+    overlayKey.value++
+    textKey.value++
+  }
+  return { hasTapped, overlayKey, textKey, text, trigger }
+}
+
+const rewindFeedback = createTapFeedback()
+const forwardFeedback = createTapFeedback()
+const playPauseFeedback = createTapFeedback()
+
+function doRewindTap() {
+  emit('rewind')
+  setHighThenFade(0)
+  rewindFeedback.trigger((n) => `-${n * props.rewindSeconds}s`)
+}
+
+function doForwardTap() {
+  emit('forward')
+  setHighThenFade(0)
+  forwardFeedback.trigger((n) => `+${n * props.forwardSeconds}s`)
+}
+
+function doPlayPauseTap() {
+  emit('toggle-play-pause')
+  setHighThenFade(0)
+  // Icon shown matches the new state that results from this tap.
+  playPauseFeedback.trigger(() => (props.paused ? 'play' : 'pause'))
+}
+
+// --- Seek-band tap/scrub geometry ---
+function xToTime(x: number): number {
+  const w = props.viewportW
+  if (x <= HUD_SIDE_PADDING) return 0
+  if (x >= w - HUD_SIDE_PADDING) return Math.max(0, props.duration - 1)
+  const ratio = (x - HUD_SIDE_PADDING) / (w - 2 * HUD_SIDE_PADDING)
+  return Math.min(Math.max(0, props.duration - 1), Math.max(0, ratio * props.duration))
+}
+
+// --- Gesture recognition: tap vs swipe-swap vs seek-scrub ---
+type Zone = 'seek' | 'rewind' | 'forward' | 'playpause'
+type GestureMode = 'pending' | 'swap' | 'scrub'
+
+interface Gesture {
+  mode: GestureMode
+  zone: Zone
+  startX: number
+  startY: number
+  lastX: number
+  lastY: number
+  startTime: number
+}
+
+let gesture: Gesture | null = null
+
+function classifyZone(x: number, y: number): Zone {
+  if (y >= props.viewportH - SEEK_BAND_HEIGHT) return 'seek'
+  if (x < props.viewportW * REWIND_ZONE_RATIO) return 'rewind'
+  if (x > props.viewportW * (1 - FORWARD_ZONE_RATIO)) return 'forward'
+  return 'playpause'
+}
+
+function handleTap(zone: Zone, x: number) {
+  if (zone === 'seek') {
+    setHighThenFade(0)
+    emit('seek-commit', xToTime(x))
+  } else if (zone === 'rewind') {
+    doRewindTap()
+  } else if (zone === 'forward') {
+    doForwardTap()
+  } else {
+    doPlayPauseTap()
+  }
+}
+
+function onTouchStart(e: TouchEvent) {
+  if (infoOpen.value) return
+  const t = e.touches[0]
+  gesture = {
+    mode: 'pending',
+    zone: classifyZone(t.clientX, t.clientY),
+    startX: t.clientX,
+    startY: t.clientY,
+    lastX: t.clientX,
+    lastY: t.clientY,
+    startTime: performance.now(),
+  }
+}
+
+function onTouchMove(e: TouchEvent) {
+  if (!gesture) return
+  const t = e.touches[0]
+  gesture.lastX = t.clientX
+  gesture.lastY = t.clientY
+  const dx = t.clientX - gesture.startX
+  const dy = t.clientY - gesture.startY
+
+  if (gesture.mode === 'pending') {
+    if (gesture.zone === 'seek') {
+      if (Math.abs(dx) > DIRECTION_DISAMBIGUATION_PX || Math.abs(dy) > DIRECTION_DISAMBIGUATION_PX) {
+        gesture.mode = Math.abs(dx) > Math.abs(dy) ? 'scrub' : 'swap'
+      }
+    } else if (Math.abs(dy) > TAP_MOVE_THRESHOLD) {
+      gesture.mode = 'swap'
+    }
+  }
+
+  if (gesture.mode === 'swap') {
+    e.preventDefault()
+    emit('swap-drag', dy)
+  } else if (gesture.mode === 'scrub') {
+    e.preventDefault()
+    const time = xToTime(t.clientX)
+    scrubPreviewTime.value = time
+    emit('seek-preview', time)
+  }
+}
+
+function onTouchEnd(e: TouchEvent) {
+  if (!gesture) return
+  const g = gesture
+  gesture = null
+  const dx = g.lastX - g.startX
+  const dy = g.lastY - g.startY
+  const dt = Math.max(1, performance.now() - g.startTime)
+
+  if (g.mode === 'swap') {
+    emit('swap-release', dy, dy / dt)
+  } else if (g.mode === 'scrub') {
+    const time = xToTime(g.lastX)
+    scrubPreviewTime.value = null
+    setHighThenFade(0)
+    emit('seek-commit', time)
+  } else if (Math.abs(dx) < TAP_MOVE_THRESHOLD && Math.abs(dy) < TAP_MOVE_THRESHOLD) {
+    handleTap(g.zone, g.startX)
+  }
+  e.preventDefault()
+}
+</script>
+
+<template>
+  <div class="hud">
+    <div
+      class="zones-layer"
+      @touchstart="onTouchStart"
+      @touchmove="onTouchMove"
+      @touchend="onTouchEnd"
+      @touchcancel="onTouchEnd"
+    >
+      <div
+        v-if="rewindFeedback.hasTapped.value"
+        :key="'ro' + rewindFeedback.overlayKey.value"
+        class="tap-overlay rewind-zone"
+        :style="{ '--tap-overlay-opacity': TAP_OVERLAY_OPACITY, animationDuration: TAP_OVERLAY_FADE_MS + 'ms' }"
+      />
+      <div
+        v-if="forwardFeedback.hasTapped.value"
+        :key="'fo' + forwardFeedback.overlayKey.value"
+        class="tap-overlay forward-zone"
+        :style="{ '--tap-overlay-opacity': TAP_OVERLAY_OPACITY, animationDuration: TAP_OVERLAY_FADE_MS + 'ms' }"
+      />
+      <div
+        v-if="playPauseFeedback.hasTapped.value"
+        :key="'po' + playPauseFeedback.overlayKey.value"
+        class="tap-overlay playpause-zone"
+        :style="{ '--tap-overlay-opacity': TAP_OVERLAY_OPACITY, animationDuration: TAP_OVERLAY_FADE_MS + 'ms' }"
+      />
+
+      <div
+        v-if="rewindFeedback.hasTapped.value"
+        :key="'rt' + rewindFeedback.textKey.value"
+        class="tap-text rewind-zone"
+        :style="{ animationDuration: TAP_TEXT_FADE_MS + 'ms' }"
+      >
+        {{ rewindFeedback.text.value }}
+      </div>
+      <div
+        v-if="forwardFeedback.hasTapped.value"
+        :key="'ft' + forwardFeedback.textKey.value"
+        class="tap-text forward-zone"
+        :style="{ animationDuration: TAP_TEXT_FADE_MS + 'ms' }"
+      >
+        {{ forwardFeedback.text.value }}
+      </div>
+      <div
+        v-if="playPauseFeedback.hasTapped.value"
+        :key="'pt' + playPauseFeedback.textKey.value"
+        class="tap-text playpause-zone icon"
+        :style="{ animationDuration: TAP_TEXT_FADE_MS + 'ms' }"
+      >
+        <svg v-if="playPauseFeedback.text.value === 'play'" viewBox="0 0 24 24" width="40" height="40" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+        <svg v-else viewBox="0 0 24 24" width="40" height="40" fill="currentColor"><rect x="6" y="5" width="4" height="14" /><rect x="14" y="5" width="4" height="14" /></svg>
+      </div>
+    </div>
+
+    <button class="hud-btn back-btn" type="button" :style="{ background: buttonBg, transition: `background ${BUTTON_CONTRAST_TRANSITION_MS}ms` }" @click="emit('back')">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </button>
+
+    <button
+      class="hud-btn fullscreen-btn"
+      type="button"
+      :style="{ background: buttonBg, transition: `background ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
+      @click="toggleFullscreen"
+    >
+      <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+      </svg>
+      <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+      </svg>
+    </button>
+
+    <div class="bottom-gradient" />
+
+    <div class="bottom-hud" :style="contrastOpacityStyle">
+      <div class="swap-fade" :class="{ 'swap-hidden': !hudFadeVisible }" :style="{ transitionDuration: SWAP_MID_MS + 'ms' }">
+        <div class="title-time-row">
+          <div class="title">
+            {{ title }}
+            <span class="info-icon" @click.stop="infoOpen = true">i</span>
+          </div>
+          <div v-if="tile.isVid" class="time-remaining">{{ timeRemainingText }}</div>
+        </div>
+        <div v-if="tile.isVid" class="seek-bar">
+          <div class="seek-fill" :style="{ width: seekPct + '%' }" />
+        </div>
+      </div>
+    </div>
+
+    <div v-if="infoOpen" class="info-backdrop" @click="infoOpen = false">
+      <div class="info-tooltip">
+        <div class="info-row">{{ title }}</div>
+        <div class="info-row">{{ dateText }}</div>
+        <div class="info-row">{{ filesizeText }}</div>
+        <div class="info-row">{{ resolutionText }}</div>
+        <div v-if="tile.isVid" class="info-row">{{ durationText }}</div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.zones-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.tap-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 64px;
+  background: #000;
+  animation-name: tapOverlayFade;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+.tap-overlay.rewind-zone {
+  left: 0;
+  width: 25%;
+}
+.tap-overlay.forward-zone {
+  right: 0;
+  width: 25%;
+}
+.tap-overlay.playpause-zone {
+  left: 25%;
+  right: 25%;
+}
+@keyframes tapOverlayFade {
+  from {
+    opacity: var(--tap-overlay-opacity);
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.tap-text {
+  position: absolute;
+  top: 0;
+  bottom: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  animation-name: tapTextFade;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+.tap-text.rewind-zone {
+  left: 0;
+  width: 25%;
+}
+.tap-text.forward-zone {
+  right: 0;
+  width: 25%;
+}
+.tap-text.playpause-zone {
+  left: 25%;
+  right: 25%;
+}
+@keyframes tapTextFade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.hud-btn {
+  position: absolute;
+  top: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 6;
+}
+.back-btn {
+  left: 12px;
+}
+.fullscreen-btn {
+  right: 12px;
+}
+
+.bottom-gradient {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 120px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+
+.bottom-hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.swap-fade {
+  opacity: 1;
+  transition-property: opacity;
+  transition-timing-function: linear;
+}
+.swap-fade.swap-hidden {
+  opacity: 0;
+}
+
+.title-time-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 20px;
+  margin-bottom: 20px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  gap: 12px;
+}
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  border-radius: 50%;
+  border: 1px solid #fff;
+  font-size: 11px;
+  font-style: italic;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.time-remaining {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.seek-bar {
+  height: 1px;
+  background: rgba(120, 120, 120, 0.8);
+}
+.seek-fill {
+  height: 100%;
+  background: #fff;
+}
+
+.info-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  z-index: 7;
+}
+.info-tooltip {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 100px;
+  background: rgba(20, 20, 20, 0.92);
+  color: #fff;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+}
+.info-row {
+  padding: 2px 0;
+}
+</style>

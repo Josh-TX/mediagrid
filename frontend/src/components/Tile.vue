@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { Tile, AutoPlayTile } from '../types'
 import { mediaUrl } from '../api/shuffle'
+import { playerStore } from '../stores/playerStore'
 
 const props = defineProps<{
   tile: Tile
@@ -57,7 +58,7 @@ const mediaStyle = computed(() => {
 })
 
 function onClick() {
-  alert('not implemented')
+  playerStore.open(props.tile.tilei)
 }
 
 function play() {
@@ -82,18 +83,20 @@ function pauseReset() {
     @touchstart.passive="play"
     @touchend.passive="pauseReset"
   >
-    <video
-      v-if="tile.isVid"
-      ref="videoEl"
-      :src="mediaUrl(tile.preview.path)"
-      :style="mediaStyle"
-      muted
-      playsinline
-      loop
-      preload="metadata"
-      :autoplay="autoPlayTile === 'always'"
-    />
-    <img v-else :src="mediaUrl(tile.preview.path)" :style="mediaStyle" :alt="tile.path" loading="lazy" />
+    <template v-if="!playerStore.state.open">
+      <video
+        v-if="tile.isVid"
+        ref="videoEl"
+        :src="mediaUrl(tile.preview.path)"
+        :style="mediaStyle"
+        muted
+        playsinline
+        loop
+        preload="metadata"
+        :autoplay="autoPlayTile === 'always'"
+      />
+      <img v-else :src="mediaUrl(tile.preview.path)" :style="mediaStyle" :alt="tile.path" loading="lazy" />
+    </template>
   </div>
 </template>
 

@@ -3,10 +3,13 @@ import { onMounted, ref } from 'vue'
 import Toolbar from './components/Toolbar.vue'
 import Gallery from './components/Gallery.vue'
 import SettingsModal from './components/SettingsModal.vue'
+import Player from './components/Player.vue'
 import { presetsStore } from './stores/presetsStore'
 import { uiStore } from './stores/uiStore'
 import { galleryStore } from './stores/galleryStore'
+import { playerStore } from './stores/playerStore'
 import { buildShuffleQuery } from './buildShuffleQuery'
+import { SLIDE_DURATION_MS } from './playerConstants'
 
 const settingsOpen = ref(false)
 const ready = ref(false)
@@ -69,6 +72,10 @@ onMounted(async () => {
       </div>
 
       <SettingsModal v-if="settingsOpen" @close="closeSettings" />
+
+      <Transition name="player-slide" :duration="SLIDE_DURATION_MS">
+        <Player v-if="playerStore.state.open" />
+      </Transition>
     </template>
   </div>
 </template>
@@ -96,5 +103,15 @@ onMounted(async () => {
 
 .status button {
   margin-left: 8px;
+}
+
+.player-slide-enter-active,
+.player-slide-leave-active {
+  transition-property: transform;
+  transition-timing-function: ease;
+}
+.player-slide-enter-from,
+.player-slide-leave-to {
+  transform: translateX(100%);
 }
 </style>
