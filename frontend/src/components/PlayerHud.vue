@@ -28,6 +28,7 @@ const props = defineProps<{
   currentTime: number
   duration: number
   paused: boolean
+  tapToPlayVisible: boolean // shown only when a direct-load autoplay attempt was blocked
   hudFadeVisible: boolean // false during the first 75ms of a swap
   contrastPulse: number // bumped by the parent on swap-end / first-ready
   rewindSeconds: number
@@ -140,10 +141,11 @@ watch(
 )
 
 // Bumped by the parent after a swap completes, or once the very first
-// media is ready — holds high-contrast for a couple seconds first.
+// media is ready — holds high-contrast for a couple seconds first, unless
+// already paused (e.g. blocked autoplay), in which case it stays high.
 watch(
   () => props.contrastPulse,
-  () => setHighThenFade(2000),
+  () => (props.paused ? setHighNoFade() : setHighThenFade(2000)),
 )
 
 onBeforeUnmount(() => clearTimeout(holdTimer))
@@ -186,18 +188,21 @@ const forwardFeedback = createTapFeedback()
 const playPauseFeedback = createTapFeedback()
 
 function doRewindTap() {
+  if (!props.tile.isVid) return
   emit('rewind')
   setHighThenFade(0)
   rewindFeedback.trigger((n) => `-${n * props.rewindSeconds}s`)
 }
 
 function doForwardTap() {
+  if (!props.tile.isVid) return
   emit('forward')
   setHighThenFade(0)
   forwardFeedback.trigger((n) => `+${n * props.forwardSeconds}s`)
 }
 
 function doPlayPauseTap() {
+  if (!props.tile.isVid) return
   emit('toggle-play-pause')
   setHighThenFade(0)
   // Icon shown matches the new state that results from this tap.
@@ -214,7 +219,7 @@ function xToTime(x: number): number {
 }
 
 // --- Gesture recognition: tap vs swipe-swap vs seek-scrub ---
-type Zone = 'seek' | 'rewind' | 'forward' | 'playpause'
+type Zone = 'seek' | 'rewind' | 'forward' | 'playpause' | 'none'
 type GestureMode = 'pending' | 'swap' | 'scrub'
 
 interface Gesture {
@@ -230,6 +235,10 @@ interface Gesture {
 let gesture: Gesture | null = null
 
 function classifyZone(x: number, y: number): Zone {
+  // Images have no timeline to rewind/forward/scrub and no playback to
+  // pause, so the whole viewport is a single non-interactive zone (swipe
+  // up/down to swap still works via the same non-'seek' gesture path).
+  if (!props.tile.isVid) return 'none'
   if (y >= props.viewportH - SEEK_BAND_HEIGHT) return 'seek'
   if (x < props.viewportW * REWIND_ZONE_RATIO) return 'rewind'
   if (x > props.viewportW * (1 - FORWARD_ZONE_RATIO)) return 'forward'
@@ -237,6 +246,7 @@ function classifyZone(x: number, y: number): Zone {
 }
 
 function handleTap(zone: Zone, x: number) {
+  if (zone === 'none') return
   if (zone === 'seek') {
     setHighThenFade(0)
     emit('seek-commit', xToTime(x))
@@ -442,6 +452,8 @@ function onTouchEnd(e: TouchEvent) {
       </svg>
     </button>
 
+    <div v-if="tapToPlayVisible" class="tap-to-play-hint">tap to play</div>
+
     <div class="bottom-gradient" :style="gradientOpacityStyle" />
 
     <div class="bottom-hud" :style="contrastOpacityStyle">
@@ -585,6 +597,21 @@ function onTouchEnd(e: TouchEvent) {
   bottom: 0;
   height: 120px;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+
+.tap-to-play-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 55%;
+  transform: translateY(-50%);
+  text-align: center;
+  color: #fff;
+  font-size: 28px;
+  font-weight: 600;
+  opacity: 0.5;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
   pointer-events: none;
 }
 

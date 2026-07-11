@@ -3,6 +3,7 @@
 
 // --- Open/close + swap animation ---
 export const SLIDE_DURATION_MS = 150 // Player open/close slide-in/out
+export const OPEN_MID_MS = 75 // when the initial media starts playing, mid slide-in
 export const SWAP_DURATION_MS = 150 // full swipe/scroll/key swap animation
 export const SWAP_MID_MS = 75 // when the underlying media logically swaps
 

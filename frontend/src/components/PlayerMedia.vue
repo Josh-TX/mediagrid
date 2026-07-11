@@ -17,6 +17,7 @@ const emit = defineEmits<{
   ended: []
   play: []
   pause: []
+  'autoplay-blocked': []
 }>()
 
 const videoEl = ref<HTMLVideoElement | null>(null)
@@ -80,7 +81,16 @@ function play() {
   if (v.duration && v.currentTime >= v.duration - 0.05) {
     v.currentTime = 0
   }
-  v.play().catch(() => {})
+  // If the browser refuses (e.g. no user-gesture on a direct URL load), no
+  // native 'play' event ever fires — emit 'pause' so the caller's paused
+  // state reflects what actually happened instead of what was requested,
+  // plus a distinct event so the caller can offer a "tap to play" hint.
+  v.play().catch(() => {
+    if (v.paused) {
+      emit('pause')
+      emit('autoplay-blocked')
+    }
+  })
 }
 
 function pause() {

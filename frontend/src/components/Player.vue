@@ -13,6 +13,7 @@ import {
   WHEEL_DELTA_THRESHOLD,
   WHEEL_COOLDOWN_MS,
   RUBBER_BAND_STRENGTH,
+  OPEN_MID_MS,
 } from '../playerConstants'
 
 interface ContainerEntry {
@@ -91,11 +92,21 @@ function setMediaRef(entry: ContainerEntry, el: unknown) {
   const isNewBinding = mediaRefs.get(entry.id) !== instance
   mediaRefs.set(entry.id, instance)
   if (!isNewBinding) return
-  // Priority is getting the initial current media playing as fast as
-  // possible — don't wait for a loaded event first.
+  // The container starts off fully offscreen (slide-in still in progress),
+  // and browsers can refuse to autoplay a video that isn't visible yet, so
+  // the play attempt is held until the slide is roughly half done — same
+  // timing the swap animation already uses for its own mid-point.
   if (roleOf(entry.mediaIndex) === 0) {
     const tile = mediaList.value[entry.mediaIndex]
-    if (tile?.isVid) instance.play()
+    if (tile?.isVid) {
+      paused.value = true
+      // Only this very first autoplay attempt (tile-tap or direct URL load)
+      // is eligible to show the "tap to play" hint on failure.
+      initialAutoplayEntryId = entry.id
+      setTimeout(() => {
+        if (mediaRefs.get(entry.id) === instance) instance.play()
+      }, OPEN_MID_MS)
+    }
   }
 }
 
@@ -105,6 +116,8 @@ const currentTime = ref(0)
 const duration = ref(0)
 const neighborsCreated = ref(false)
 const contrastPulse = ref(0)
+const tapToPlayVisible = ref(false)
+let initialAutoplayEntryId: number | null = null
 
 function onMediaLoaded(entry: ContainerEntry) {
   if (roleOf(entry.mediaIndex) !== 0 || neighborsCreated.value) return
@@ -114,6 +127,10 @@ function onMediaLoaded(entry: ContainerEntry) {
   contrastPulse.value++
 }
 
+function onAutoplayBlocked(entry: ContainerEntry) {
+  if (entry.id === initialAutoplayEntryId) tapToPlayVisible.value = true
+}
+
 function onTimeUpdate(entry: ContainerEntry, ct: number, dur: number) {
   if (roleOf(entry.mediaIndex) !== 0) return
   currentTime.value = ct
@@ -121,7 +138,10 @@ function onTimeUpdate(entry: ContainerEntry, ct: number, dur: number) {
 }
 
 function onMediaPlay(entry: ContainerEntry) {
-  if (roleOf(entry.mediaIndex) === 0) paused.value = false
+  if (roleOf(entry.mediaIndex) === 0) {
+    paused.value = false
+    tapToPlayVisible.value = false
+  }
 }
 
 function onMediaPause(entry: ContainerEntry) {
@@ -249,6 +269,7 @@ function doMidSwap(direction: 1 | -1) {
   syncContainers()
   currentTime.value = 0
   duration.value = 0
+  tapToPlayVisible.value = false
 
   containers.value.forEach((c) => {
     const ref = mediaRefs.get(c.id)
@@ -386,6 +407,7 @@ onBeforeUnmount(() => {
           @ended="onEnded(entry)"
           @play="onMediaPlay(entry)"
           @pause="onMediaPause(entry)"
+          @autoplay-blocked="onAutoplayBlocked(entry)"
         />
       </div>
     </div>
@@ -397,6 +419,7 @@ onBeforeUnmount(() => {
       :current-time="currentTime"
       :duration="duration"
       :paused="paused"
+      :tap-to-play-visible="tapToPlayVisible"
       :hud-fade-visible="hudFadeVisible"
       :contrast-pulse="contrastPulse"
       :rewind-seconds="rewindSeconds"
