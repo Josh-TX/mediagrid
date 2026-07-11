@@ -1,14 +1,15 @@
 package shuffle
 
 // Params holds every /api/shuffle query parameter relevant to filtering,
-// sorting, and layout. MinR/MaxR are nil when the caller omitted them.
+// sorting, and layout. SkipR/TakeR/TakeI are nil when the caller omitted them.
 type Params struct {
 	TilePct float64
 	ScreenW int
 	ScreenH int
 
-	MinR *int
-	MaxR *int
+	SkipR *int
+	TakeR *int
+	TakeI *int
 
 	F    string
 	Sort string

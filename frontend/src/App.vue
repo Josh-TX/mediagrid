@@ -4,43 +4,14 @@ import Toolbar from './components/Toolbar.vue'
 import Gallery from './components/Gallery.vue'
 import SettingsModal from './components/SettingsModal.vue'
 import Player from './components/Player.vue'
-import { presetsStore } from './stores/presetsStore'
-import { uiStore } from './stores/uiStore'
+import Toast from './components/Toast.vue'
 import { galleryStore } from './stores/galleryStore'
 import { playerStore } from './stores/playerStore'
-import { buildShuffleQuery } from './buildShuffleQuery'
+import { urlStore } from './stores/urlStore'
 import { SLIDE_DURATION_MS } from './playerConstants'
 
 const settingsOpen = ref(false)
 const ready = ref(false)
-
-function refetchGallery() {
-  const preset = presetsStore.selectedPreset.value
-  if (!preset) return
-  const query = buildShuffleQuery(
-    preset,
-    uiStore.state.sortType,
-    uiStore.state.sortDir,
-    uiStore.state.filterText,
-    window.innerWidth,
-    window.innerHeight,
-  )
-  galleryStore.reset(query)
-}
-
-function onReshuffle() {
-  const preset = presetsStore.selectedPreset.value
-  if (!preset) return
-  const query = buildShuffleQuery(
-    preset,
-    uiStore.state.sortType,
-    uiStore.state.sortDir,
-    uiStore.state.filterText,
-    window.innerWidth,
-    window.innerHeight,
-  )
-  galleryStore.reset({ ...query, reshuffle: true })
-}
 
 function openSettings() {
   settingsOpen.value = true
@@ -48,15 +19,12 @@ function openSettings() {
 
 function closeSettings() {
   settingsOpen.value = false
-  refetchGallery()
+  urlStore.refetchGallery()
 }
 
 onMounted(async () => {
-  await presetsStore.load()
-  const preset = presetsStore.selectedPreset.value
-  if (preset) uiStore.setSortFromPreset(preset.defaultSort)
+  await urlStore.init()
   ready.value = true
-  refetchGallery()
 })
 </script>
 
@@ -64,10 +32,10 @@ onMounted(async () => {
   <div class="app">
     <template v-if="ready">
       <Gallery />
-      <Toolbar @refetch="refetchGallery" @reshuffle="onReshuffle" @open-settings="openSettings" />
+      <Toolbar @refetch="urlStore.refetchGallery" @reshuffle="urlStore.reshuffle" @open-settings="openSettings" />
 
-      <div v-if="galleryStore.state.loading" class="status">Loading...</div>
-      <div v-else-if="galleryStore.state.error" class="status">
+      <div v-if="galleryStore.state.loading && !playerStore.state.open" class="status">Loading...</div>
+      <div v-else-if="galleryStore.state.error && !playerStore.state.open" class="status">
         Failed to load. <button type="button" @click="galleryStore.retry">Retry</button>
       </div>
 
@@ -76,6 +44,8 @@ onMounted(async () => {
       <Transition name="player-slide" :duration="SLIDE_DURATION_MS" @after-enter="playerStore.onOpenTransitionEnd">
         <Player v-if="playerStore.state.open" />
       </Transition>
+
+      <Toast />
     </template>
   </div>
 </template>

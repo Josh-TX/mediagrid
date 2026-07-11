@@ -1,5 +1,7 @@
 A Mobile-First local media player. The /backend folder uses go and sqlite, the /frontend folder use vue with the composition API and `<script setup></script>`
 
+Rely on the user for smoke/browser testing
+
 ## Glossary
 
 **Gallery**: The home page. An infinite-scroll vertical stack of rows

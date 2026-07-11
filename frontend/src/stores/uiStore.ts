@@ -1,7 +1,10 @@
 import { reactive } from 'vue'
 import type { SortType, SortDir } from '../types'
 
-function defaultDirFor(sortType: SortType): SortDir {
+// The "natural" direction for a given sort type when none is specified
+// explicitly — exported so urlStore can tell whether a URL's sortDir is
+// redundant (matches the natural default and so should be omitted).
+export function defaultDirFor(sortType: SortType): SortDir {
   return sortType === 'size' || sortType === 'date' ? 'desc' : 'asc'
 }
 

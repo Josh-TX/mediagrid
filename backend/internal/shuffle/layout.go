@@ -13,7 +13,7 @@ const maxTilesPerRow = 12
 // tile area drops to/under tilePct*screenW*screenH, or the row hits
 // maxTilesPerRow, or media runs out. rowi/tilei are absolute indices into
 // the full media slice, so callers must pass the complete filtered/sorted
-// list (minr/maxr are applied afterward, only to slice the resulting rows).
+// list (skipr/taker are applied afterward, only to slice the resulting rows).
 //
 // A trailing row that closes only because media ran out (not because it hit
 // the area threshold or maxTilesPerRow) is "incomplete": rather than

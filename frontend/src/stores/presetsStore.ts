@@ -36,7 +36,7 @@ function clearTemp() {
 }
 
 function pickInitialSelectedName(presets: Preset[]): string {
-  const urlName = new URLSearchParams(window.location.search).get('preset')
+  const urlName = new URLSearchParams(window.location.search).get('p')
   if (urlName && presets.some((p) => p.name === urlName)) return urlName
   return 'default'
 }
@@ -75,11 +75,10 @@ watch(
   { deep: true },
 )
 
+// URL sync for the selected preset (the `p` param) is handled reactively by
+// urlStore, which watches state.selectedName — this just updates state.
 function selectPreset(name: string) {
   state.selectedName = name
-  const url = new URL(window.location.href)
-  url.searchParams.set('preset', name)
-  window.history.replaceState({}, '', url)
 }
 
 // Called by the settings modal on every edit. Applies immediately to local

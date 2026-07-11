@@ -4,8 +4,9 @@ export interface ShuffleQuery {
   tilePct: number
   screenW: number
   screenH: number
-  minr?: number
-  maxr?: number
+  skipr?: number
+  taker?: number
+  takei?: number
   f?: string
   sort?: SortType
   dir?: SortDir
@@ -26,8 +27,9 @@ export async function fetchShuffle(query: ShuffleQuery): Promise<ShuffleResult> 
   params.set('tilePct', String(query.tilePct))
   params.set('screenW', String(query.screenW))
   params.set('screenH', String(query.screenH))
-  if (query.minr !== undefined) params.set('minr', String(query.minr))
-  if (query.maxr !== undefined) params.set('maxr', String(query.maxr))
+  if (query.skipr !== undefined) params.set('skipr', String(query.skipr))
+  if (query.taker !== undefined) params.set('taker', String(query.taker))
+  if (query.takei !== undefined) params.set('takei', String(query.takei))
   if (query.f) params.set('f', query.f)
   if (query.sort) params.set('sort', query.sort)
   if (query.dir) params.set('dir', query.dir)

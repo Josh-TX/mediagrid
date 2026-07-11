@@ -50,6 +50,23 @@ function open(tilei: number) {
   ensurePrefetch()
 }
 
+// Direct-load open: used only when the page loads with `i` already in the
+// URL. previewsHidden is set true immediately (rather than waiting for the
+// open-transition to end, as onOpenTransitionEnd normally does) so Gallery
+// tile previews are never mounted, even briefly, underneath the Player.
+function openDirect(tilei: number) {
+  state.currentIndex = tilei
+  state.open = true
+  state.previewsHidden = true
+}
+
+// Instantly moves to an arbitrary index with no swap animation — used for
+// popstate-driven index changes, which aren't swipe gestures.
+function setIndex(tilei: number) {
+  state.currentIndex = tilei
+  ensurePrefetch()
+}
+
 // Fired once the Player's open slide-in transition finishes.
 function onOpenTransitionEnd() {
   state.previewsHidden = true
@@ -81,6 +98,8 @@ export const playerStore = {
   canGoPrev,
   canGoNext,
   open,
+  openDirect,
+  setIndex,
   close,
   goNext,
   goPrev,

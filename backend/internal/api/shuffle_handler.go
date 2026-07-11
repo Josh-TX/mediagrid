@@ -48,14 +48,19 @@ func (s *Server) handleShuffle(w http.ResponseWriter, r *http.Request) {
 	if csv := q.Get("blacklist"); csv != "" {
 		params.Blacklist = splitCSV(csv)
 	}
-	if v := q.Get("minr"); v != "" {
+	if v := q.Get("skipr"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
-			params.MinR = &n
+			params.SkipR = &n
 		}
 	}
-	if v := q.Get("maxr"); v != "" {
+	if v := q.Get("taker"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
-			params.MaxR = &n
+			params.TakeR = &n
+		}
+	}
+	if v := q.Get("takei"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			params.TakeI = &n
 		}
 	}
 
@@ -94,41 +99,81 @@ func (s *Server) handleShuffle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	totalRows := len(rows)
-	minR, maxR := resolveRowRange(params.MinR, params.MaxR, totalRows)
+	skipR, takeR := resolveRowRange(params.SkipR, params.TakeR, params.TakeI, rows)
 
 	result := shuffle.Result{
 		TotalRows:  totalRows,
 		TotalTiles: totalTiles,
 		Rows:       []shuffle.Row{},
 	}
-	if minR < maxR {
-		result.Rows = rows[minR:maxR]
+	if skipR < takeR {
+		result.Rows = rows[skipR:takeR]
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
 
-// resolveRowRange clamps the optional minr/maxr query params to a valid
-// half-open [0, totalRows] range, defaulting to the full range when absent.
-// maxr is exclusive (e.g. minr=0&maxr=20 returns 20 rows), matching the
-// spec's "calls /api/shuffle with maxr=20" for an initial 20-row page.
-func resolveRowRange(minR, maxR *int, totalRows int) (int, int) {
+// resolveRowRange clamps the optional skipr/taker query params to a valid
+// half-open [0, totalRows) range, defaulting to the full range when absent.
+// skipr is how many rows to skip; taker is how many rows to take (a count,
+// not an end index) — e.g. skipr=0&taker=20 returns (up to) 20 rows.
+//
+// If takei is present, the returned range is extended (never shrunk) so it
+// also covers the row containing that tile index — i.e. the caller gets at
+// least taker rows, or more if needed to reach takei. A takei beyond the
+// last tile is clamped to just mean "through the last row" rather than
+// erroring.
+func resolveRowRange(skipR, takeR, takeI *int, rows []shuffle.Row) (int, int) {
+	totalRows := len(rows)
+
 	lo := 0
-	if minR != nil {
-		lo = *minR
-	}
-	hi := totalRows
-	if maxR != nil {
-		hi = *maxR
+	if skipR != nil {
+		lo = *skipR
 	}
 	if lo < 0 {
 		lo = 0
 	}
+	if lo > totalRows {
+		lo = totalRows
+	}
+
+	hi := totalRows
+	if takeR != nil {
+		hi = lo + *takeR
+	}
+	if takeI != nil {
+		if rowIdx := rowIndexContaining(rows, *takeI); rowIdx >= 0 && rowIdx+1 > hi {
+			hi = rowIdx + 1
+		}
+	}
 	if hi > totalRows {
 		hi = totalRows
 	}
+	if hi < lo {
+		hi = lo
+	}
 	return lo, hi
+}
+
+// rowIndexContaining returns the index of the row whose tiles span tileI, or
+// the last row's index if tileI is beyond the last tile (clamping rather
+// than erroring, per resolveRowRange's takei contract). Returns -1 only when
+// rows is empty or tileI is negative.
+func rowIndexContaining(rows []shuffle.Row, tileI int) int {
+	if len(rows) == 0 || tileI < 0 {
+		return -1
+	}
+	for _, row := range rows {
+		if len(row.Tiles) == 0 {
+			continue
+		}
+		last := row.Tiles[len(row.Tiles)-1].TileI
+		if tileI <= last {
+			return row.RowI
+		}
+	}
+	return len(rows) - 1
 }
 
 func atoiOr0(s string) int {

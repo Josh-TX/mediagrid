@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PlayerMedia from './PlayerMedia.vue'
 import PlayerHud from './PlayerHud.vue'
 import { playerStore } from '../stores/playerStore'
 import { presetsStore } from '../stores/presetsStore'
+import { urlStore } from '../stores/urlStore'
 import {
   SWAP_DURATION_MS,
   SWAP_MID_MS,
@@ -242,6 +243,7 @@ function doMidSwap(direction: 1 | -1) {
   const before = dragOffset.value
   if (direction === 1) playerStore.goNext()
   else playerStore.goPrev()
+  urlStore.onSwap()
   dragOffset.value = before + direction * viewportH.value
 
   syncContainers()
@@ -317,7 +319,7 @@ function onWheel(e: WheelEvent) {
 }
 
 function close() {
-  playerStore.close()
+  urlStore.closePlayer()
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -341,8 +343,21 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
+// On a direct load (page opened with `i` already in the URL), the Player is
+// mounted open before its /api/shuffle fetch resolves, so mediaList starts
+// out empty — until then, containers stays empty and the Player just shows
+// its plain black background (doubling as the "loading" state). A watcher
+// picks up the tile once the fetch populates mediaList.
+function initContainersIfReady() {
+  if (containers.value.length > 0) return
+  if (!mediaList.value[playerStore.state.currentIndex]) return
   containers.value = [{ id: nextId++, mediaIndex: playerStore.state.currentIndex }]
+}
+
+const stopMediaListWatch = watch(mediaList, initContainersIfReady)
+
+onMounted(() => {
+  initContainersIfReady()
   window.addEventListener('resize', onResize)
   window.addEventListener('keydown', onKeydown)
 })
@@ -351,6 +366,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   window.removeEventListener('keydown', onKeydown)
   if (animFrame !== null) cancelAnimationFrame(animFrame)
+  stopMediaListWatch()
 })
 </script>
 

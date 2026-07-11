@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import type { Tile, AutoPlayTile } from '../types'
 import { mediaUrl } from '../api/shuffle'
 import { playerStore } from '../stores/playerStore'
+import { urlStore } from '../stores/urlStore'
 
 const props = defineProps<{
   tile: Tile
@@ -58,7 +59,7 @@ const mediaStyle = computed(() => {
 })
 
 function onClick() {
-  playerStore.open(props.tile.tilei)
+  urlStore.openTile(props.tile.tilei)
 }
 
 function play() {
