@@ -22,3 +22,8 @@ Syncs the Gallery/Player with the URL (`i`, `p`, `sort`, `sortDir`, `f` params) 
 Date: 2026-07-11
 
 Splits the Settings modal into Presets and Tasks tabs, adding a backend in-memory task queue (one active task at a time, plus Queue and Recent Tasks lists) driven by new `/api/scan`, `/api/gen-thumbnails`, `/api/gen-highlights`, `/api/tasks`, and `/api/gen-settings` routes polled every second while the Tasks tab is open. Gen Thumbnails and Gen Highlights each get an inner settings modal (resolution, quality/segments, filters, preset filter) persisted to a new `GenSettings` table, and generate actual thumbnail/highlight files via `ffmpeg` into a new `PREVIEW_ROOT`, mirroring `MEDIA_ROOT`'s folder structure.
+
+# Gen Highlights Bucketing
+Date: 2026-07-11
+
+Replaces the Go rewrite's incomplete Gen Highlights implementation (a leftover single centered-window clip) with a proper evenly-spaced-bucket, multi-segment-extraction-then-concat pipeline mirroring the old TypeScript implementation. Buckets span the full video duration and are sized by the per-video capped segment count (`N` from `CalcHighlightSegments`), with each segment centered on its bucket's midpoint, extracted sequentially via ffmpeg, and stitched together with a stream-copy concat.
