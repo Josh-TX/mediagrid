@@ -12,3 +12,8 @@ When `sort=random`, the shufflelist is built by k-means clustering filtered medi
 Date: 2026-07-10
 
 Implements the full-viewport Player that slides in over the Gallery when a Tile is tapped, letting the user swipe/scroll/key through the shufflelist via three absolutely-positioned media-containers (current/next/prev) with a 150ms swap animation. Includes a HUD with back/fullscreen buttons, a seek bar, title-time row with an info tooltip, and invisible rewind/fast-forward/pause tap zones, all governed by high/low contrast rules and centralized animation/opacity constants.
+
+# URL State
+Date: 2026-07-11
+
+Syncs the Gallery/Player with the URL (`i`, `p`, `sort`, `sortDir`, `f` params) so refresh, bookmarking, and native back/forward work without full page reloads, including opening the Player directly (no slide-in, no gallery previews loaded) on a direct load with `i` present. Backend `/api/shuffle` gains a combined `skipr`/`taker`/`takei` row-range mechanism (replacing `minr`/`maxr`) so one request can serve both the Player's target tile and the Gallery's normal page size, plus a new reusable toast system for invalid-index errors.
