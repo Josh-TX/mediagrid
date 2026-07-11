@@ -73,5 +73,18 @@ CREATE TABLE IF NOT EXISTS presets (
 	if err != nil {
 		return fmt.Errorf("creating presets table: %w", err)
 	}
+
+	// gen_settings holds at most one row (id fixed to 1), storing the last
+	// submitted thumbnail/highlight generation settings as JSON so the gen
+	// modals can prefill from whatever was used last time.
+	_, err = s.DB.Exec(`
+CREATE TABLE IF NOT EXISTS gen_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  thumbnail_settings TEXT NOT NULL,
+  highlight_settings TEXT NOT NULL
+)`)
+	if err != nil {
+		return fmt.Errorf("creating gen_settings table: %w", err)
+	}
 	return nil
 }

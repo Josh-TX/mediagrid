@@ -64,3 +64,53 @@ export interface ShuffleResult {
   totalTiles: number
   rows: Row[]
 }
+
+export type TaskType = 'scan' | 'scan_clean' | 'gen_thumbnails' | 'gen_highlights'
+export type TaskStatus = 'queued' | 'active' | 'completed' | 'cancelled'
+
+// One task snapshot as returned by GET /api/tasks. startedAt/finishedAt are
+// absent until the task reaches that stage.
+export interface TaskInfo {
+  id: string
+  type: TaskType
+  name: string
+  status: TaskStatus
+  processed: number
+  total: number
+  failed: number
+  queuedAt: number
+  startedAt?: number
+  finishedAt?: number
+}
+
+export interface TasksResponse {
+  active: TaskInfo | null
+  queue: TaskInfo[]
+  recent: TaskInfo[]
+}
+
+export interface ThumbnailSettings {
+  quality: number
+  targetPixels: number
+  override: boolean
+  filter: string
+  usePresetFilter: boolean
+  presetName: string
+}
+
+export interface HighlightSettings {
+  targetPixels: number
+  override: boolean
+  segmentCount: number
+  segmentDuration: number
+  maxProportion: number
+  ffmpegArgs: string
+  filter: string
+  usePresetFilter: boolean
+  presetName: string
+}
+
+export interface GenSettingsResponse {
+  thumbnail: ThumbnailSettings
+  highlight: HighlightSettings
+}

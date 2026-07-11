@@ -19,6 +19,13 @@ func (s *Store) MediaExists(path string) (bool, error) {
 	return true, nil
 }
 
+// DeleteMedia removes the media row at path, e.g. because the underlying
+// file no longer exists on disk (see the Clean task).
+func (s *Store) DeleteMedia(path string) error {
+	_, err := s.DB.Exec(`DELETE FROM media WHERE path = ?`, path)
+	return err
+}
+
 func (s *Store) InsertMedia(m model.Media) error {
 	isvid := 0
 	if m.IsVid {

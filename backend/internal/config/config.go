@@ -6,15 +6,20 @@ import (
 )
 
 type Config struct {
-	MediaRoot string
-	Port      string
-	DBPath    string
+	MediaRoot   string
+	PreviewRoot string
+	Port        string
+	DBPath      string
 }
 
 func Load() (Config, error) {
 	mediaRoot := os.Getenv("MEDIA_ROOT")
 	if mediaRoot == "" {
 		return Config{}, fmt.Errorf("MEDIA_ROOT env var is required")
+	}
+	previewRoot := os.Getenv("PREVIEW_ROOT")
+	if previewRoot == "" {
+		return Config{}, fmt.Errorf("PREVIEW_ROOT env var is required")
 	}
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -25,8 +30,9 @@ func Load() (Config, error) {
 		dbPath = "mediagrid.db"
 	}
 	return Config{
-		MediaRoot: mediaRoot,
-		Port:      port,
-		DBPath:    dbPath,
+		MediaRoot:   mediaRoot,
+		PreviewRoot: previewRoot,
+		Port:        port,
+		DBPath:      dbPath,
 	}, nil
 }
