@@ -6,6 +6,10 @@ import { PREFETCH_ROW_BUFFER } from '../playerConstants'
 const state = reactive({
   open: false,
   currentIndex: 0,
+  // Stays false until the open slide-in transition finishes, so Tile.vue
+  // keeps rendering real previews underneath the Player while it's sliding
+  // in (otherwise tiles would go blank before the Player covers them).
+  previewsHidden: false,
 })
 
 // Flat, tilei-ordered view of every tile currently loaded into the Gallery.
@@ -46,8 +50,16 @@ function open(tilei: number) {
   ensurePrefetch()
 }
 
+// Fired once the Player's open slide-in transition finishes.
+function onOpenTransitionEnd() {
+  state.previewsHidden = true
+}
+
 function close() {
   state.open = false
+  // Reveal previews immediately so they're already there as the Player
+  // slides away, rather than popping in only once it's fully closed.
+  state.previewsHidden = false
 }
 
 function goNext(): boolean {
@@ -72,4 +84,5 @@ export const playerStore = {
   close,
   goNext,
   goPrev,
+  onOpenTransitionEnd,
 }

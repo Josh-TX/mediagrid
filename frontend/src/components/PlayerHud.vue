@@ -18,6 +18,8 @@ import {
   BUTTON_CONTRAST_TRANSITION_MS,
   BUTTON_BG_LOW_CONTRAST,
   BUTTON_BG_MEDIUM_CONTRAST,
+  BUTTON_ICON_OPACITY_LOW_CONTRAST,
+  BUTTON_ICON_OPACITY_MEDIUM_CONTRAST,
   SWAP_MID_MS,
 } from '../playerConstants'
 
@@ -107,6 +109,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 
 // --- Back/fullscreen button contrast: very-low (default) vs medium (paused) ---
 const buttonBg = computed(() => (props.paused ? BUTTON_BG_MEDIUM_CONTRAST : BUTTON_BG_LOW_CONTRAST))
+const buttonIconOpacity = computed(() => (props.paused ? BUTTON_ICON_OPACITY_MEDIUM_CONTRAST : BUTTON_ICON_OPACITY_LOW_CONTRAST))
 
 // --- Title-time/seek-bar high/low contrast state machine ---
 const hudContrast = ref<'high' | 'low'>('high')
@@ -147,6 +150,14 @@ onBeforeUnmount(() => clearTimeout(holdTimer))
 
 const contrastOpacityStyle = computed(() => ({
   opacity: hudContrast.value === 'high' ? CONTRAST_OPACITY_HIGH : CONTRAST_OPACITY_LOW,
+  transition: `opacity ${hudTransitionMs.value}ms linear`,
+}))
+
+// Bottom gradient follows the same high/low state machine as the title-time
+// row and seek bar, but fades all the way to fully transparent in low
+// contrast rather than stopping at CONTRAST_OPACITY_LOW.
+const gradientOpacityStyle = computed(() => ({
+  opacity: hudContrast.value === 'high' ? 1 : 0,
   transition: `opacity ${hudTransitionMs.value}ms linear`,
 }))
 
@@ -238,6 +249,15 @@ function handleTap(zone: Zone, x: number) {
   }
 }
 
+// Mouse clicks (desktop, no touch events) hit the same zones/actions as a
+// tap. Real touch taps already call preventDefault() in onTouchEnd, which
+// suppresses the browser's synthetic post-touch click, so this only ever
+// fires for genuine mouse input.
+function onClick(e: MouseEvent) {
+  if (infoOpen.value) return
+  handleTap(classifyZone(e.clientX, e.clientY), e.clientX)
+}
+
 function onTouchStart(e: TouchEvent) {
   if (infoOpen.value) return
   const t = e.touches[0]
@@ -281,6 +301,12 @@ function onTouchMove(e: TouchEvent) {
   }
 }
 
+defineExpose({
+  triggerRewind: doRewindTap,
+  triggerForward: doForwardTap,
+  triggerPlayPause: doPlayPauseTap,
+})
+
 function onTouchEnd(e: TouchEvent) {
   if (!gesture) return
   const g = gesture
@@ -307,6 +333,7 @@ function onTouchEnd(e: TouchEvent) {
   <div class="hud">
     <div
       class="zones-layer"
+      @click="onClick"
       @touchstart="onTouchStart"
       @touchmove="onTouchMove"
       @touchend="onTouchEnd"
@@ -353,13 +380,28 @@ function onTouchEnd(e: TouchEvent) {
         class="tap-text playpause-zone icon"
         :style="{ animationDuration: TAP_TEXT_FADE_MS + 'ms' }"
       >
-        <svg v-if="playPauseFeedback.text.value === 'play'" viewBox="0 0 24 24" width="40" height="40" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-        <svg v-else viewBox="0 0 24 24" width="40" height="40" fill="currentColor"><rect x="6" y="5" width="4" height="14" /><rect x="14" y="5" width="4" height="14" /></svg>
+        <svg v-if="playPauseFeedback.text.value === 'play'" class="playpause-icon" viewBox="0 0 24 24" width="64" height="64" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+        <svg v-else class="playpause-icon" viewBox="0 0 24 24" width="64" height="64" fill="currentColor"><rect x="6" y="5" width="4" height="14" /><rect x="14" y="5" width="4" height="14" /></svg>
       </div>
     </div>
 
-    <button class="hud-btn back-btn" type="button" :style="{ background: buttonBg, transition: `background ${BUTTON_CONTRAST_TRANSITION_MS}ms` }" @click="emit('back')">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <button
+      class="hud-btn back-btn"
+      type="button"
+      :style="{ background: buttonBg, transition: `background ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
+      @click="emit('back')"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="20"
+        height="20"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        :style="{ opacity: buttonIconOpacity, transition: `opacity ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
+      >
         <path d="M15 18l-6-6 6-6" />
       </svg>
     </button>
@@ -370,24 +412,46 @@ function onTouchEnd(e: TouchEvent) {
       :style="{ background: buttonBg, transition: `background ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
       @click="toggleFullscreen"
     >
-      <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg
+        v-if="!isFullscreen"
+        viewBox="0 0 24 24"
+        width="20"
+        height="20"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        :style="{ opacity: buttonIconOpacity, transition: `opacity ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
+      >
         <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
       </svg>
-      <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg
+        v-else
+        viewBox="0 0 24 24"
+        width="20"
+        height="20"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        :style="{ opacity: buttonIconOpacity, transition: `opacity ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
+      >
         <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
       </svg>
     </button>
 
-    <div class="bottom-gradient" />
+    <div class="bottom-gradient" :style="gradientOpacityStyle" />
 
     <div class="bottom-hud" :style="contrastOpacityStyle">
       <div class="swap-fade" :class="{ 'swap-hidden': !hudFadeVisible }" :style="{ transitionDuration: SWAP_MID_MS + 'ms' }">
         <div class="title-time-row">
-          <div class="title">
-            {{ title }}
-            <span class="info-icon" @click.stop="infoOpen = true">i</span>
-          </div>
+          <div class="title">{{ title }}</div>
           <div v-if="tile.isVid" class="time-remaining">{{ timeRemainingText }}</div>
+          <span class="info-icon-hit" @click.stop="infoOpen = true">
+            <span class="info-icon">i</span>
+          </span>
         </div>
         <div v-if="tile.isVid" class="seek-bar">
           <div class="seek-fill" :style="{ width: seekPct + '%' }" />
@@ -480,6 +544,9 @@ function onTouchEnd(e: TouchEvent) {
   left: 25%;
   right: 25%;
 }
+.playpause-icon {
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 8px rgba(0, 0, 0, 0.4));
+}
 @keyframes tapTextFade {
   from {
     opacity: 1;
@@ -491,9 +558,9 @@ function onTouchEnd(e: TouchEvent) {
 
 .hud-btn {
   position: absolute;
-  top: 12px;
-  width: 40px;
-  height: 40px;
+  top: 8px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: none;
   color: #fff;
@@ -505,10 +572,10 @@ function onTouchEnd(e: TouchEvent) {
   z-index: 6;
 }
 .back-btn {
-  left: 12px;
+  left: 8px;
 }
 .fullscreen-btn {
-  right: 12px;
+  right: 8px;
 }
 
 .bottom-gradient {
@@ -543,10 +610,10 @@ function onTouchEnd(e: TouchEvent) {
   align-items: baseline;
   justify-content: space-between;
   padding: 0 20px;
-  margin-bottom: 20px;
+  margin-bottom: 11px;
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-  gap: 12px;
+  gap: 6px;
 }
 .title {
   flex: 1;
@@ -555,19 +622,28 @@ function onTouchEnd(e: TouchEvent) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.info-icon-hit {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  top: -2px;
+  padding: 8px;
+  margin: -8px;
+  pointer-events: auto;
+  cursor: pointer;
+}
 .info-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  margin-left: 6px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 1px solid #fff;
-  font-size: 11px;
+  font-size: 9px;
   font-style: italic;
-  pointer-events: auto;
-  cursor: pointer;
 }
 .time-remaining {
   flex-shrink: 0;
@@ -576,6 +652,7 @@ function onTouchEnd(e: TouchEvent) {
 
 .seek-bar {
   height: 1px;
+  margin: 0 20px;
   background: rgba(120, 120, 120, 0.8);
 }
 .seek-fill {

@@ -21,8 +21,12 @@ export const RUBBER_BAND_STRENGTH = 0.55 // 0-1, lower = stronger resistance
 
 // --- HUD contrast: back/fullscreen buttons ---
 export const BUTTON_CONTRAST_TRANSITION_MS = 200
-export const BUTTON_BG_LOW_CONTRAST = 'rgba(0, 0, 0, 0.15)'
-export const BUTTON_BG_MEDIUM_CONTRAST = 'rgba(0, 0, 0, 0.3)'
+export const BUTTON_BG_LOW_CONTRAST = 'rgba(0, 0, 0, 0.12)'
+export const BUTTON_BG_MEDIUM_CONTRAST = 'rgba(0, 0, 0, 0.22)'
+export const BUTTON_ICON_OPACITY_LOW_CONTRAST = 0.5
+export const BUTTON_ICON_OPACITY_MEDIUM_CONTRAST = 0.85
+export const HUD_BUTTON_SIZE = 34 // px, back/fullscreen circle diameter
+export const HUD_BUTTON_CORNER_OFFSET = 8 // px, distance from top/side edge
 
 // --- HUD contrast: title-time row + seek bar ---
 export const CONTRAST_OPACITY_HIGH = 1
@@ -32,8 +36,8 @@ export const CONTRAST_FADE_MS = 1000 // fade-to-low duration
 
 // --- Layout ---
 export const SEEK_BAND_HEIGHT = 64 // px, bottom band shared by seek + direction disambiguation
-export const HUD_SIDE_PADDING = 20 // px, title-time row side padding
-export const TITLE_ROW_OFFSET = 20 // px, title-time row sits this far above the seek bar
+export const HUD_SIDE_PADDING = 20 // px, title-time row + seek bar side padding
+export const TITLE_ROW_OFFSET = 11 // px, title-time row sits this far above the seek bar
 export const REWIND_ZONE_RATIO = 0.25 // left fraction of HUD (excluding seek band)
 export const FORWARD_ZONE_RATIO = 0.25 // right fraction of HUD (excluding seek band)
 

@@ -20,6 +20,7 @@ interface ContainerEntry {
 }
 
 const rootEl = ref<HTMLElement | null>(null)
+const hudRef = ref<InstanceType<typeof PlayerHud> | null>(null)
 const viewportW = ref(window.innerWidth)
 const viewportH = ref(window.innerHeight)
 function onResize() {
@@ -81,7 +82,14 @@ function setMediaRef(entry: ContainerEntry, el: unknown) {
     mediaRefs.delete(entry.id)
     return
   }
+  // Vue re-invokes inline function refs on every parent re-render, not just
+  // on mount — without this guard, any reactive update (e.g. the timeupdate-
+  // driven currentTime tick, or paused itself flipping on the pause event)
+  // would re-run the priming logic below and call .play() again, making
+  // pause impossible to sustain.
+  const isNewBinding = mediaRefs.get(entry.id) !== instance
   mediaRefs.set(entry.id, instance)
+  if (!isNewBinding) return
   // Priority is getting the initial current media playing as fast as
   // possible — don't wait for a loaded event first.
   if (roleOf(entry.mediaIndex) === 0) {
@@ -316,9 +324,20 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     close()
   } else if (e.key === 'ArrowDown') {
+    e.preventDefault()
     triggerDiscreteSwap(1)
   } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
     triggerDiscreteSwap(-1)
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    hudRef.value?.triggerRewind()
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    hudRef.value?.triggerForward()
+  } else if (e.key === ' ' || e.code === 'Space') {
+    e.preventDefault()
+    hudRef.value?.triggerPlayPause()
   }
 }
 
@@ -357,6 +376,7 @@ onBeforeUnmount(() => {
 
     <PlayerHud
       v-if="currentTile"
+      ref="hudRef"
       :tile="currentTile"
       :current-time="currentTime"
       :duration="duration"

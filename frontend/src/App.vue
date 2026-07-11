@@ -73,7 +73,7 @@ onMounted(async () => {
 
       <SettingsModal v-if="settingsOpen" @close="closeSettings" />
 
-      <Transition name="player-slide" :duration="SLIDE_DURATION_MS">
+      <Transition name="player-slide" :duration="SLIDE_DURATION_MS" @after-enter="playerStore.onOpenTransitionEnd">
         <Player v-if="playerStore.state.open" />
       </Transition>
     </template>
@@ -109,6 +109,7 @@ onMounted(async () => {
 .player-slide-leave-active {
   transition-property: transform;
   transition-timing-function: ease;
+  transition-duration: 150ms;
 }
 .player-slide-enter-from,
 .player-slide-leave-to {

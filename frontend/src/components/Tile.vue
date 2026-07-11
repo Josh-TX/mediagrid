@@ -83,7 +83,7 @@ function pauseReset() {
     @touchstart.passive="play"
     @touchend.passive="pauseReset"
   >
-    <template v-if="!playerStore.state.open">
+    <template v-if="!playerStore.state.previewsHidden">
       <video
         v-if="tile.isVid"
         ref="videoEl"
