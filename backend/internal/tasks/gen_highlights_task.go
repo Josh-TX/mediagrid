@@ -73,13 +73,7 @@ func (m *Manager) runGenHighlights(ctx context.Context, t *Task, settings model.
 		outPath := preview.HighlightPath(m.deps.PreviewRoot, job.media.Path)
 		w, h := preview.TargetDimensions(job.media.Width, job.media.Height, settings.TargetPixels)
 
-		highlightDuration := float64(job.segments) * settings.SegmentDuration
-		start := (float64(job.media.Duration) - highlightDuration) / 2
-		if start < 0 {
-			start = 0
-		}
-
-		if err := preview.GenerateHighlight(srcPath, outPath, start, highlightDuration, w, h, settings.FfmpegArgs); err != nil {
+		if err := preview.GenerateHighlight(srcPath, outPath, float64(job.media.Duration), job.segments, settings.SegmentDuration, w, h, settings.FfmpegArgs); err != nil {
 			log.Printf("gen-highlights: %s: %v", job.media.Path, err)
 			m.IncFailed(t)
 		}
