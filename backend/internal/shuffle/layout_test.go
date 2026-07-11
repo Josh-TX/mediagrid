@@ -100,6 +100,61 @@ func TestBuildRows_AbsoluteRowAndTileIndices(t *testing.T) {
 	}
 }
 
+func TestBuildRows_IncompleteRowCapsTileAreaInsteadOfStretching(t *testing.T) {
+	// Single square tile, tilePct=0.3 on a 1000x1000 screen. It never reaches
+	// the area threshold on its own (avgArea would be 1,000,000 if stretched
+	// to full width), so it closes only because media ran out — this is the
+	// "incomplete row" case that must be capped rather than stretched.
+	threshold := 0.3 * 1000 * 1000 // 300,000
+	media := []model.Media{square("solo")}
+	rows := BuildRows(media, 1000, 1000, 0.3)
+
+	if len(rows) != 1 || len(rows[0].Tiles) != 1 {
+		t.Fatalf("got %+v, want a single row with a single tile", rows)
+	}
+	tile := rows[0].Tiles[0]
+	area := float64(tile.W) * float64(rows[0].H)
+	if area > threshold*1.01 { // pixel-rounding slack
+		t.Fatalf("tile area %v exceeds threshold %v", area, threshold)
+	}
+	// width should come from height*aspectRatio (both ~548), not stretch to
+	// fill the full 1000px screen width like a complete row would.
+	if tile.W >= 1000 {
+		t.Fatalf("got width %d, want it capped well under screenW=1000", tile.W)
+	}
+}
+
+func TestBuildRows_CompleteRowStillStretchesToFillWidth(t *testing.T) {
+	// 2 square tiles that close via the area threshold (case a, "complete")
+	// should retain the original full-width-stretch behavior.
+	media := []model.Media{square("a"), square("b"), square("c")}
+	rows := BuildRows(media, 1000, 1000, 0.3)
+
+	row0 := rows[0]
+	if len(row0.Tiles) != 2 {
+		t.Fatalf("row0 got %d tiles, want 2", len(row0.Tiles))
+	}
+	if row0.Tiles[0].W != 500 || row0.Tiles[1].W != 499 {
+		t.Fatalf("row0 widths = %d,%d; want 500,499 (full-width stretch for a complete row)",
+			row0.Tiles[0].W, row0.Tiles[1].W)
+	}
+}
+
+func TestBuildRows_ZeroTilePctSkipsCappingEntirely(t *testing.T) {
+	// tilePct=0 means there's no area cap to respect (threshold<=0), so the
+	// old full-width-stretch behavior is kept even for an incomplete row —
+	// this preserves the existing spec-example test's expectations.
+	media := []model.Media{square("a"), square("b")}
+	rows := BuildRows(media, 1000, 1000, 0)
+
+	if len(rows) != 1 || len(rows[0].Tiles) != 2 {
+		t.Fatalf("got %+v, want a single row with 2 tiles", rows)
+	}
+	if rows[0].Tiles[0].W != 500 || rows[0].Tiles[1].W != 499 {
+		t.Fatalf("got widths %d,%d want 500,499", rows[0].Tiles[0].W, rows[0].Tiles[1].W)
+	}
+}
+
 func TestBuildRows_PreviewMirrorsOriginalMedia(t *testing.T) {
 	m := model.Media{Path: "clip.mp4", Width: 1920, Height: 1080, Filesize: 12345, Mdate: 999, Duration: 7, IsVid: true}
 	rows := BuildRows([]model.Media{m}, 1000, 1000, 1.0)

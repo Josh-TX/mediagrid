@@ -77,9 +77,8 @@ func (s *Server) handleShuffle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			filtered := shuffle.Filter(media, params)
-			shuffled := shuffle.RandOrder(filtered)
-			rows = shuffle.BuildRows(shuffled, params.ScreenW, params.ScreenH, params.TilePct)
-			totalTiles = len(shuffled)
+			rows = shuffle.BuildRandomRows(filtered, params.ScreenW, params.ScreenH, params.TilePct)
+			totalTiles = len(filtered)
 			s.randCache.Set(key, rows, totalTiles)
 		}
 	} else {

@@ -7,3 +7,8 @@ MediaGrid is a mobile-first local media player rewrite: a Go+SQLite backend and 
 Date: 2026-07-09
 
 When `sort=random`, the shufflelist is built by k-means clustering filtered media by aspect ratio (K=5), dissolving undersized clusters into their nearest neighbor, then packing "pure" same-cluster rows first (randomly ordered) followed by "impure" leftover rows at the end. Also fixes a related bug where incomplete trailing rows stretch tiles beyond the intended `tilePct` size instead of sizing tiles by target area and leaving blank space.
+
+# Player
+Date: 2026-07-10
+
+Implements the full-viewport Player that slides in over the Gallery when a Tile is tapped, letting the user swipe/scroll/key through the shufflelist via three absolutely-positioned media-containers (current/next/prev) with a 150ms swap animation. Includes a HUD with back/fullscreen buttons, a seek bar, title-time row with an info tooltip, and invisible rewind/fast-forward/pause tap zones, all governed by high/low contrast rules and centralized animation/opacity constants.
