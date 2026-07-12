@@ -20,7 +20,11 @@ func Open(path string) (*Store, error) {
 	// a single connection avoids "database is locked" errors from this app's own goroutines.
 	db.SetMaxOpenConns(1)
 
-	if _, err := db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
+	// Everything already serializes through the single connection above, so
+	// WAL's concurrent-reader benefit doesn't apply here; the default
+	// rollback journal keeps the on-disk footprint to one file instead of
+	// leaving -wal/-shm files behind.
+	if _, err := db.Exec(`PRAGMA journal_mode=DELETE`); err != nil {
 		return nil, err
 	}
 
