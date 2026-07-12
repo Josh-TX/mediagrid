@@ -113,7 +113,11 @@ function isPaused(): boolean {
   return videoEl.value?.paused ?? true
 }
 
-defineExpose({ play, pause, seek, getCurrentTime, getDuration, isPaused })
+function isEnded(): boolean {
+  return videoEl.value?.ended ?? false
+}
+
+defineExpose({ play, pause, seek, getCurrentTime, getDuration, isPaused, isEnded })
 </script>
 
 <template>

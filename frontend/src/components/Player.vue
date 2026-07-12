@@ -145,7 +145,15 @@ function onMediaPlay(entry: ContainerEntry) {
 }
 
 function onMediaPause(entry: ContainerEntry) {
-  if (roleOf(entry.mediaIndex) === 0) paused.value = true
+  if (roleOf(entry.mediaIndex) !== 0) return
+  // A video reaching its end fires a native 'pause' just before 'ended'. In
+  // 'next'/'loop' modes that's about to be immediately superseded (by the
+  // swap or the replay), so treating it as a real pause here would flash the
+  // HUD to high-contrast for an instant right as the swap-out fade starts.
+  // 'stop' mode has no such follow-up, so the pause is real there.
+  const ref = mediaRefs.get(entry.id)
+  if (ref?.isEnded() && onVidEnd.value !== 'stop') return
+  paused.value = true
 }
 
 function onEnded(entry: ContainerEntry) {
@@ -278,7 +286,7 @@ function doMidSwap(direction: 1 | -1) {
       const tile = mediaList.value[c.mediaIndex]
       duration.value = ref.getDuration() ?? 0
       if (tile?.isVid) ref.play()
-      else paused.value = false
+      paused.value = false
     } else {
       ref.pause()
     }

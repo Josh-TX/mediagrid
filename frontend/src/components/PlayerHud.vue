@@ -129,17 +129,22 @@ function setHighNoFade() {
 
 // Paused: instantly high, no pending fade. Resumed: instantly high, then
 // immediately starts fading (no hold), per spec.
+//
+// contrastPulse and paused often change together in the same tick (e.g. a
+// video ending fires a native 'pause' just before the auto-swap plays the
+// next one and bumps contrastPulse) — watching them separately races,
+// since Vue doesn't flush watchers in ref-mutation order. A single watch
+// over both sources lets us tell them apart via which old value differs,
+// so a same-tick contrastPulse bump always wins over the incidental pause.
 watch(
-  () => props.paused,
-  (paused) => (paused ? setHighNoFade() : setHighThenFade(0)),
-)
-
-// Bumped by the parent after a swap completes, or once the very first
-// media is ready — holds high-contrast for a couple seconds first, unless
-// already paused (e.g. blocked autoplay), in which case it stays high.
-watch(
-  () => props.contrastPulse,
-  () => (props.paused ? setHighNoFade() : setHighThenFade(2000)),
+  () => [props.paused, props.contrastPulse] as const,
+  ([paused, pulse], [prevPaused, prevPulse]) => {
+    if (pulse !== prevPulse) {
+      paused ? setHighNoFade() : setHighThenFade(2000)
+    } else if (paused !== prevPaused) {
+      paused ? setHighNoFade() : setHighThenFade(0)
+    }
+  },
 )
 
 onBeforeUnmount(() => clearTimeout(holdTimer))
