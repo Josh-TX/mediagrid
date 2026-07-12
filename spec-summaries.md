@@ -27,3 +27,8 @@ Splits the Settings modal into Presets and Tasks tabs, adding a backend in-memor
 Date: 2026-07-11
 
 Replaces the Go rewrite's incomplete Gen Highlights implementation (a leftover single centered-window clip) with a proper evenly-spaced-bucket, multi-segment-extraction-then-concat pipeline mirroring the old TypeScript implementation. Buckets span the full video duration and are sized by the per-video capped segment count (`N` from `CalcHighlightSegments`), with each segment centered on its bucket's midpoint, extracted sequentially via ffmpeg, and stitched together with a stream-copy concat.
+
+# Video Tile Playback Highlights
+Date: 2026-07-11
+
+Reworks the `Tile`/`Preview` data model (moving `filesize`/`mdate`/`duration`/`path` onto `Tile`, adding `hasThumbnail`/`hasHighlight` to `Preview`) and adds `GET /thumbnail/{path...}` and `GET /highlight/{path...}` routes so gallery tiles actually load generated thumbnails/highlights instead of always fetching originals. Video tiles follow the existing `autoPlayTile`/`fallbackToOriginal` settings to choose between highlight, original, thumbnail, or a placeholder, and tiles gain new duration-badge and title overlays; the Player is unaffected.
