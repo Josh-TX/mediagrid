@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"embed"
 	"io/fs"
 	"log"
@@ -11,7 +10,6 @@ import (
 
 	"mediagrid/internal/api"
 	"mediagrid/internal/config"
-	"mediagrid/internal/scan"
 	"mediagrid/internal/store"
 	"mediagrid/internal/tasks"
 )
@@ -37,9 +35,8 @@ func main() {
 		log.Fatalf("opening database: %v", err)
 	}
 
-	go scan.Run(context.Background(), s, cfg.MediaRoot, nil)
-
 	taskMgr := tasks.NewManager(tasks.Deps{Store: s, MediaRoot: cfg.MediaRoot, PreviewRoot: cfg.PreviewRoot})
+	taskMgr.Enqueue(taskMgr.NewScanTask(false))
 
 	dist, err := fs.Sub(distFS, "web/dist")
 	if err != nil {
