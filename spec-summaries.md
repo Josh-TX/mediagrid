@@ -32,3 +32,8 @@ Replaces the Go rewrite's incomplete Gen Highlights implementation (a leftover s
 Date: 2026-07-11
 
 Reworks the `Tile`/`Preview` data model (moving `filesize`/`mdate`/`duration`/`path` onto `Tile`, adding `hasThumbnail`/`hasHighlight` to `Preview`) and adds `GET /thumbnail/{path...}` and `GET /highlight/{path...}` routes so gallery tiles actually load generated thumbnails/highlights instead of always fetching originals. Video tiles follow the existing `autoPlayTile`/`fallbackToOriginal` settings to choose between highlight, original, thumbnail, or a placeholder, and tiles gain new duration-badge and title overlays; the Player is unaffected.
+
+# General Settings
+Date: 2026-07-11
+
+Splits the Settings modal's Preset concept into a global "General Settings" (former Gallery + Player sections, including `defaultSort` which becomes non-per-preset) and a narrowed "Preset" (just the former Filter fields, no longer branded as such). Adds `GET /api/settings` (returns `{general, presets}`, called once at startup) and `POST /api/general-settings`, a new `generalSettingsStore.ts` mirroring the existing preset store's temp-storage/revert/save pattern, real dirty-tracking (JSON-diff against a saved baseline) that gates the Revert/Save buttons on both tabs, and a restyled Settings modal with modern underline tabs (General, Presets, Tasks) and a bold icon-style close button.
