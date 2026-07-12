@@ -35,6 +35,8 @@ func (s *Server) routes(staticHandler http.Handler) {
 	s.mux.HandleFunc("GET /api/presets", s.handleGetPresets)
 	s.mux.HandleFunc("POST /api/presets", s.handlePostPresets)
 	s.mux.HandleFunc("GET /media/{path...}", s.handleMedia)
+	s.mux.HandleFunc("GET /thumbnail/{path...}", s.handleThumbnail)
+	s.mux.HandleFunc("GET /highlight/{path...}", s.handleHighlight)
 	s.mux.HandleFunc("GET /api/scan", s.handleScan)
 	s.mux.HandleFunc("POST /api/gen-thumbnails", s.handleGenThumbnails)
 	s.mux.HandleFunc("POST /api/gen-highlights", s.handleGenHighlights)

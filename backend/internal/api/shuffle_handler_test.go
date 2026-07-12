@@ -1,6 +1,8 @@
 package api
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"mediagrid/internal/shuffle"
@@ -100,5 +102,47 @@ func TestRowIndexContaining(t *testing.T) {
 
 	if got := rowIndexContaining(nil, 0); got != -1 {
 		t.Fatalf("empty rows: got %d, want -1", got)
+	}
+}
+
+func TestPopulatePreviewFlags(t *testing.T) {
+	previewRoot := t.TempDir()
+	mustWrite := func(path string) {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// "img.jpg" has a thumbnail only. "clip.mp4" has both. "noext.mp4" is a
+	// video with neither a thumbnail nor a highlight on disk.
+	mustWrite(filepath.Join(previewRoot, "thumbnails", "img.jpg.webp"))
+	mustWrite(filepath.Join(previewRoot, "thumbnails", "clip.mp4.webp"))
+	mustWrite(filepath.Join(previewRoot, "highlights", "clip.mp4.mp4"))
+	// A highlight file happens to exist at the path a same-named image would
+	// derive to, but since the tile isn't a video it must never be checked/set.
+	mustWrite(filepath.Join(previewRoot, "highlights", "img.jpg.mp4"))
+
+	s := &Server{previewRoot: previewRoot}
+	rows := []shuffle.Row{
+		{Tiles: []shuffle.Tile{
+			{Path: "img.jpg", IsVid: false},
+			{Path: "clip.mp4", IsVid: true},
+			{Path: "noext.mp4", IsVid: true},
+		}},
+	}
+
+	s.populatePreviewFlags(rows)
+
+	img, clip, noext := rows[0].Tiles[0], rows[0].Tiles[1], rows[0].Tiles[2]
+	if !img.Preview.HasThumbnail || img.Preview.HasHighlight {
+		t.Fatalf("img: got %+v, want hasThumbnail=true hasHighlight=false", img.Preview)
+	}
+	if !clip.Preview.HasThumbnail || !clip.Preview.HasHighlight {
+		t.Fatalf("clip: got %+v, want both true", clip.Preview)
+	}
+	if noext.Preview.HasThumbnail || noext.Preview.HasHighlight {
+		t.Fatalf("noext: got %+v, want both false", noext.Preview)
 	}
 }

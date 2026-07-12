@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { Tile, AutoPlayTile } from '../types'
-import { mediaUrl } from '../api/shuffle'
+import { mediaUrl, thumbnailUrl, highlightUrl } from '../api/shuffle'
+import { formatClock } from '../format'
+import { resolveTileSource } from '../tilePlayback'
 import { playerStore } from '../stores/playerStore'
 import { urlStore } from '../stores/urlStore'
 
@@ -11,9 +13,10 @@ const props = defineProps<{
   cropX: number
   cropY: number
   autoPlayTile: AutoPlayTile
+  fallbackToOriginal: boolean
 }>()
 
-const videoEl = ref<HTMLVideoElement | null>(null)
+const hovering = ref(false)
 
 // Crop-then-letterbox hybrid: scale the preview to cover the box, but never
 // crop more than cropX/cropY of that axis — if covering would need more, the
@@ -58,19 +61,42 @@ const mediaStyle = computed(() => {
   }
 })
 
+const source = computed(() =>
+  resolveTileSource({
+    isVid: props.tile.isVid,
+    hasThumbnail: props.tile.preview.hasThumbnail,
+    hasHighlight: props.tile.preview.hasHighlight,
+    autoPlayTile: props.autoPlayTile,
+    fallbackToOriginal: props.fallbackToOriginal,
+    hovering: hovering.value,
+  }),
+)
+
+// 'original' means "play the original video" when the tile is a video, or
+// "load the original image" when it isn't — only isVid disambiguates it.
+const isVideoPlaying = computed(() => source.value === 'highlight' || (source.value === 'original' && props.tile.isVid))
+
+const videoSrc = computed(() => (source.value === 'highlight' ? highlightUrl(props.tile.path) : mediaUrl(props.tile.path)))
+const imgSrc = computed(() => (source.value === 'thumbnail' ? thumbnailUrl(props.tile.path) : mediaUrl(props.tile.path)))
+
+const title = computed(() => {
+  const filename = props.tile.path.split('/').pop() ?? props.tile.path
+  const dot = filename.lastIndexOf('.')
+  return dot > 0 ? filename.slice(0, dot) : filename
+})
+
+const durationText = computed(() => formatClock(props.tile.duration))
+
 function onClick() {
   urlStore.openTile(props.tile.tilei)
 }
 
-function play() {
-  if (props.autoPlayTile === 'hover') videoEl.value?.play().catch(() => {})
+function onHoverStart() {
+  hovering.value = true
 }
 
-function pauseReset() {
-  if (props.autoPlayTile === 'hover' && videoEl.value) {
-    videoEl.value.pause()
-    videoEl.value.currentTime = 0
-  }
+function onHoverEnd() {
+  hovering.value = false
 }
 </script>
 
@@ -79,24 +105,25 @@ function pauseReset() {
     class="tile"
     :style="{ width: tile.w + 'px', height: rowH + 'px' }"
     @click="onClick"
-    @mouseenter="play"
-    @mouseleave="pauseReset"
-    @touchstart.passive="play"
-    @touchend.passive="pauseReset"
+    @mouseenter="onHoverStart"
+    @mouseleave="onHoverEnd"
+    @touchstart.passive="onHoverStart"
+    @touchend.passive="onHoverEnd"
   >
     <template v-if="!playerStore.state.previewsHidden">
       <video
-        v-if="tile.isVid"
-        ref="videoEl"
-        :src="mediaUrl(tile.preview.path)"
+        v-if="isVideoPlaying"
+        :src="videoSrc"
         :style="mediaStyle"
         muted
         playsinline
         loop
-        preload="metadata"
-        :autoplay="autoPlayTile === 'always'"
+        autoplay
       />
-      <img v-else :src="mediaUrl(tile.preview.path)" :style="mediaStyle" :alt="tile.path" loading="lazy" />
+      <img v-else-if="source !== 'placeholder'" :src="imgSrc" :style="mediaStyle" :alt="tile.path" loading="lazy" />
+      <div v-else class="placeholder" :style="mediaStyle" />
+      <div v-if="tile.isVid" class="duration-badge">{{ durationText }}</div>
+      <div class="title-overlay">{{ title }}</div>
     </template>
   </div>
 </template>
@@ -110,8 +137,40 @@ function pauseReset() {
 }
 
 .tile img,
-.tile video {
+.tile video,
+.tile .placeholder {
   position: absolute;
   object-fit: fill;
+}
+
+.placeholder {
+  background: #555;
+}
+
+.duration-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 0.75rem;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.title-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 6px 4px;
+  color: #fff;
+  font-size: 0.8rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 </style>

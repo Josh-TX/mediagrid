@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Tile } from '../types'
+import { formatClock } from '../format'
 import {
   SEEK_BAND_HEIGHT,
   HUD_SIDE_PADDING,
@@ -73,17 +74,10 @@ function formatDate(mdateSeconds: number): string {
   })
 }
 
-function formatClock(seconds: number): string {
-  const total = Math.max(0, Math.round(seconds))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${String(s).padStart(2, '0')}`
-}
-
-const dateText = computed(() => formatDate(props.tile.preview.mdate))
-const filesizeText = computed(() => formatFilesize(props.tile.preview.filesize))
+const dateText = computed(() => formatDate(props.tile.mdate))
+const filesizeText = computed(() => formatFilesize(props.tile.filesize))
 const resolutionText = computed(() => `${props.tile.preview.w}w x ${props.tile.preview.h}h`)
-const durationText = computed(() => formatClock(props.tile.preview.duration))
+const durationText = computed(() => formatClock(props.tile.duration))
 
 // --- Seek bar / time-remaining, with a live local preview while scrubbing ---
 const scrubPreviewTime = ref<number | null>(null)

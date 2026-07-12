@@ -36,13 +36,10 @@ export interface Preset {
 }
 
 export interface PreviewData {
-  path: string
   w: number
   h: number
-  filesize: number
-  mdate: number
-  duration: number
-  isVid: boolean
+  hasThumbnail: boolean
+  hasHighlight: boolean
 }
 
 export interface Tile {
@@ -50,6 +47,9 @@ export interface Tile {
   w: number
   path: string
   isVid: boolean
+  duration: number
+  filesize: number
+  mdate: number
   preview: PreviewData
 }
 

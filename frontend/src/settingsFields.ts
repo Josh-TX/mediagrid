@@ -43,7 +43,7 @@ export const settingSections: SettingSection[] = [
           { value: 'always', label: 'Always' },
         ],
       },
-      { key: 'fallbackToOriginal', label: 'Fallback to original', type: 'bool', help: 'Reserved for when real thumbnail/highlight previews exist; currently always in effect.' },
+      { key: 'fallbackToOriginal', label: 'Fallback to original', type: 'bool', help: 'When a video preview should play but has no highlight, play the original video instead of just showing a thumbnail/placeholder.' },
     ],
   },
   {

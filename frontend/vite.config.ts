@@ -13,6 +13,8 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8080',
       '/media': 'http://localhost:8080',
+      '/thumbnail': 'http://localhost:8080',
+      '/highlight': 'http://localhost:8080',
     },
   },
   test: {

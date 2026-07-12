@@ -70,18 +70,16 @@ func buildRow(rowI int, tileI *int, row []model.Media, widths []int, rowHeight f
 	tiles := make([]Tile, len(row))
 	for i, m := range row {
 		tiles[i] = Tile{
-			TileI: *tileI,
-			W:     widths[i],
-			Path:  m.Path,
-			IsVid: m.IsVid,
+			TileI:    *tileI,
+			W:        widths[i],
+			Path:     m.Path,
+			IsVid:    m.IsVid,
+			Duration: m.Duration,
+			Filesize: m.Filesize,
+			Mdate:    m.Mdate,
 			Preview: PreviewData{
-				Path:     m.Path,
-				W:        m.Width,
-				H:        m.Height,
-				Filesize: m.Filesize,
-				Mdate:    m.Mdate,
-				Duration: m.Duration,
-				IsVid:    m.IsVid,
+				W: m.Width,
+				H: m.Height,
 			},
 		}
 		*tileI++

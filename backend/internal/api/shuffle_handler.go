@@ -3,9 +3,11 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
+	"mediagrid/internal/preview"
 	"mediagrid/internal/shuffle"
 )
 
@@ -109,9 +111,32 @@ func (s *Server) handleShuffle(w http.ResponseWriter, r *http.Request) {
 	if skipR < takeR {
 		result.Rows = rows[skipR:takeR]
 	}
+	s.populatePreviewFlags(result.Rows)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+// populatePreviewFlags stats each tile's generated thumbnail/highlight file
+// to set Preview.HasThumbnail/HasHighlight. Deliberately called only on the
+// page of rows actually being returned (never the full, possibly-huge
+// shufflelist) to avoid stat-ing every media file on every request.
+// Highlight existence is only checked for videos, since images never have one.
+func (s *Server) populatePreviewFlags(rows []shuffle.Row) {
+	for i := range rows {
+		for j := range rows[i].Tiles {
+			t := &rows[i].Tiles[j]
+			t.Preview.HasThumbnail = fileExists(preview.ThumbnailPath(s.previewRoot, t.Path))
+			if t.IsVid {
+				t.Preview.HasHighlight = fileExists(preview.HighlightPath(s.previewRoot, t.Path))
+			}
+		}
+	}
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // resolveRowRange clamps the optional skipr/taker query params to a valid

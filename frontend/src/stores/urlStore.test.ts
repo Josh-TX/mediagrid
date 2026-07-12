@@ -19,7 +19,10 @@ function makeTile(tilei: number): Tile {
     w: 100,
     path: `media/${tilei}.jpg`,
     isVid: false,
-    preview: { path: `media/${tilei}.jpg`, w: 100, h: 100, filesize: 1000, mdate: 0, duration: 0, isVid: false },
+    duration: 0,
+    filesize: 1000,
+    mdate: 0,
+    preview: { w: 100, h: 100, hasThumbnail: false, hasHighlight: false },
   }
 }
 

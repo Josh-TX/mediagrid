@@ -7,6 +7,7 @@ defineProps<{
   cropX: number
   cropY: number
   autoPlayTile: AutoPlayTile
+  fallbackToOriginal: boolean
 }>()
 </script>
 
@@ -20,6 +21,7 @@ defineProps<{
       :crop-x="cropX"
       :crop-y="cropY"
       :auto-play-tile="autoPlayTile"
+      :fallback-to-original="fallbackToOriginal"
     />
   </div>
 </template>

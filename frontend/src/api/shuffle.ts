@@ -52,5 +52,21 @@ export async function fetchShuffle(query: ShuffleQuery): Promise<ShuffleResult> 
 // Builds a /media/<path> URL, URL-encoding each path segment since the
 // backend returns raw/unencoded paths that may contain unusual characters.
 export function mediaUrl(path: string): string {
-  return '/media/' + path.split('/').map(encodeURIComponent).join('/')
+  return buildRootedUrl('/media/', path)
+}
+
+// Builds a /thumbnail/<path> URL for the media at path; the backend derives
+// the generated thumbnail's on-disk location itself.
+export function thumbnailUrl(path: string): string {
+  return buildRootedUrl('/thumbnail/', path)
+}
+
+// Builds a /highlight/<path> URL for the media at path; the backend derives
+// the generated highlight's on-disk location itself.
+export function highlightUrl(path: string): string {
+  return buildRootedUrl('/highlight/', path)
+}
+
+function buildRootedUrl(prefix: string, path: string): string {
+  return prefix + path.split('/').map(encodeURIComponent).join('/')
 }

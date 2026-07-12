@@ -155,18 +155,22 @@ func TestBuildRows_ZeroTilePctSkipsCappingEntirely(t *testing.T) {
 	}
 }
 
-func TestBuildRows_PreviewMirrorsOriginalMedia(t *testing.T) {
+func TestBuildRows_TileAndPreviewMirrorOriginalMedia(t *testing.T) {
 	m := model.Media{Path: "clip.mp4", Width: 1920, Height: 1080, Filesize: 12345, Mdate: 999, Duration: 7, IsVid: true}
 	rows := BuildRows([]model.Media{m}, 1000, 1000, 1.0)
 
 	tile := rows[0].Tiles[0]
-	preview := tile.Preview
-	if preview.Path != m.Path || preview.W != m.Width || preview.H != m.Height ||
-		preview.Filesize != m.Filesize || preview.Mdate != m.Mdate ||
-		preview.Duration != m.Duration || preview.IsVid != m.IsVid {
-		t.Fatalf("preview %+v does not mirror media %+v", preview, m)
+	if tile.Path != m.Path || tile.IsVid != m.IsVid || tile.Duration != m.Duration ||
+		tile.Filesize != m.Filesize || tile.Mdate != m.Mdate {
+		t.Fatalf("tile %+v does not mirror media %+v", tile, m)
 	}
-	if tile.Path != m.Path || tile.IsVid != m.IsVid {
-		t.Fatalf("tile %+v does not carry the media's own path/isVid", tile)
+	preview := tile.Preview
+	if preview.W != m.Width || preview.H != m.Height {
+		t.Fatalf("preview %+v does not mirror media dimensions %+v", preview, m)
+	}
+	// HasThumbnail/HasHighlight are only populated later, per-request, by
+	// handleShuffle — BuildRows itself never stats the filesystem.
+	if preview.HasThumbnail || preview.HasHighlight {
+		t.Fatalf("preview %+v should not have thumbnail/highlight flags set yet", preview)
 	}
 }

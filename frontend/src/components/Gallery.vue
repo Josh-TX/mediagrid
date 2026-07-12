@@ -81,6 +81,7 @@ defineExpose({ handleScroll })
           :crop-x="presetsStore.selectedPreset.value?.tileCropX ?? 0.1"
           :crop-y="presetsStore.selectedPreset.value?.tileCropY ?? 0.1"
           :auto-play-tile="presetsStore.selectedPreset.value?.autoPlayTile ?? 'off'"
+          :fallback-to-original="presetsStore.selectedPreset.value?.fallbackToOriginal ?? true"
         />
       </div>
     </div>

@@ -30,22 +30,30 @@ type Params struct {
 	Reshuffle bool
 }
 
+// PreviewData describes the tile's Preview: the original media's dimensions
+// (thumbnails/highlights are assumed to preserve aspect ratio, so these are
+// never read back off the generated files themselves) plus whether a
+// generated thumbnail/highlight file exists on disk. HasThumbnail/
+// HasHighlight are left false by BuildRows/BuildRandomRows and are only
+// populated afterward, for the specific page of tiles a /api/shuffle
+// response actually returns (see handleShuffle) — checking existence across
+// an entire shufflelist up front would mean stat-ing every media file.
 type PreviewData struct {
-	Path     string `json:"path"`
-	W        int    `json:"w"`
-	H        int    `json:"h"`
-	Filesize int64  `json:"filesize"`
-	Mdate    int64  `json:"mdate"`
-	Duration int    `json:"duration"`
-	IsVid    bool   `json:"isVid"`
+	W            int  `json:"w"`
+	H            int  `json:"h"`
+	HasThumbnail bool `json:"hasThumbnail"`
+	HasHighlight bool `json:"hasHighlight"`
 }
 
 type Tile struct {
-	TileI   int         `json:"tilei"`
-	W       int         `json:"w"`
-	Path    string      `json:"path"`
-	IsVid   bool        `json:"isVid"`
-	Preview PreviewData `json:"preview"`
+	TileI    int         `json:"tilei"`
+	W        int         `json:"w"`
+	Path     string      `json:"path"`
+	IsVid    bool        `json:"isVid"`
+	Duration int         `json:"duration"`
+	Filesize int64       `json:"filesize"`
+	Mdate    int64       `json:"mdate"`
+	Preview  PreviewData `json:"preview"`
 }
 
 type Row struct {
