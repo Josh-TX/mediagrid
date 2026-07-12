@@ -42,3 +42,8 @@ Splits the Settings modal's Preset concept into a global "General Settings" (for
 Date: 2026-07-12
 
 Makes the Gallery's scroll position track the Player as it swaps between media, instead of staying frozen, so the Gallery is already correctly positioned when the Player closes. Handles both tap-to-open (anchor on the tapped tile's row and current scrollTop, then delta by row-height offsets on each swap) and direct-load/refresh (anchor computed so the selected tile's row sits 100px below the viewport top), entirely within `Gallery.vue` via two watchers on `playerStore` state, with instant (non-animated) scrollTop snaps and lower-bound-only clamping.
+
+# Shufflelist Media ID Refactor
+Date: 2026-07-12
+
+Adds a backend-only auto-incrementing `id` to the `media` table (replacing `path` as primary key) so the shufflelist rand-cache can store a lean `{TileI, W, Id}` per tile instead of full tile data, drastically cutting cached memory footprint, with cache-hit responses hydrated from the DB via batched id lookups. Also adds a `DELETE /api/delete/<path>` endpoint (file + previews + DB row) and makes `/api/shuffle` gracefully surface deleted media as a `"//deleted"` sentinel path, which the frontend shows as a placeholder tile / "file is deleted" Player state.
