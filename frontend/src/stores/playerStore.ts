@@ -10,6 +10,11 @@ const state = reactive({
   // keeps rendering real previews underneath the Player while it's sliding
   // in (otherwise tiles would go blank before the Player covers them).
   previewsHidden: false,
+  // How the Player was most recently opened — null while closed. Lets
+  // Gallery's scroll-sync logic tell a tap-open (anchor on the tapped tile's
+  // current on-screen position) apart from a direct load/refresh (anchor
+  // computed so the target row lands near the viewport top).
+  openMode: null as 'tap' | 'direct' | null,
 })
 
 // Flat, tilei-ordered view of every tile currently loaded into the Gallery.
@@ -47,6 +52,7 @@ function open(tilei: number) {
   const index = mediaList.value.findIndex((t) => t.tilei === tilei)
   state.currentIndex = index === -1 ? 0 : index
   state.open = true
+  state.openMode = 'tap'
   ensurePrefetch()
 }
 
@@ -58,6 +64,7 @@ function openDirect(tilei: number) {
   state.currentIndex = tilei
   state.open = true
   state.previewsHidden = true
+  state.openMode = 'direct'
 }
 
 // Instantly moves to an arbitrary index with no swap animation — used for
@@ -77,6 +84,7 @@ function close() {
   // Reveal previews immediately so they're already there as the Player
   // slides away, rather than popping in only once it's fully closed.
   state.previewsHidden = false
+  state.openMode = null
 }
 
 function goNext(): boolean {
@@ -104,4 +112,5 @@ export const playerStore = {
   goNext,
   goPrev,
   onOpenTransitionEnd,
+  rowIndexForTileIndex,
 }

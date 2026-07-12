@@ -37,6 +37,7 @@ beforeEach(() => {
   galleryStore.state.totalTiles = 50
   playerStore.state.open = false
   playerStore.state.currentIndex = 0
+  playerStore.state.openMode = null
   vi.restoreAllMocks()
 })
 
@@ -80,6 +81,20 @@ describe('playerStore', () => {
     const loadMoreSpy = vi.spyOn(galleryStore, 'loadMore').mockResolvedValue()
     playerStore.open(5) // row 1 of 10, nowhere near the end
     expect(loadMoreSpy).not.toHaveBeenCalled()
+  })
+
+  it('openMode reflects how the Player was opened, and clears on close', () => {
+    expect(playerStore.state.openMode).toBe(null)
+
+    playerStore.open(0)
+    expect(playerStore.state.openMode).toBe('tap')
+    playerStore.close()
+    expect(playerStore.state.openMode).toBe(null)
+
+    playerStore.openDirect(5)
+    expect(playerStore.state.openMode).toBe('direct')
+    playerStore.close()
+    expect(playerStore.state.openMode).toBe(null)
   })
 
   it('advancing next toward the end of loaded rows proactively calls loadMore', () => {
