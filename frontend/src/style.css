@@ -9,6 +9,7 @@ html, body {
   background: #000;
   color: #fff;
   font: 14px/1.4 system-ui, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: dark;
 }
 
 #app {

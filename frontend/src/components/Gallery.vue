@@ -10,6 +10,9 @@ const LOAD_THRESHOLD = 1200
 // Extra px of rows to keep mounted above/below the viewport, so scrolling
 // doesn't visibly pop rows in/out.
 const RENDER_BUFFER = 600
+// Height of the header block at the top of the scrollable content: gives the
+// Toolbar a solid backdrop and shows the results count while scrolled to top.
+const HEADER_HEIGHT = 68
 
 const container = ref<HTMLElement | null>(null)
 const scrollTop = ref(0)
@@ -22,7 +25,7 @@ const rows = computed(() => galleryStore.state.rows)
 // estimate — rows load sequentially from the top.
 const offsets = computed(() => {
   const result: number[] = []
-  let y = 0
+  let y = HEADER_HEIGHT
   for (let i = 0; i < rows.value.length; i++) {
     result.push(y)
     y += rows.value[i].h + ROW_GAP
@@ -31,9 +34,14 @@ const offsets = computed(() => {
 })
 
 const totalHeight = computed(() => {
-  if (rows.value.length === 0) return 0
+  if (rows.value.length === 0) return HEADER_HEIGHT
   const last = rows.value.length - 1
   return offsets.value[last] + rows.value[last].h
+})
+
+const resultsText = computed(() => {
+  const n = galleryStore.state.totalTiles
+  return n === 0 ? 'no results' : `${n} result${n === 1 ? '' : 's'}`
 })
 
 const visibleRows = computed(() => {
@@ -150,6 +158,9 @@ defineExpose({ handleScroll })
 <template>
   <div class="gallery" ref="container" @scroll="handleScroll">
     <div class="track" :style="{ height: totalHeight + 'px' }">
+      <div class="gallery-header" :style="{ height: HEADER_HEIGHT + 'px' }">
+        <div class="results-text">{{ resultsText }}</div>
+      </div>
       <div
         v-for="item in visibleRows"
         :key="item.row.rowi"
@@ -186,5 +197,22 @@ defineExpose({ handleScroll })
   position: absolute;
   left: 0;
   right: 0;
+}
+
+.gallery-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+}
+
+.results-text {
+  color: #fff;
+  opacity: 0.7;
 }
 </style>

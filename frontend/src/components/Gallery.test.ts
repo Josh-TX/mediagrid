@@ -118,9 +118,10 @@ describe('Gallery scroll sync', () => {
     await nextTick() // lets the rows-length watcher compute the target...
     await nextTick() // ...and the DOM grow to fit the new rows before it applies scrollTop
 
-    // Row 2 starts at offset 100+200 = 300 (100px row gaps excluded here
-    // since ROW_GAP=1 per row before it: 100+1 + 200+1 = 302).
-    expect((wrapper.vm.$el as HTMLElement).scrollTop).toBe(302 - 100)
+    // Row 2 starts at offset HEADER_HEIGHT + 100+200 = 300 (100px row gaps
+    // excluded here since ROW_GAP=1 per row before it: 100+1 + 200+1 = 302),
+    // i.e. 68 + 302 = 370.
+    expect((wrapper.vm.$el as HTMLElement).scrollTop).toBe(370 - 100)
 
     wrapper.unmount()
   })
@@ -164,11 +165,11 @@ describe('Gallery scroll sync', () => {
     await nextTick()
     await nextTick()
 
-    // Row 7 offset = 7*(100+1) = 707; target = 707-100 = 607. Needs
-    // totalHeight >= 607+300=907, which requires 1 extra row beyond the
-    // initial 807px of content (8 rows * 101 - 1 gap... i.e. offsets[7]+100=807).
+    // Row 7 offset = HEADER_HEIGHT + 7*(100+1) = 68+707 = 775; target =
+    // 775-100 = 675. Needs totalHeight >= 675+300=975, which requires 1
+    // extra row beyond the initial HEADER_HEIGHT+807px of content.
     expect(loadMoreSpy).toHaveBeenCalled()
-    expect(el.scrollTop).toBe(607)
+    expect(el.scrollTop).toBe(675)
 
     wrapper.unmount()
   })

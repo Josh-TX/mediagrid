@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { uiStore } from '../stores/uiStore'
 import { presetsStore } from '../stores/presetsStore'
 import type { SortType } from '../types'
@@ -12,6 +12,7 @@ const emit = defineEmits<{
 
 let filterDebounce: ReturnType<typeof setTimeout> | undefined
 const filterInput = ref(uiStore.state.filterText)
+const hasFilterValue = computed(() => filterInput.value.trim().length > 0)
 
 function onFilterInput() {
   clearTimeout(filterDebounce)
@@ -19,6 +20,13 @@ function onFilterInput() {
     uiStore.setFilterText(filterInput.value)
     emit('refetch')
   }, 300)
+}
+
+function onFilterClear() {
+  clearTimeout(filterDebounce)
+  filterInput.value = ''
+  uiStore.setFilterText('')
+  emit('refetch')
 }
 
 function onSortTypeChange(e: Event) {
@@ -57,13 +65,25 @@ function onPresetChange(e: Event) {
       <option value="dur">Dur</option>
     </select>
 
-    <input
-      class="filter-input"
-      type="text"
-      placeholder="Filter..."
-      v-model="filterInput"
-      @input="onFilterInput"
-    />
+    <div class="filter-wrap">
+      <input
+        class="filter-input"
+        :class="{ 'has-value': hasFilterValue }"
+        type="text"
+        placeholder="Filter..."
+        v-model="filterInput"
+        @input="onFilterInput"
+      />
+      <button
+        v-if="hasFilterValue"
+        class="filter-clear"
+        type="button"
+        @click="onFilterClear"
+        title="Clear filter"
+      >
+        &times;
+      </button>
+    </div>
 
     <select
       class="preset-select"
@@ -92,7 +112,7 @@ function onPresetChange(e: Event) {
   align-items: center;
   gap: 8px;
   padding: 8px;
-  background: rgba(0, 0, 0, 0.35);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
   color: #fff;
 }
 
@@ -110,9 +130,32 @@ function onPresetChange(e: Event) {
   width: 4.5em;
 }
 
+.filter-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
 .filter-input {
   flex: 1;
   min-width: 0;
+  padding-right: 4px;
+}
+
+.filter-clear {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #fff;
+  font-weight: bold;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
 }
 
 .preset-select {
@@ -121,14 +164,31 @@ function onPresetChange(e: Event) {
 
 select,
 input {
-  background: rgba(255, 255, 255, 0.15);
+  background: none;
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 3px;
+  border: none;
+  border-bottom: 1px solid transparent;
   padding: 4px;
+}
+
+input:focus {
+  outline: none;
+  border-bottom: 1px solid #fff;
+}
+
+input.has-value {
+  border-bottom: 1px solid #fff;
+}
+
+select:focus {
+  outline: none;
 }
 
 select option {
   color: #000;
+}
+
+input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
 }
 </style>
