@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { presetsStore } from '../stores/presetsStore'
-import { settingSections } from '../settingsFields'
+import { presetSettingFields } from '../settingsFields'
 import type { Preset } from '../types'
 
 const preset = computed<Preset | undefined>(() => presetsStore.selectedPreset.value)
@@ -72,37 +72,34 @@ async function onSavePermanently() {
   </section>
 
   <section class="body" v-if="preset">
-    <div v-for="section in settingSections" :key="section.title" class="section">
-      <h3>{{ section.title }}</h3>
-      <div v-for="field in section.fields" :key="field.key" class="row">
-        <label class="label">
-          {{ field.label }}
-          <span class="help" :title="field.help" @click="showHelp(field.help)">?</span>
-        </label>
-        <div class="input">
-          <input
-            v-if="field.type === 'float'"
-            type="number"
-            step="0.01"
-            min="0"
-            max="1"
-            v-model.number="(preset as any)[field.key]"
-          />
-          <input v-else-if="field.type === 'int'" type="number" step="1" min="0" v-model.number="(preset as any)[field.key]" />
-          <input v-else-if="field.type === 'text'" type="text" v-model="(preset as any)[field.key]" />
-          <input v-else-if="field.type === 'bool'" type="checkbox" v-model="(preset as any)[field.key]" />
-          <select v-else-if="field.type === 'select'" v-model="(preset as any)[field.key]">
-            <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-          </select>
-        </div>
+    <div v-for="field in presetSettingFields" :key="field.key" class="row">
+      <label class="label">
+        {{ field.label }}
+        <span class="help" :title="field.help" @click="showHelp(field.help)">?</span>
+      </label>
+      <div class="input">
+        <input
+          v-if="field.type === 'float'"
+          type="number"
+          step="0.01"
+          min="0"
+          max="1"
+          v-model.number="(preset as any)[field.key]"
+        />
+        <input v-else-if="field.type === 'int'" type="number" step="1" min="0" v-model.number="(preset as any)[field.key]" />
+        <input v-else-if="field.type === 'text'" type="text" v-model="(preset as any)[field.key]" />
+        <input v-else-if="field.type === 'bool'" type="checkbox" v-model="(preset as any)[field.key]" />
+        <select v-else-if="field.type === 'select'" v-model="(preset as any)[field.key]">
+          <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+        </select>
       </div>
     </div>
   </section>
 
   <footer class="footer">
     <div class="spacer" />
-    <button type="button" @click="onRevert">Revert</button>
-    <button type="button" @click="onSavePermanently">Save permanently</button>
+    <button type="button" :disabled="!presetsStore.isDirty.value" @click="onRevert">Revert</button>
+    <button type="button" :disabled="!presetsStore.isDirty.value" @click="onSavePermanently">Save permanently</button>
   </footer>
 </template>
 
@@ -119,15 +116,6 @@ async function onSavePermanently() {
   flex: 1;
   overflow-y: auto;
   padding: 10px;
-}
-
-.section h3 {
-  margin: 16px 0 8px;
-  font-size: 14px;
-  opacity: 0.7;
-}
-.section:first-child h3 {
-  margin-top: 0;
 }
 
 .row {
@@ -182,5 +170,9 @@ button {
   border-radius: 4px;
   padding: 6px 10px;
   cursor: pointer;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 </style>

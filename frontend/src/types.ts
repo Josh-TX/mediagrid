@@ -3,20 +3,12 @@ export type SortDir = 'asc' | 'desc'
 export type AutoPlayTile = 'off' | 'hover' | 'always'
 export type OnVidEnd = 'loop' | 'stop' | 'next'
 
-// One row in the `presets` table: every Gallery/Filter/Player setting plus a
-// unique name. Round-trips as-is through GET/POST /api/presets.
+// One row in the `presets` table: the filter settings plus a unique name.
+// Round-trips as-is through GET /api/settings (as part of `presets`) and
+// POST /api/presets.
 export interface Preset {
   name: string
 
-  // Gallery settings
-  tilePct: number
-  tileCropX: number
-  tileCropY: number
-  defaultSort: SortType
-  autoPlayTile: AutoPlayTile
-  fallbackToOriginal: boolean
-
-  // Filter settings
   includeVids: boolean
   includeImages: boolean
   includePortrait: boolean
@@ -26,13 +18,30 @@ export interface Preset {
   whitelistCSV: string
   blacklistCSV: string
   basePath: string
+}
 
-  // Player settings (stored only; the Player itself is out of scope)
+// The single global Gallery/Player settings object. Round-trips as-is
+// through GET /api/settings (as `general`) and POST /api/general-settings.
+export interface GeneralSettings {
+  // Gallery settings
+  tilePct: number
+  tileCropX: number
+  tileCropY: number
+  defaultSort: SortType
+  autoPlayTile: AutoPlayTile
+  fallbackToOriginal: boolean
+
+  // Player settings
   onVidEnd: OnVidEnd
   playerCropX: number
   playerCropY: number
   rewindSeconds: number
   forwardSeconds: number
+}
+
+export interface SettingsResponse {
+  general: GeneralSettings
+  presets: Preset[]
 }
 
 export interface PreviewData {

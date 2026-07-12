@@ -31,10 +31,10 @@ describe('presetsStore preset management', () => {
   })
 
   it('duplicatePreset copies the source settings under a new name', () => {
-    presetsStore.state.activePresets.find((p) => p.name === 'travel')!.tilePct = 0.42
+    presetsStore.state.activePresets.find((p) => p.name === 'travel')!.basePath = 'trips/'
     expect(presetsStore.duplicatePreset('travel', 'travel copy')).toBe(true)
     const dup = presetsStore.state.activePresets.find((p) => p.name === 'travel copy')
-    expect(dup?.tilePct).toBe(0.42)
+    expect(dup?.basePath).toBe('trips/')
   })
 
   it('duplicatePreset rejects a name collision', () => {
@@ -65,8 +65,16 @@ describe('presetsStore preset management', () => {
   })
 
   it('revert discards local edits and restores server-saved values', () => {
-    presetsStore.state.activePresets.find((p) => p.name === 'default')!.tilePct = 0.99
+    presetsStore.state.activePresets.find((p) => p.name === 'default')!.basePath = 'edited/'
     presetsStore.revert()
-    expect(presetsStore.state.activePresets.find((p) => p.name === 'default')!.tilePct).toBe(0.15)
+    expect(presetsStore.state.activePresets.find((p) => p.name === 'default')!.basePath).toBe('')
+  })
+
+  it('isDirty is false at baseline and true after an edit; revert clears it', () => {
+    expect(presetsStore.isDirty.value).toBe(false)
+    presetsStore.state.activePresets.find((p) => p.name === 'default')!.basePath = 'edited/'
+    expect(presetsStore.isDirty.value).toBe(true)
+    presetsStore.revert()
+    expect(presetsStore.isDirty.value).toBe(false)
   })
 })

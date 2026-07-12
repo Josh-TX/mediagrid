@@ -1,10 +1,12 @@
 import { reactive, watch, nextTick } from 'vue'
 import { presetsStore } from './presetsStore'
+import { generalSettingsStore } from './generalSettingsStore'
 import { uiStore, defaultDirFor } from './uiStore'
 import { galleryStore } from './galleryStore'
 import { playerStore } from './playerStore'
 import { toastStore } from './toastStore'
 import { buildShuffleQuery } from '../buildShuffleQuery'
+import { fetchSettings } from '../api/settings'
 import type { ShuffleQuery } from '../api/shuffle'
 import type { SortType, SortDir } from '../types'
 
@@ -82,6 +84,7 @@ function buildQuery(): ShuffleQuery | null {
   if (!preset) return null
   return buildShuffleQuery(
     preset,
+    generalSettingsStore.state.activeGeneral.tilePct,
     uiStore.state.sortType,
     uiStore.state.sortDir,
     uiStore.state.filterText,
@@ -107,16 +110,14 @@ async function reshuffle() {
 // Only present in the URL when they differ from their implicit default, per
 // spec. A single watcher (rather than wrapping every call site that can
 // change these) naturally batches multiple synchronous field changes from
-// one user action (e.g. switching presets also resetting sort/sortDir) into
-// one pushState, since Vue's watcher scheduler coalesces synchronous
-// mutations into a single callback invocation.
+// one user action into one pushState, since Vue's watcher scheduler
+// coalesces synchronous mutations into a single callback invocation.
 function computeSettingsPatch(): Record<string, string | undefined> {
-  const preset = presetsStore.selectedPreset.value
-  const presetDefaultSort = preset?.defaultSort ?? 'rand'
+  const globalDefaultSort = generalSettingsStore.state.activeGeneral.defaultSort
   const sortType = uiStore.state.sortType
   return {
     p: presetsStore.state.selectedName !== 'default' ? presetsStore.state.selectedName : undefined,
-    sort: sortType !== presetDefaultSort ? sortType : undefined,
+    sort: sortType !== globalDefaultSort ? sortType : undefined,
     sortDir: uiStore.state.sortDir !== defaultDirFor(sortType) ? uiStore.state.sortDir : undefined,
     f: uiStore.state.filterText || undefined,
   }
@@ -146,8 +147,7 @@ async function applySettingsParams(params: UrlParams): Promise<boolean> {
       presetsStore.selectPreset(validPresetName)
       changed = true
     }
-    const preset = presetsStore.selectedPreset.value
-    const targetSort = params.sort ?? preset?.defaultSort ?? 'rand'
+    const targetSort = params.sort ?? generalSettingsStore.state.activeGeneral.defaultSort
     const targetDir = params.sortDir ?? defaultDirFor(targetSort)
     const targetFilter = params.f ?? ''
     if (uiStore.state.sortType !== targetSort || uiStore.state.sortDir !== targetDir) {
@@ -262,9 +262,12 @@ async function initDirectLoad(targetIndex: number) {
 }
 
 async function init() {
-  await presetsStore.load()
-  const preset = presetsStore.selectedPreset.value
-  if (preset) uiStore.setSortFromPreset(preset.defaultSort)
+  // GET /api/settings is only ever called once, here — its result seeds both
+  // presetsStore and generalSettingsStore.
+  const settings = await fetchSettings()
+  presetsStore.load(settings.presets)
+  generalSettingsStore.load(settings.general)
+  uiStore.setSortFromDefault(settings.general.defaultSort)
 
   const params = parseUrlParams()
   // presetsStore.load() already resolved `p` (via pickInitialSelectedName);

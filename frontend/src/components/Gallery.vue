@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import GalleryRow from './GalleryRow.vue'
 import { galleryStore } from '../stores/galleryStore'
-import { presetsStore } from '../stores/presetsStore'
+import { generalSettingsStore } from '../stores/generalSettingsStore'
 
 const ROW_GAP = 1
 const LOAD_THRESHOLD = 1200
@@ -78,10 +78,10 @@ defineExpose({ handleScroll })
       >
         <GalleryRow
           :row="item.row"
-          :crop-x="presetsStore.selectedPreset.value?.tileCropX ?? 0.1"
-          :crop-y="presetsStore.selectedPreset.value?.tileCropY ?? 0.1"
-          :auto-play-tile="presetsStore.selectedPreset.value?.autoPlayTile ?? 'off'"
-          :fallback-to-original="presetsStore.selectedPreset.value?.fallbackToOriginal ?? true"
+          :crop-x="generalSettingsStore.state.activeGeneral.tileCropX"
+          :crop-y="generalSettingsStore.state.activeGeneral.tileCropY"
+          :auto-play-tile="generalSettingsStore.state.activeGeneral.autoPlayTile"
+          :fallback-to-original="generalSettingsStore.state.activeGeneral.fallbackToOriginal"
         />
       </div>
     </div>

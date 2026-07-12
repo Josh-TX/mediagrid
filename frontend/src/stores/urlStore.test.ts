@@ -2,11 +2,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { urlStore } from './urlStore'
 import { presetsStore } from './presetsStore'
+import { generalSettingsStore } from './generalSettingsStore'
 import { uiStore } from './uiStore'
 import { galleryStore } from './galleryStore'
 import { playerStore } from './playerStore'
 import { toastStore } from './toastStore'
 import { makeDefaultPreset } from '../defaultPreset'
+import { makeDefaultGeneralSettings } from '../defaultGeneralSettings'
 import type { Row, Tile } from '../types'
 
 const TILES_PER_ROW = 5
@@ -63,10 +65,13 @@ function installFetchMock() {
     vi.fn(async (input: string | URL) => {
       const url = new URL(String(input), 'http://localhost/')
       if (fetchDelayMs > 0) await new Promise((r) => setTimeout(r, fetchDelayMs))
-      if (url.pathname === '/api/presets') {
+      if (url.pathname === '/api/settings') {
         return {
           ok: true,
-          json: async () => [makeDefaultPreset('default'), { ...makeDefaultPreset('travel'), defaultSort: 'date' }],
+          json: async () => ({
+            general: makeDefaultGeneralSettings(),
+            presets: [makeDefaultPreset('default'), makeDefaultPreset('travel')],
+          }),
         }
       }
       if (url.pathname === '/api/shuffle') {
@@ -89,10 +94,14 @@ beforeEach(() => {
   sessionStorage.clear()
   setUrl('')
 
-  presetsStore.state.activePresets = [makeDefaultPreset('default'), { ...makeDefaultPreset('travel'), defaultSort: 'date' }]
+  presetsStore.state.activePresets = [makeDefaultPreset('default'), makeDefaultPreset('travel')]
   presetsStore.state.serverPresets = presetsStore.state.activePresets.map((p) => ({ ...p }))
   presetsStore.state.selectedName = 'default'
   presetsStore.state.loaded = true
+
+  generalSettingsStore.state.activeGeneral = makeDefaultGeneralSettings()
+  generalSettingsStore.state.serverGeneral = { ...generalSettingsStore.state.activeGeneral }
+  generalSettingsStore.state.loaded = true
 
   uiStore.state.sortType = 'rand'
   uiStore.state.sortDir = 'asc'
@@ -172,24 +181,24 @@ describe('urlStore: settings <-> URL sync', () => {
     expect(window.location.search).toBe('')
   })
 
-  it('batches a preset switch (which also resets sort/sortDir) into a single pushState', async () => {
+  it('switching presets alone pushes a single history entry and leaves sort/sortDir untouched', async () => {
     await urlStore.init()
     const pushSpy = vi.spyOn(window.history, 'pushState')
 
-    // Mirrors Toolbar's onPresetChange: both mutations happen synchronously.
+    // defaultSort now lives on General settings (global), not per-preset, so
+    // switching presets (mirroring Toolbar's onPresetChange) no longer
+    // resets sort/sortDir — only `p` changes.
     presetsStore.selectPreset('travel')
-    uiStore.setSortFromPreset(presetsStore.selectedPreset.value!.defaultSort)
     await nextTick()
 
     expect(pushSpy).toHaveBeenCalledTimes(1)
     const params = new URLSearchParams(window.location.search)
     expect(params.get('p')).toBe('travel')
-    // sort/sortDir now match travel's own default ('date'/'desc'), so they're omitted.
     expect(params.has('sort')).toBe(false)
     expect(params.has('sortDir')).toBe(false)
   })
 
-  it('includes sort/sortDir only when they diverge from the preset default', async () => {
+  it('includes sort/sortDir only when they diverge from the global default', async () => {
     await urlStore.init()
     uiStore.setSortType('size')
     uiStore.toggleDir() // size defaults to desc; toggling makes it asc, so now non-default

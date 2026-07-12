@@ -1,11 +1,13 @@
 import type { Preset } from './types'
 import type { ShuffleQuery } from './api/shuffle'
 
-// Combines a Preset's Filter/Gallery settings with the toolbar's current
-// sort/dir/filter-text (which override the preset's defaultSort without
-// mutating the preset) into the query shape /api/shuffle expects.
+// Combines a Preset's Filter settings, the global tilePct (General
+// settings), and the toolbar's current sort/dir/filter-text (which override
+// the global defaultSort without mutating it) into the query shape
+// /api/shuffle expects.
 export function buildShuffleQuery(
   preset: Preset,
+  tilePct: number,
   sortType: ShuffleQuery['sort'],
   sortDir: ShuffleQuery['dir'],
   filterText: string,
@@ -13,7 +15,7 @@ export function buildShuffleQuery(
   screenH: number,
 ): ShuffleQuery {
   return {
-    tilePct: preset.tilePct,
+    tilePct,
     screenW,
     screenH,
     f: filterText || undefined,

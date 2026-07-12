@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import GeneralTab from './GeneralTab.vue'
 import PresetsTab from './PresetsTab.vue'
 import TasksTab from './TasksTab.vue'
 
 const emit = defineEmits<{ close: [] }>()
 
-type Tab = 'presets' | 'tasks'
-const activeTab = ref<Tab>('presets')
+type Tab = 'general' | 'presets' | 'tasks'
+const activeTab = ref<Tab>('general')
 
 function onClose() {
   emit('close')
@@ -17,6 +18,9 @@ function onClose() {
   <div class="overlay" @click.self="onClose">
     <div class="modal">
       <header class="tabbar">
+        <button type="button" class="tab" :class="{ active: activeTab === 'general' }" @click="activeTab = 'general'">
+          General
+        </button>
         <button type="button" class="tab" :class="{ active: activeTab === 'presets' }" @click="activeTab = 'presets'">
           Presets
         </button>
@@ -27,7 +31,8 @@ function onClose() {
         <button type="button" class="close-btn" @click="onClose" title="Close">&times;</button>
       </header>
 
-      <PresetsTab v-if="activeTab === 'presets'" />
+      <GeneralTab v-if="activeTab === 'general'" />
+      <PresetsTab v-else-if="activeTab === 'presets'" />
       <TasksTab v-else />
     </div>
   </div>
@@ -58,23 +63,24 @@ function onClose() {
 .tabbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px;
+  gap: 20px;
+  padding: 0 14px;
   border-bottom: 1px solid #444;
 }
 
 .tab {
-  background: #333;
+  background: none;
   color: #fff;
-  border: 1px solid #555;
-  border-radius: 4px;
-  padding: 6px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 12px 2px;
+  font-size: 14px;
   cursor: pointer;
-  opacity: 0.7;
+  opacity: 0.6;
 }
 .tab.active {
   opacity: 1;
-  border-color: #888;
+  border-bottom-color: #fff;
 }
 
 .spacer {
@@ -82,15 +88,21 @@ function onClose() {
 }
 
 .close-btn {
-  background: #333;
+  background: none;
   color: #fff;
-  border: 1px solid #555;
-  border-radius: 4px;
+  border: none;
   width: 30px;
   height: 30px;
   line-height: 1;
-  font-size: 18px;
+  font-size: 22px;
+  font-weight: bold;
   cursor: pointer;
   padding: 0;
+  border-radius: 4px;
+  opacity: 0.8;
+}
+.close-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
 }
 </style>

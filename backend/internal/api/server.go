@@ -32,8 +32,9 @@ func NewServer(s *store.Store, mediaRoot, previewRoot string, taskMgr *tasks.Man
 
 func (s *Server) routes(staticHandler http.Handler) {
 	s.mux.HandleFunc("GET /api/shuffle", s.handleShuffle)
-	s.mux.HandleFunc("GET /api/presets", s.handleGetPresets)
+	s.mux.HandleFunc("GET /api/settings", s.handleGetSettings)
 	s.mux.HandleFunc("POST /api/presets", s.handlePostPresets)
+	s.mux.HandleFunc("POST /api/general-settings", s.handlePostGeneralSettings)
 	s.mux.HandleFunc("GET /media/{path...}", s.handleMedia)
 	s.mux.HandleFunc("GET /thumbnail/{path...}", s.handleThumbnail)
 	s.mux.HandleFunc("GET /highlight/{path...}", s.handleHighlight)

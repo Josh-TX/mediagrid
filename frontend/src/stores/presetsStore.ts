@@ -1,6 +1,6 @@
 import { reactive, computed, watch } from 'vue'
 import type { Preset } from '../types'
-import { fetchPresets, savePresets as apiSavePresets } from '../api/presets'
+import { savePresets as apiSavePresets } from '../api/presets'
 import { makeDefaultPreset } from '../defaultPreset'
 
 // Session-storage key for the "Temp Preset": local edits made in the
@@ -41,8 +41,9 @@ function pickInitialSelectedName(presets: Preset[]): string {
   return 'default'
 }
 
-async function load() {
-  const server = await fetchPresets()
+// Populates the store from a preset list already fetched by the caller
+// (GET /api/settings is only ever called once, at startup — see urlStore.init()).
+function load(server: Preset[]) {
   state.serverPresets = server
 
   const raw = sessionStorage.getItem(TEMP_STORAGE_KEY)
@@ -63,6 +64,8 @@ async function load() {
 const selectedPreset = computed<Preset | undefined>(() =>
   state.activePresets.find((p) => p.name === state.selectedName),
 )
+
+const isDirty = computed(() => JSON.stringify(state.activePresets) !== JSON.stringify(state.serverPresets))
 
 // Any edit made in the settings modal (field tweak, rename, dupe, delete,
 // new preset) mutates state.activePresets directly; this persists it to
@@ -163,6 +166,7 @@ function deletePreset(name: string) {
 export const presetsStore = {
   state,
   selectedPreset,
+  isDirty,
   load,
   selectPreset,
   setActivePresets,

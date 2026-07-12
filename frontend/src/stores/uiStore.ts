@@ -14,9 +14,9 @@ const state = reactive({
   filterText: '',
 })
 
-// Called whenever the selected preset changes, so the toolbar reflects that
-// preset's defaultSort — this does not persist back into the preset.
-function setSortFromPreset(defaultSort: SortType) {
+// Called once at startup to seed the toolbar from the global defaultSort
+// (General settings) — this does not persist back into general settings.
+function setSortFromDefault(defaultSort: SortType) {
   state.sortType = defaultSort
   state.sortDir = defaultDirFor(defaultSort)
 }
@@ -36,7 +36,7 @@ function setFilterText(text: string) {
 
 export const uiStore = {
   state,
-  setSortFromPreset,
+  setSortFromDefault,
   setSortType,
   toggleDir,
   setFilterText,

@@ -38,8 +38,6 @@ function onSortButtonClick() {
 function onPresetChange(e: Event) {
   const name = (e.target as HTMLSelectElement).value
   presetsStore.selectPreset(name)
-  const preset = presetsStore.selectedPreset.value
-  if (preset) uiStore.setSortFromPreset(preset.defaultSort)
   emit('refetch')
 }
 </script>

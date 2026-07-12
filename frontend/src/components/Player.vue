@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PlayerMedia from './PlayerMedia.vue'
 import PlayerHud from './PlayerHud.vue'
 import { playerStore } from '../stores/playerStore'
-import { presetsStore } from '../stores/presetsStore'
+import { generalSettingsStore } from '../stores/generalSettingsStore'
 import { urlStore } from '../stores/urlStore'
 import {
   SWAP_DURATION_MS,
@@ -30,12 +30,12 @@ function onResize() {
   viewportH.value = window.innerHeight
 }
 
-const preset = computed(() => presetsStore.selectedPreset.value)
-const cropX = computed(() => preset.value?.playerCropX ?? 0.2)
-const cropY = computed(() => preset.value?.playerCropY ?? 0.2)
-const rewindSeconds = computed(() => preset.value?.rewindSeconds ?? 10)
-const forwardSeconds = computed(() => preset.value?.forwardSeconds ?? 10)
-const onVidEnd = computed(() => preset.value?.onVidEnd ?? 'next')
+const general = computed(() => generalSettingsStore.state.activeGeneral)
+const cropX = computed(() => general.value.playerCropX)
+const cropY = computed(() => general.value.playerCropY)
+const rewindSeconds = computed(() => general.value.rewindSeconds)
+const forwardSeconds = computed(() => general.value.forwardSeconds)
+const onVidEnd = computed(() => general.value.onVidEnd)
 
 const mediaList = playerStore.mediaList
 const currentTile = computed(() => mediaList.value[playerStore.state.currentIndex])

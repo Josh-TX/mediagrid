@@ -49,12 +49,6 @@ CREATE TABLE IF NOT EXISTS media (
 	_, err = s.DB.Exec(`
 CREATE TABLE IF NOT EXISTS presets (
   name TEXT PRIMARY KEY,
-  tilePct REAL NOT NULL,
-  tileCropX REAL NOT NULL,
-  tileCropY REAL NOT NULL,
-  defaultSort TEXT NOT NULL,
-  autoPlayTile TEXT NOT NULL,
-  fallbackToOriginal INTEGER NOT NULL,
   includeVids INTEGER NOT NULL,
   includeImages INTEGER NOT NULL,
   includePortrait INTEGER NOT NULL,
@@ -63,7 +57,23 @@ CREATE TABLE IF NOT EXISTS presets (
   maxDuration INTEGER NOT NULL,
   whitelistCSV TEXT NOT NULL,
   blacklistCSV TEXT NOT NULL,
-  basePath TEXT NOT NULL,
+  basePath TEXT NOT NULL
+)`)
+	if err != nil {
+		return fmt.Errorf("creating presets table: %w", err)
+	}
+
+	// general_settings holds at most one row (id fixed to 1) of the global
+	// Gallery/Player settings, analogous to gen_settings's singleton-row shape.
+	_, err = s.DB.Exec(`
+CREATE TABLE IF NOT EXISTS general_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  tilePct REAL NOT NULL,
+  tileCropX REAL NOT NULL,
+  tileCropY REAL NOT NULL,
+  defaultSort TEXT NOT NULL,
+  autoPlayTile TEXT NOT NULL,
+  fallbackToOriginal INTEGER NOT NULL,
   onVidEnd TEXT NOT NULL,
   playerCropX REAL NOT NULL,
   playerCropY REAL NOT NULL,
@@ -71,7 +81,7 @@ CREATE TABLE IF NOT EXISTS presets (
   forwardSeconds INTEGER NOT NULL
 )`)
 	if err != nil {
-		return fmt.Errorf("creating presets table: %w", err)
+		return fmt.Errorf("creating general_settings table: %w", err)
 	}
 
 	// gen_settings holds at most one row (id fixed to 1), storing the last

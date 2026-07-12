@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { uiStore } from './uiStore'
 
 describe('uiStore', () => {
-  it('setSortFromPreset applies the sort-type-specific default direction', () => {
-    uiStore.setSortFromPreset('size')
+  it('setSortFromDefault applies the sort-type-specific default direction', () => {
+    uiStore.setSortFromDefault('size')
     expect(uiStore.state.sortType).toBe('size')
     expect(uiStore.state.sortDir).toBe('desc')
 
-    uiStore.setSortFromPreset('az')
+    uiStore.setSortFromDefault('az')
     expect(uiStore.state.sortDir).toBe('asc')
   })
 
