@@ -7,6 +7,9 @@ describe('uiStore', () => {
     expect(uiStore.state.sortType).toBe('size')
     expect(uiStore.state.sortDir).toBe('desc')
 
+    uiStore.setSortFromDefault('dur')
+    expect(uiStore.state.sortDir).toBe('desc')
+
     uiStore.setSortFromDefault('az')
     expect(uiStore.state.sortDir).toBe('asc')
   })

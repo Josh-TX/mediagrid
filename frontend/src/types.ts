@@ -1,4 +1,4 @@
-export type SortType = 'rand' | 'size' | 'az' | 'date'
+export type SortType = 'rand' | 'size' | 'az' | 'date' | 'dur'
 export type SortDir = 'asc' | 'desc'
 export type AutoPlayTile = 'off' | 'hover' | 'always'
 export type OnVidEnd = 'loop' | 'stop' | 'next'

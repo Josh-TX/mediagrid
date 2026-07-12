@@ -31,6 +31,7 @@ export const generalSettingSections: SettingSection<GeneralSettings>[] = [
           { value: 'size', label: 'Size' },
           { value: 'az', label: 'A-Z' },
           { value: 'date', label: 'Date' },
+          { value: 'dur', label: 'Dur' },
         ],
       },
       {

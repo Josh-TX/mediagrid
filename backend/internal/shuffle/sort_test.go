@@ -10,6 +10,7 @@ func TestDefaultDir(t *testing.T) {
 	cases := map[string]string{
 		"size": "desc",
 		"date": "desc",
+		"dur":  "desc",
 		"az":   "asc",
 	}
 	for sortType, want := range cases {
@@ -45,6 +46,19 @@ func TestSort_Date(t *testing.T) {
 		{Path: "mid", Mdate: 200},
 	}
 	assertPaths(t, Sort(media, "date", "desc"), []string{"new", "mid", "old"})
+}
+
+func TestSort_Duration(t *testing.T) {
+	media := []model.Media{
+		{Path: "img1", Duration: 0, Filesize: 50},
+		{Path: "img2", Duration: 0, Filesize: 10},
+		{Path: "short", Duration: 5, Filesize: 999},
+		{Path: "long", Duration: 20, Filesize: 1},
+	}
+	// Descending: videos first (longest to shortest), images last.
+	assertPaths(t, Sort(media, "dur", "desc"), []string{"long", "short", "img1", "img2"})
+	// Ascending: images first (duration 0, tie-broken by filesize), then videos shortest to longest.
+	assertPaths(t, Sort(media, "dur", "asc"), []string{"img2", "img1", "short", "long"})
 }
 
 func TestSort_DoesNotMutateInput(t *testing.T) {

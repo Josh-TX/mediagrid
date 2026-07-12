@@ -12,7 +12,7 @@ import (
 // the caller didn't supply one explicitly.
 func DefaultDir(sortType string) string {
 	switch sortType {
-	case "size", "date":
+	case "size", "date", "dur":
 		return "desc"
 	default: // "az"
 		return "asc"
@@ -20,7 +20,7 @@ func DefaultDir(sortType string) string {
 }
 
 // Sort returns a new, sorted slice; it never mutates media. sortType must be
-// "size", "az", or "date" — "rand" is handled separately via RandOrder.
+// "size", "az", "date", or "dur" — "rand" is handled separately via RandOrder.
 func Sort(media []model.Media, sortType, dir string) []model.Media {
 	result := make([]model.Media, len(media))
 	copy(result, media)
@@ -35,6 +35,13 @@ func Sort(media []model.Media, sortType, dir string) []model.Media {
 		less = func(a, b model.Media) bool { return strings.ToLower(a.Path) < strings.ToLower(b.Path) }
 	case "date":
 		less = func(a, b model.Media) bool { return a.Mdate < b.Mdate }
+	case "dur":
+		less = func(a, b model.Media) bool {
+			if a.Duration != b.Duration {
+				return a.Duration < b.Duration
+			}
+			return a.Filesize < b.Filesize
+		}
 	default:
 		return result
 	}

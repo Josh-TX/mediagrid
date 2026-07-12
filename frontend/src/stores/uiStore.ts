@@ -5,7 +5,7 @@ import type { SortType, SortDir } from '../types'
 // explicitly — exported so urlStore can tell whether a URL's sortDir is
 // redundant (matches the natural default and so should be omitted).
 export function defaultDirFor(sortType: SortType): SortDir {
-  return sortType === 'size' || sortType === 'date' ? 'desc' : 'asc'
+  return sortType === 'size' || sortType === 'date' || sortType === 'dur' ? 'desc' : 'asc'
 }
 
 const state = reactive({

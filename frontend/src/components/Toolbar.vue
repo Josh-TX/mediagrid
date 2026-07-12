@@ -54,6 +54,7 @@ function onPresetChange(e: Event) {
       <option value="size">Size</option>
       <option value="az">A-Z</option>
       <option value="date">Date</option>
+      <option value="dur">Dur</option>
     </select>
 
     <input
