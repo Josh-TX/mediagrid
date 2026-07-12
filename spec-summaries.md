@@ -37,3 +37,8 @@ Reworks the `Tile`/`Preview` data model (moving `filesize`/`mdate`/`duration`/`p
 Date: 2026-07-11
 
 Splits the Settings modal's Preset concept into a global "General Settings" (former Gallery + Player sections, including `defaultSort` which becomes non-per-preset) and a narrowed "Preset" (just the former Filter fields, no longer branded as such). Adds `GET /api/settings` (returns `{general, presets}`, called once at startup) and `POST /api/general-settings`, a new `generalSettingsStore.ts` mirroring the existing preset store's temp-storage/revert/save pattern, real dirty-tracking (JSON-diff against a saved baseline) that gates the Revert/Save buttons on both tabs, and a restyled Settings modal with modern underline tabs (General, Presets, Tasks) and a bold icon-style close button.
+
+# Gallery Scroll Sync
+Date: 2026-07-12
+
+Makes the Gallery's scroll position track the Player as it swaps between media, instead of staying frozen, so the Gallery is already correctly positioned when the Player closes. Handles both tap-to-open (anchor on the tapped tile's row and current scrollTop, then delta by row-height offsets on each swap) and direct-load/refresh (anchor computed so the selected tile's row sits 100px below the viewport top), entirely within `Gallery.vue` via two watchers on `playerStore` state, with instant (non-animated) scrollTop snaps and lower-bound-only clamping.
