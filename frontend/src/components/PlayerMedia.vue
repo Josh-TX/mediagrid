@@ -18,9 +18,14 @@ const emit = defineEmits<{
   play: []
   pause: []
   'autoplay-blocked': []
+  error: []
 }>()
 
 const videoEl = ref<HTMLVideoElement | null>(null)
+// Set once and never reset — a container's tile never changes over its
+// lifetime (see Player.vue's ContainerEntry), so there's nothing to recover
+// into once a load fails.
+const failed = ref(false)
 
 // Same crop-then-letterbox hybrid as Tile.vue's mediaStyle, but against the
 // full viewport box and the source Media's own dimensions (preview.w/h
@@ -64,6 +69,11 @@ const mediaStyle = computed(() => {
 
 function onLoadedData() {
   emit('loaded')
+}
+
+function onError() {
+  failed.value = true
+  emit('error')
 }
 
 function onTimeUpdate() {
@@ -122,26 +132,31 @@ defineExpose({ play, pause, seek, getCurrentTime, getDuration, isPaused, isEnded
 
 <template>
   <div class="media-container">
-    <video
-      v-if="tile.isVid"
-      ref="videoEl"
-      :src="mediaUrl(tile.path)"
-      :style="mediaStyle"
-      playsinline
-      preload="auto"
-      @loadeddata="onLoadedData"
-      @timeupdate="onTimeUpdate"
-      @ended="emit('ended')"
-      @play="emit('play')"
-      @pause="emit('pause')"
-    />
-    <img
-      v-else
-      :src="mediaUrl(tile.path)"
-      :style="mediaStyle"
-      :alt="tile.path"
-      @load="onLoadedData"
-    />
+    <div v-if="failed" class="load-failed">{{ tile.isVid ? 'failed to load video' : 'failed to load image' }}</div>
+    <template v-else>
+      <video
+        v-if="tile.isVid"
+        ref="videoEl"
+        :src="mediaUrl(tile.path)"
+        :style="mediaStyle"
+        playsinline
+        preload="auto"
+        @loadeddata="onLoadedData"
+        @timeupdate="onTimeUpdate"
+        @ended="emit('ended')"
+        @play="emit('play')"
+        @pause="emit('pause')"
+        @error="onError"
+      />
+      <img
+        v-else
+        :src="mediaUrl(tile.path)"
+        :style="mediaStyle"
+        :alt="tile.path"
+        @load="onLoadedData"
+        @error="onError"
+      />
+    </template>
   </div>
 </template>
 
@@ -157,5 +172,18 @@ defineExpose({ play, pause, seek, getCurrentTime, getDuration, isPaused, isEnded
 .media-container video {
   position: absolute;
   object-fit: fill;
+}
+
+.load-failed {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  overflow-wrap: break-word;
 }
 </style>

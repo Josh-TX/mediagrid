@@ -127,6 +127,16 @@ function onMediaLoaded(entry: ContainerEntry) {
   contrastPulse.value++
 }
 
+// A failed load still needs neighbor containers created — otherwise landing
+// on a broken slide (e.g. deleted media) would leave swipe with nowhere to
+// go, since ensureNeighbors() is otherwise only reached via onMediaLoaded.
+function onMediaError(entry: ContainerEntry) {
+  if (roleOf(entry.mediaIndex) !== 0 || neighborsCreated.value) return
+  neighborsCreated.value = true
+  ensureNeighbors()
+  contrastPulse.value++
+}
+
 function onAutoplayBlocked(entry: ContainerEntry) {
   if (entry.id === initialAutoplayEntryId) tapToPlayVisible.value = true
 }
@@ -416,6 +426,7 @@ onBeforeUnmount(() => {
           @play="onMediaPlay(entry)"
           @pause="onMediaPause(entry)"
           @autoplay-blocked="onAutoplayBlocked(entry)"
+          @error="onMediaError(entry)"
         />
       </div>
     </div>

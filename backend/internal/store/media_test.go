@@ -77,6 +77,37 @@ func TestGetMediaByIDs_OmitsUnmatchedIdsRatherThanErroring(t *testing.T) {
 	}
 }
 
+func TestUpdateMediaPath_RepointsRowToNewPath(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("opening store: %v", err)
+	}
+	defer s.DB.Close()
+
+	if err := s.InsertMedia(model.Media{Path: "old/clip.mp4", Width: 10, Height: 10, IsVid: true}); err != nil {
+		t.Fatalf("InsertMedia: %v", err)
+	}
+
+	if err := s.UpdateMediaPath("old/clip.mp4", "old/renamed.mp4"); err != nil {
+		t.Fatalf("UpdateMediaPath: %v", err)
+	}
+
+	exists, err := s.MediaExists("old/renamed.mp4")
+	if err != nil {
+		t.Fatalf("MediaExists: %v", err)
+	}
+	if !exists {
+		t.Fatalf("expected row at new path to exist")
+	}
+	exists, err = s.MediaExists("old/clip.mp4")
+	if err != nil {
+		t.Fatalf("MediaExists: %v", err)
+	}
+	if exists {
+		t.Fatalf("expected row at old path to no longer exist")
+	}
+}
+
 func TestGetMediaByIDs_EmptyInputReturnsEmptyMap(t *testing.T) {
 	s, err := Open(":memory:")
 	if err != nil {

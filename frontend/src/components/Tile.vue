@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { Tile, AutoPlayTile } from '../types'
+import type { TileSource } from '../tilePlayback'
 import { mediaUrl, thumbnailUrl, highlightUrl } from '../api/shuffle'
+import { deleteMedia, renameMedia } from '../api/media'
 import { formatClock } from '../format'
 import { resolveTileSource } from '../tilePlayback'
 import { playerStore } from '../stores/playerStore'
 import { urlStore } from '../stores/urlStore'
+import { galleryStore } from '../stores/galleryStore'
+import TileContextMenu from './TileContextMenu.vue'
 
 const props = defineProps<{
   tile: Tile
@@ -76,14 +80,54 @@ const source = computed(() =>
 // "load the original image" when it isn't — only isVid disambiguates it.
 const isVideoPlaying = computed(() => source.value === 'highlight' || (source.value === 'original' && props.tile.isVid))
 
-const videoSrc = computed(() => (source.value === 'highlight' ? highlightUrl(props.tile.path) : mediaUrl(props.tile.path)))
-const imgSrc = computed(() => (source.value === 'thumbnail' ? thumbnailUrl(props.tile.path) : mediaUrl(props.tile.path)))
+// Incremented to force a fresh network request after a successful in-app
+// delete, bypassing the browser cache — otherwise the tile would keep
+// showing its already-loaded preview instead of flipping to the "failed to
+// load" state, which would be misleading about whether the delete worked.
+const cacheBust = ref(0)
+function withCacheBust(url: string): string {
+  return cacheBust.value ? `${url}${url.includes('?') ? '&' : '?'}_=${cacheBust.value}` : url
+}
 
-const title = computed(() => {
-  const filename = props.tile.path.split('/').pop() ?? props.tile.path
-  const dot = filename.lastIndexOf('.')
-  return dot > 0 ? filename.slice(0, dot) : filename
+const videoSrc = computed(() => withCacheBust(source.value === 'highlight' ? highlightUrl(props.tile.path) : mediaUrl(props.tile.path)))
+const imgSrc = computed(() => withCacheBust(source.value === 'thumbnail' ? thumbnailUrl(props.tile.path) : mediaUrl(props.tile.path)))
+
+// Tracks whether the currently-attempted source failed to load (e.g. the
+// file was deleted/renamed, or the shufflelist's stale "//deleted" sentinel
+// path). Only one network request is ever attempted per tile — there's no
+// fallback chain after a failure, just this message in place of the preview.
+const loadFailed = ref(false)
+const failedSource = ref<TileSource | null>(null)
+const currentSrc = computed(() => (isVideoPlaying.value ? videoSrc.value : imgSrc.value))
+watch(currentSrc, () => {
+  loadFailed.value = false
 })
+
+function onMediaError() {
+  loadFailed.value = true
+  failedSource.value = source.value
+}
+
+const failedMessage = computed(() => {
+  if (failedSource.value === 'thumbnail') return 'failed to load thumbnail'
+  if (failedSource.value === 'highlight') return 'failed to load highlight'
+  if (failedSource.value === 'original') return props.tile.isVid ? 'failed to load video' : 'failed to load image'
+  return ''
+})
+
+const filename = computed(() => props.tile.path.split('/').pop() ?? props.tile.path)
+
+function splitNameExt(name: string): { base: string; ext: string } {
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? { base: name.slice(0, dot), ext: name.slice(dot) } : { base: name, ext: '' }
+}
+
+function dirOf(path: string): string {
+  const idx = path.lastIndexOf('/')
+  return idx === -1 ? '' : path.slice(0, idx + 1)
+}
+
+const title = computed(() => splitNameExt(filename.value).base)
 
 const durationText = computed(() => formatClock(props.tile.duration))
 
@@ -98,6 +142,72 @@ function onHoverStart() {
 function onHoverEnd() {
   hovering.value = false
 }
+
+const menuOpen = ref(false)
+const menuPos = ref({ x: 0, y: 0 })
+
+function onContextMenu(e: MouseEvent) {
+  e.preventDefault()
+  menuPos.value = { x: e.clientX, y: e.clientY }
+  menuOpen.value = true
+}
+
+function onMenuOpen() {
+  menuOpen.value = false
+  onClick()
+}
+
+function onMenuOpenRaw() {
+  menuOpen.value = false
+  window.open(mediaUrl(props.tile.path), '_blank', 'noopener,noreferrer')
+}
+
+// Re-prompts (rather than alerting) on both local validation failures and
+// backend errors (e.g. a name conflict), so the user can fix the name and
+// resubmit, or cancel out entirely, without losing what they typed.
+async function onRename() {
+  menuOpen.value = false
+  const { base, ext } = splitNameExt(filename.value)
+  let promptValue = base
+  let message = `Enter Filename Without Extension (it stays ${ext})`
+  for (;;) {
+    const input = window.prompt(message, promptValue)
+    if (input === null) return
+    const trimmed = input.trim()
+    if (!trimmed) {
+      promptValue = trimmed
+      message = `Name cannot be empty. Enter Filename Without Extension (it stays ${ext})`
+      continue
+    }
+    if (trimmed.includes('/') || trimmed.includes('\\')) {
+      promptValue = trimmed
+      message = `Name cannot contain "/" or "\\". Enter Filename Without Extension (it stays ${ext})`
+      continue
+    }
+    if (trimmed === base) return // unchanged: silent no-op
+
+    const newName = trimmed + ext
+    try {
+      await renameMedia(props.tile.path, newName)
+      galleryStore.renameTile(props.tile.tilei, dirOf(props.tile.path) + newName)
+      return
+    } catch (err) {
+      promptValue = trimmed
+      message = `${(err as Error).message}. Enter Filename Without Extension (it stays ${ext})`
+    }
+  }
+}
+
+async function onDelete() {
+  menuOpen.value = false
+  if (!window.confirm(`Delete "${filename.value}"?`)) return
+  try {
+    await deleteMedia(props.tile.path)
+    cacheBust.value++
+  } catch (err) {
+    window.alert((err as Error).message)
+  }
+}
 </script>
 
 <template>
@@ -109,22 +219,46 @@ function onHoverEnd() {
     @mouseleave="onHoverEnd"
     @touchstart.passive="onHoverStart"
     @touchend.passive="onHoverEnd"
+    @contextmenu="onContextMenu"
   >
     <template v-if="!playerStore.state.previewsHidden">
-      <video
-        v-if="isVideoPlaying"
-        :src="videoSrc"
-        :style="mediaStyle"
-        muted
-        playsinline
-        loop
-        autoplay
-      />
-      <img v-else-if="source !== 'placeholder'" :src="imgSrc" :style="mediaStyle" :alt="tile.path" loading="lazy" />
-      <div v-else class="placeholder" :style="mediaStyle" />
+      <div v-if="loadFailed" class="load-failed">{{ failedMessage }}</div>
+      <template v-else>
+        <video
+          v-if="isVideoPlaying"
+          :src="videoSrc"
+          :style="mediaStyle"
+          muted
+          playsinline
+          loop
+          autoplay
+          @error="onMediaError"
+        />
+        <img
+          v-else-if="source !== 'placeholder'"
+          :src="imgSrc"
+          :style="mediaStyle"
+          :alt="tile.path"
+          loading="lazy"
+          @error="onMediaError"
+        />
+        <div v-else class="placeholder" :style="mediaStyle" />
+      </template>
       <div v-if="tile.isVid" class="duration-badge">{{ durationText }}</div>
       <div class="title-overlay">{{ title }}</div>
     </template>
+
+    <TileContextMenu
+      v-if="menuOpen"
+      :x="menuPos.x"
+      :y="menuPos.y"
+      @click.stop
+      @open="onMenuOpen"
+      @open-raw="onMenuOpenRaw"
+      @rename="onRename"
+      @delete="onDelete"
+      @close="menuOpen = false"
+    />
   </div>
 </template>
 
@@ -145,6 +279,19 @@ function onHoverEnd() {
 
 .placeholder {
   background: #555;
+}
+
+.load-failed {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  overflow-wrap: break-word;
 }
 
 .duration-badge {

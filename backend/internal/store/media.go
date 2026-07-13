@@ -28,6 +28,13 @@ func (s *Store) DeleteMedia(path string) error {
 	return err
 }
 
+// UpdateMediaPath repoints the media row at oldPath to newPath, e.g. after
+// the on-disk file itself was renamed via /api/rename.
+func (s *Store) UpdateMediaPath(oldPath, newPath string) error {
+	_, err := s.DB.Exec(`UPDATE media SET path = ? WHERE path = ?`, newPath, oldPath)
+	return err
+}
+
 func (s *Store) InsertMedia(m model.Media) error {
 	isvid := 0
 	if m.IsVid {

@@ -67,6 +67,6 @@ export function highlightUrl(path: string): string {
   return buildRootedUrl('/highlight/', path)
 }
 
-function buildRootedUrl(prefix: string, path: string): string {
+export function buildRootedUrl(prefix: string, path: string): string {
   return prefix + path.split('/').map(encodeURIComponent).join('/')
 }

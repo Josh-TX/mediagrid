@@ -82,4 +82,17 @@ function retry() {
   if (currentParams) reset(currentParams)
 }
 
-export const galleryStore = { state, reset, resetWithTakei, loadMore, ensureRowsForTile, retry }
+// Locally patches a single tile's path after a successful rename (the path
+// is known to be unique per shufflelist, so tilei alone identifies it) —
+// avoids a full reshuffle/refetch just to reflect the rename.
+function renameTile(tilei: number, newPath: string) {
+  for (const row of state.rows) {
+    const tile = row.tiles.find((t) => t.tilei === tilei)
+    if (tile) {
+      tile.path = newPath
+      return
+    }
+  }
+}
+
+export const galleryStore = { state, reset, resetWithTakei, loadMore, ensureRowsForTile, retry, renameTile }
