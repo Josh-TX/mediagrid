@@ -9,7 +9,7 @@ const ROW_GAP = 1
 const LOAD_THRESHOLD = 1200
 // Extra px of rows to keep mounted above/below the viewport, so scrolling
 // doesn't visibly pop rows in/out.
-const RENDER_BUFFER = 600
+const RENDER_BUFFER = 400
 // Height of the header block at the top of the scrollable content: gives the
 // Toolbar a solid backdrop and shows the results count while scrolled to top.
 const HEADER_HEIGHT = 68

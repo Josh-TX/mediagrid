@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import type { Tile, AutoPlayTile } from '../types'
 import type { TileSource } from '../tilePlayback'
 import { mediaUrl, thumbnailUrl, highlightUrl } from '../api/shuffle'
@@ -9,10 +9,12 @@ import { resolveTileSource } from '../tilePlayback'
 import { playerStore } from '../stores/playerStore'
 import { urlStore } from '../stores/urlStore'
 import { galleryStore } from '../stores/galleryStore'
+import { videoLoadQueue } from '../stores/videoLoadQueue'
 import TileContextMenu from './TileContextMenu.vue'
 
 const props = defineProps<{
   tile: Tile
+  rowi: number
   rowH: number
   cropX: number
   cropY: number
@@ -106,7 +108,43 @@ watch(currentSrc, () => {
 function onMediaError() {
   loadFailed.value = true
   failedSource.value = source.value
+  queueMarkSettled()
 }
+
+// Row-level load gate: this tile's video is only allowed to actually fetch
+// (i.e. have its `src` bound) once every row above it has finished loading
+// its own videos. `queuePending` mirrors whether this tile is currently
+// registered as one of its row's outstanding loads.
+const queuePending = ref(false)
+const rowUnlocked = computed(() => videoLoadQueue.isRowUnlocked(props.rowi))
+
+function queueMarkPending() {
+  if (!queuePending.value) {
+    queuePending.value = true
+    videoLoadQueue.markPending(props.rowi)
+  }
+}
+
+function queueMarkSettled() {
+  if (queuePending.value) {
+    queuePending.value = false
+    videoLoadQueue.markSettled(props.rowi)
+  }
+}
+
+watch(
+  isVideoPlaying,
+  (active) => {
+    if (active) {
+      queueMarkPending()
+    } else {
+      queueMarkSettled()
+    }
+  },
+  { immediate: true },
+)
+
+onUnmounted(queueMarkSettled)
 
 const failedMessage = computed(() => {
   if (failedSource.value === 'thumbnail') return 'failed to load thumbnail'
@@ -226,13 +264,14 @@ async function onDelete() {
       <template v-else>
         <video
           v-if="isVideoPlaying"
-          :src="videoSrc"
+          :src="rowUnlocked ? videoSrc : undefined"
           :style="mediaStyle"
           muted
           playsinline
           loop
           autoplay
           @error="onMediaError"
+          @loadeddata="queueMarkSettled"
         />
         <img
           v-else-if="source !== 'placeholder'"

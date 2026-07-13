@@ -17,6 +17,7 @@ defineProps<{
       v-for="tile in row.tiles"
       :key="tile.tilei"
       :tile="tile"
+      :rowi="row.rowi"
       :row-h="row.h"
       :crop-x="cropX"
       :crop-y="cropY"
