@@ -54,6 +54,10 @@ type Tile struct {
 	Filesize int64       `json:"filesize"`
 	Mdate    int64       `json:"mdate"`
 	Preview  PreviewData `json:"preview"`
+	// Id is the source media's backend-only db id, threaded through layout
+	// building so RandCache can store a lean CacheTile instead of a full
+	// Tile. json:"-" keeps it structurally unreachable from the API response.
+	Id int `json:"-"`
 }
 
 type Row struct {
@@ -66,4 +70,21 @@ type Result struct {
 	TotalRows  int   `json:"totalRows"`
 	TotalTiles int   `json:"totalTiles"`
 	Rows       []Row `json:"rows"`
+}
+
+// CacheTile is the lean, RandCache-only counterpart to Tile: just enough to
+// re-derive a full Tile later via a media-table lookup by Id. Deliberately a
+// separate type (not a Tile with fields zeroed) so RandCache doesn't pay for
+// Tile's fixed-size fields or Path's variable-length string content.
+type CacheTile struct {
+	TileI int
+	W     int
+	Id    int
+}
+
+// CacheRow is the RandCache-only counterpart to Row.
+type CacheRow struct {
+	RowI  int
+	H     int
+	Tiles []CacheTile
 }

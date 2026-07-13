@@ -12,11 +12,13 @@ The shufflelist rand-cache (`RandCache`, used only for `sort=rand`) currently st
 
 On a cache miss, the existing pipeline (`ListAllMedia` → `Filter` → `BuildRandomRows`) is unchanged — it already has full `model.Media` in hand, so the currently-requested page's response can be built directly from that, while a stripped-down `CacheRow`/`CacheTile` version gets written into `RandCache` for next time.
 
-On a cache hit, the stored `CacheTile`s for the requested page (after row-range resolution, same as today) need to be hydrated back into full response `Tile`s by looking up their `Id`s in the `media` table. This should be a single batched query (`WHERE id IN (...)`) covering all ids on the page, not one query per tile. If an id from the cache isn't found in the `media` table (because the file was deleted via the app after this shufflelist was cached), handle it gracefully rather than erroring: synthesize a `Tile` with `Path: "//deleted"` and simple zero-value defaults for everything else (`Filesize: 0`, `Mdate: 0`, `IsVid: false`, `Duration: 0`, `Preview` zero-value). No pointer/null types needed — plain zero values are fine, since the frontend keys off the sentinel path, not nullness.
+On a cache hit, the stored `CacheTile`s for the requested page (after row-range resolution, same as today) need to be hydrated back into full response `Tile`s by looking up their `Id`s in the `media` table. This should be a single batched query (`WHERE id IN (...)`) covering all ids on the page, not one query per tile. If an id from the cache isn't found in the `media` table (because the file was deleted via the app after this shufflelist was cached), handle it gracefully rather than erroring: synthesize a `Tile` with `Path: "//deleted"` and simple zero-value defaults for everything else (`Filesize: 0`, `Mdate: 0`, `IsVid: false`, `Duration: 0`, `Preview` zero-value). No pointer/null types needed — plain zero values are fine.
+
+The `/api/shuffle` route's request/response interface is otherwise unchanged — it just now may contain tiles with `path: "//deleted"` and zeroed other fields.
 
 No cache invalidation is needed when a delete happens. Since AUTOINCREMENT prevents id reuse, a stale cached tile referencing a since-deleted id will simply and correctly resolve to `//deleted` the next time it's read (whether immediately or near the end of its TTL) — this is the intended graceful-degradation behavor, not a bug to work around.
 
-The `/api/shuffle` route's request/response interface is otherwise unchanged. The existing `os.Stat`-based `populatePreviewFlags` logic (checking thumbnail/highlight existence for just the returned page) stays as-is.
+The existing `os.Stat`-based `populatePreviewFlags` logic (checking thumbnail/highlight existence for just the returned page) stays as-is.
 
 ### New delete endpoint
 
@@ -28,16 +30,8 @@ This order matters: doing the file/preview deletion first means that if the DB d
 
 Keep this endpoint's own semantics simple: no special-casing needed for a path that isn't found in the `media` table (idempotent is fine), since correctness doesn't hinge on it. There is no UI trigger for this endpoint in this spec — it's being built now for future use, wiring up a trigger is explicitly out of scope.
 
-### Frontend
-
-Keep changes minimal. The shuffle response shape is unchanged from the frontend's point of view — it just now may contain tiles with `path: "//deleted"` and zeroed other fields.
-
-- In `fetchShuffle()` (`api/shuffle.ts`), derive and attach an `isDeleted` boolean to each tile centrally, right after parsing the response, so downstream components check `tile.isDeleted` rather than repeating the `path === "//deleted"` string comparison.
-- Gallery `Tile.vue`: route deleted tiles into the existing plain gray `placeholder` branch (no new text/icon) — reuse what's there.
-- Player `PlayerMedia.vue`: show a full-viewport static "file is deleted" message in place of the video/img element (persistent, not a toast — simpler than wiring up toast timing/lifecycle).
-- `PlayerHud.vue`: leave essentially untouched. It stays fully visible (do not hide/suppress it — the "back" button it contains is the only touch-based way to close the Player on mobile, and there's no other close affordance). The title naturally renders as "deleted" from `"//deleted"`'s last path segment with no code change needed. The info tooltip (date/filesize/resolution/duration) is also left alone, showing whatever the zeroed defaults compute to — no extra hide-logic needed, per the minimal-changes goal.
-
 ## Out of Scope
 
 - Wiring up any UI trigger (button, gesture, menu) that calls `/api/delete/<path>` — this spec only builds the endpoint itself.
 - Handling media files deleted outside the app (i.e., not through `/api/delete`) — that continues to be handled solely by the existing scan/`scan.Clean` flow, unchanged by this spec.
+- Any frontend handling of `//deleted` tiles (e.g. `isDeleted` derivation, gallery placeholder routing, Player messaging) — deferred to a future card.

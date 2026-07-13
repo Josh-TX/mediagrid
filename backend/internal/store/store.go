@@ -38,7 +38,8 @@ func Open(path string) (*Store, error) {
 func (s *Store) migrate() error {
 	_, err := s.DB.Exec(`
 CREATE TABLE IF NOT EXISTS media (
-  path TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  path TEXT UNIQUE NOT NULL,
   width INTEGER NOT NULL,
   height INTEGER NOT NULL,
   filesize INTEGER NOT NULL,

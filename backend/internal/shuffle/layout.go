@@ -81,6 +81,7 @@ func buildRow(rowI int, tileI *int, row []model.Media, widths []int, rowHeight f
 				W: m.Width,
 				H: m.Height,
 			},
+			Id: m.Id,
 		}
 		*tileI++
 	}

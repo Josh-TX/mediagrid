@@ -74,20 +74,25 @@ func (s *Server) handleShuffle(w http.ResponseWriter, r *http.Request) {
 		if params.Reshuffle {
 			s.randCache.Delete(key)
 		}
-		cachedRows, cachedTotal, ok := s.randCache.Get(key)
-		if ok {
-			rows, totalTiles = cachedRows, cachedTotal
-		} else {
-			media, err := s.store.ListAllMedia()
+		if cachedRows, cachedTotal, ok := s.randCache.Get(key); ok {
+			result, err := s.hydrateCachedResult(cachedRows, cachedTotal, params)
 			if err != nil {
 				http.Error(w, "failed to load media", http.StatusInternalServerError)
 				return
 			}
-			filtered := shuffle.Filter(media, params)
-			rows = shuffle.BuildRandomRows(filtered, params.ScreenW, params.ScreenH, params.TilePct)
-			totalTiles = len(filtered)
-			s.randCache.Set(key, rows, totalTiles)
+			s.writeShuffleResult(w, result)
+			return
 		}
+
+		media, err := s.store.ListAllMedia()
+		if err != nil {
+			http.Error(w, "failed to load media", http.StatusInternalServerError)
+			return
+		}
+		filtered := shuffle.Filter(media, params)
+		rows = shuffle.BuildRandomRows(filtered, params.ScreenW, params.ScreenH, params.TilePct)
+		totalTiles = len(filtered)
+		s.randCache.Set(key, shuffle.ToCacheRows(rows), totalTiles)
 	} else {
 		media, err := s.store.ListAllMedia()
 		if err != nil {
@@ -111,8 +116,50 @@ func (s *Server) handleShuffle(w http.ResponseWriter, r *http.Request) {
 	if skipR < takeR {
 		result.Rows = rows[skipR:takeR]
 	}
-	s.populatePreviewFlags(result.Rows)
+	s.writeShuffleResult(w, result)
+}
 
+// hydrateCachedResult resolves the requested page's row range against the
+// cached lean rows (without ever materializing full Tiles for the whole
+// shufflelist), then hydrates just that page's CacheTiles into full Tiles
+// via a single batched media-table lookup by Id.
+func (s *Server) hydrateCachedResult(cachedRows []shuffle.CacheRow, totalTiles int, params shuffle.Params) (shuffle.Result, error) {
+	skipR, takeR := resolveCacheRowRange(params.SkipR, params.TakeR, params.TakeI, cachedRows)
+
+	var pageRows []shuffle.CacheRow
+	if skipR < takeR {
+		pageRows = cachedRows[skipR:takeR]
+	}
+
+	media, err := s.store.GetMediaByIDs(cacheTileIDs(pageRows))
+	if err != nil {
+		return shuffle.Result{}, err
+	}
+
+	return shuffle.Result{
+		TotalRows:  len(cachedRows),
+		TotalTiles: totalTiles,
+		Rows:       shuffle.HydrateRows(pageRows, media),
+	}, nil
+}
+
+// cacheTileIDs flattens every CacheTile.Id across rows, for a single batched
+// GetMediaByIDs lookup.
+func cacheTileIDs(rows []shuffle.CacheRow) []int {
+	var ids []int
+	for _, r := range rows {
+		for _, t := range r.Tiles {
+			ids = append(ids, t.Id)
+		}
+	}
+	return ids
+}
+
+// writeShuffleResult populates preview flags for the page being returned and
+// writes it as the JSON response body, shared by both the cache-hit and
+// build-from-scratch paths.
+func (s *Server) writeShuffleResult(w http.ResponseWriter, result shuffle.Result) {
+	s.populatePreviewFlags(result.Rows)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
@@ -186,6 +233,60 @@ func resolveRowRange(skipR, takeR, takeI *int, rows []shuffle.Row) (int, int) {
 // than erroring, per resolveRowRange's takei contract). Returns -1 only when
 // rows is empty or tileI is negative.
 func rowIndexContaining(rows []shuffle.Row, tileI int) int {
+	if len(rows) == 0 || tileI < 0 {
+		return -1
+	}
+	for _, row := range rows {
+		if len(row.Tiles) == 0 {
+			continue
+		}
+		last := row.Tiles[len(row.Tiles)-1].TileI
+		if tileI <= last {
+			return row.RowI
+		}
+	}
+	return len(rows) - 1
+}
+
+// resolveCacheRowRange mirrors resolveRowRange exactly, but operates on
+// RandCache's lean CacheRow rows. Kept as a separate small function (rather
+// than generalizing resolveRowRange) so a cache hit can resolve the
+// requested page's row range directly off the cached rows, without first
+// hydrating the entire cached shufflelist into full Tiles just to slice it.
+func resolveCacheRowRange(skipR, takeR, takeI *int, rows []shuffle.CacheRow) (int, int) {
+	totalRows := len(rows)
+
+	lo := 0
+	if skipR != nil {
+		lo = *skipR
+	}
+	if lo < 0 {
+		lo = 0
+	}
+	if lo > totalRows {
+		lo = totalRows
+	}
+
+	hi := totalRows
+	if takeR != nil {
+		hi = lo + *takeR
+	}
+	if takeI != nil {
+		if rowIdx := cacheRowIndexContaining(rows, *takeI); rowIdx >= 0 && rowIdx+1 > hi {
+			hi = rowIdx + 1
+		}
+	}
+	if hi > totalRows {
+		hi = totalRows
+	}
+	if hi < lo {
+		hi = lo
+	}
+	return lo, hi
+}
+
+// cacheRowIndexContaining is rowIndexContaining's CacheRow counterpart.
+func cacheRowIndexContaining(rows []shuffle.CacheRow, tileI int) int {
 	if len(rows) == 0 || tileI < 0 {
 		return -1
 	}

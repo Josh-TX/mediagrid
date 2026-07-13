@@ -15,11 +15,18 @@ func (s *Server) handleMedia(w http.ResponseWriter, r *http.Request) {
 
 // serveGuarded serves fullPath, rejecting any path that resolves outside root.
 func serveGuarded(w http.ResponseWriter, r *http.Request, root, fullPath string) {
-	cleanRoot := filepath.Clean(root)
-	if fullPath != cleanRoot && !strings.HasPrefix(fullPath, cleanRoot+string(filepath.Separator)) {
+	if !pathWithinRoot(root, fullPath) {
 		http.Error(w, "invalid path", http.StatusBadRequest)
 		return
 	}
 
 	http.ServeFile(w, r, fullPath)
+}
+
+// pathWithinRoot reports whether fullPath is root itself or resolves inside
+// it, guarding against a {path...} param (e.g. containing "../") escaping
+// the intended root directory.
+func pathWithinRoot(root, fullPath string) bool {
+	cleanRoot := filepath.Clean(root)
+	return fullPath == cleanRoot || strings.HasPrefix(fullPath, cleanRoot+string(filepath.Separator))
 }
