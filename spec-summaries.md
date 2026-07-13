@@ -47,3 +47,8 @@ Makes the Gallery's scroll position track the Player as it swaps between media, 
 Date: 2026-07-12
 
 Adds a backend-only auto-incrementing `id` to the `media` table (replacing `path` as primary key) so the shufflelist rand-cache can store a lean `{TileI, W, Id}` per tile instead of full tile data, drastically cutting cached memory footprint, with cache-hit responses hydrated from the DB via batched id lookups. Also adds a `DELETE /api/delete/<path>` endpoint (file + previews + DB row) and makes `/api/shuffle` gracefully surface deleted media as a `"//deleted"` sentinel path, which the frontend shows as a placeholder tile / "file is deleted" Player state.
+
+# Gallery Tile Context Menu
+Date: 2026-07-12
+
+Adds a custom right-click/long-press context menu on Gallery tiles (Open, Open Raw, Rename, Delete) wired to the existing `/api/delete` endpoint and a new `PUT /api/rename/{path...}` endpoint that renames the media file plus any thumbnail/highlight previews (same-directory filename change only, disk-first ordering, conflict/missing-source errors). Also adds generic `@error` handling for failed thumbnail/highlight/media loads in both the Gallery (per-source "failed to load thumbnail/highlight/video/image" messages) and the Player ("failed to load video/image"), which incidentally closes out the previously-deferred `"//deleted"` tile handling with no special-casing needed.
