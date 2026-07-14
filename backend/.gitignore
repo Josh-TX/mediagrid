@@ -3,4 +3,6 @@
 *.db-shm
 /mediagrid
 /media
+/data
+web/dist/
 __debug*

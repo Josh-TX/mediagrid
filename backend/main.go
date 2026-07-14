@@ -2,6 +2,8 @@ package main
 
 import (
 	"embed"
+	"errors"
+	"flag"
 	"io/fs"
 	"log"
 	"net/http"
@@ -18,8 +20,11 @@ import (
 var distFS embed.FS
 
 func main() {
-	cfg, err := config.Load()
+	cfg, err := config.Load(os.Args[1:], os.LookupEnv, os.Stderr)
 	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			os.Exit(0)
+		}
 		log.Fatal(err)
 	}
 
@@ -44,7 +49,7 @@ func main() {
 	}
 	server := api.NewServer(s, cfg.MediaRoot, cfg.PreviewRoot, taskMgr, http.FileServerFS(dist))
 
-	log.Printf("listening on :%s (MEDIA_ROOT=%s, PREVIEW_ROOT=%s)", cfg.Port, cfg.MediaRoot, cfg.PreviewRoot)
+	log.Printf("listening on :%s (media=%s, data=%s)", cfg.Port, cfg.MediaRoot, cfg.DataRoot)
 	if err := http.ListenAndServe(":"+cfg.Port, server); err != nil {
 		log.Fatal(err)
 	}

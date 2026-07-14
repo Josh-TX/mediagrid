@@ -10,7 +10,7 @@
       "cwd": "${workspaceFolder}/backend",
       "env": {
         "MEDIA_ROOT": "${workspaceFolder}/backend/media",
-        "PREVIEW_ROOT": "${workspaceFolder}/backend/preview"
+        "DATA_ROOT": "${workspaceFolder}/backend/data"
       }
     },
     {
