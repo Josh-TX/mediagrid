@@ -9,6 +9,7 @@ import { resolveTileSource } from '../tilePlayback'
 import { playerStore } from '../stores/playerStore'
 import { urlStore } from '../stores/urlStore'
 import { videoLoadQueue } from '../stores/videoLoadQueue'
+import { tileInteractionStore } from '../stores/tileInteractionStore'
 import TileContextMenu from './TileContextMenu.vue'
 import FileInfoModal from './FileInfoModal.vue'
 
@@ -22,7 +23,7 @@ const props = defineProps<{
   fallbackToOriginal: boolean
 }>()
 
-const hovering = ref(false)
+const hovering = computed(() => tileInteractionStore.isActive(props.tile.tilei))
 
 // Crop-then-letterbox hybrid: scale the preview to cover the box, but never
 // crop more than cropX/cropY of that axis — if covering would need more, the
@@ -93,6 +94,20 @@ function withCacheBust(url: string): string {
 
 const videoSrc = computed(() => withCacheBust(source.value === 'highlight' ? highlightUrl(props.tile.path) : mediaUrl(props.tile.path)))
 const imgSrc = computed(() => withCacheBust(source.value === 'thumbnail' ? thumbnailUrl(props.tile.path) : mediaUrl(props.tile.path)))
+// Base layer shown behind a playing video, so the thumbnail stays visible
+// (instead of a black gap) until the video has an actual frame to paint.
+const thumbSrc = computed(() => withCacheBust(thumbnailUrl(props.tile.path)))
+
+// True once the playing video has decoded its first frame — gates the
+// video's fade-in so the thumbnail/placeholder base layer shows through
+// while it's still buffering over the network.
+const videoReady = ref(false)
+watch(videoSrc, () => {
+  videoReady.value = false
+})
+watch(isVideoPlaying, (active) => {
+  if (!active) videoReady.value = false
+})
 
 // Tracks whether the currently-attempted source failed to load (e.g. the
 // file was deleted/renamed, or the shufflelist's stale "//deleted" sentinel
@@ -109,6 +124,11 @@ function onMediaError() {
   loadFailed.value = true
   failedSource.value = source.value
   queueMarkSettled()
+}
+
+function onVideoLoaded() {
+  queueMarkSettled()
+  videoReady.value = true
 }
 
 // Row-level load gate: this tile's video is only allowed to actually fetch
@@ -144,7 +164,10 @@ watch(
   { immediate: true },
 )
 
-onUnmounted(queueMarkSettled)
+onUnmounted(() => {
+  queueMarkSettled()
+  tileInteractionStore.end(props.tile.tilei)
+})
 
 const failedMessage = computed(() => {
   if (failedSource.value === 'thumbnail') return 'failed to load thumbnail'
@@ -164,11 +187,11 @@ function onClick() {
 }
 
 function onHoverStart() {
-  hovering.value = true
+  tileInteractionStore.start(props.tile.tilei)
 }
 
 function onHoverEnd() {
-  hovering.value = false
+  tileInteractionStore.end(props.tile.tilei)
 }
 
 const menuOpen = ref(false)
@@ -207,17 +230,26 @@ function onMenuInfo() {
     <template v-if="!playerStore.state.previewsHidden">
       <div v-if="loadFailed" class="load-failed">{{ failedMessage }}</div>
       <template v-else>
-        <video
-          v-if="isVideoPlaying"
-          :src="rowUnlocked ? videoSrc : undefined"
-          :style="mediaStyle"
-          muted
-          playsinline
-          loop
-          autoplay
-          @error="onMediaError"
-          @loadeddata="queueMarkSettled"
-        />
+        <template v-if="isVideoPlaying">
+          <img
+            v-if="tile.preview.hasThumbnail"
+            :src="thumbSrc"
+            :style="mediaStyle"
+            :alt="tile.path"
+          />
+          <div v-else class="placeholder" :style="mediaStyle" />
+          <video
+            :src="rowUnlocked ? videoSrc : undefined"
+            :style="mediaStyle"
+            :class="{ ready: videoReady }"
+            muted
+            playsinline
+            loop
+            autoplay
+            @error="onMediaError"
+            @loadeddata="onVideoLoaded"
+          />
+        </template>
         <img
           v-else-if="source !== 'placeholder'"
           :src="imgSrc"
@@ -267,6 +299,16 @@ function onMenuInfo() {
 .tile .placeholder {
   position: absolute;
   object-fit: fill;
+}
+
+.tile video {
+  background: transparent;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.tile video.ready {
+  opacity: 1;
 }
 
 .placeholder {
