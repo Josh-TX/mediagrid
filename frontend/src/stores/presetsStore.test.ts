@@ -30,17 +30,6 @@ describe('presetsStore preset management', () => {
     expect(presetsStore.state.selectedName).toBe('night mode')
   })
 
-  it('duplicatePreset copies the source settings under a new name', () => {
-    presetsStore.state.activePresets.find((p) => p.name === 'travel')!.basePath = 'trips/'
-    expect(presetsStore.duplicatePreset('travel', 'travel copy')).toBe(true)
-    const dup = presetsStore.state.activePresets.find((p) => p.name === 'travel copy')
-    expect(dup?.basePath).toBe('trips/')
-  })
-
-  it('duplicatePreset rejects a name collision', () => {
-    expect(presetsStore.duplicatePreset('travel', 'default')).toBe(false)
-  })
-
   it('renamePreset rejects a name collision and keeps the original name', () => {
     expect(presetsStore.renamePreset('travel', 'default')).toBe(false)
     expect(presetsStore.state.activePresets.some((p) => p.name === 'travel')).toBe(true)

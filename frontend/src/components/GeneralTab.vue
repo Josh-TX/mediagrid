@@ -1,6 +1,17 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { generalSettingsStore } from '../stores/generalSettingsStore'
-import { generalSettingSections } from '../settingsFields'
+import { generalSettingSections, type SettingField } from '../settingsFields'
+import type { GeneralSettings } from '../types'
+
+function boolSelectModel(field: SettingField<GeneralSettings>) {
+  return computed({
+    get: () => String((generalSettingsStore.state.activeGeneral as any)[field.key]),
+    set: (val: string) => {
+      ;(generalSettingsStore.state.activeGeneral as any)[field.key] = val === 'true'
+    },
+  })
+}
 
 function showHelp(help: string) {
   window.alert(help)
@@ -51,6 +62,9 @@ async function onSavePermanently() {
             v-model="(generalSettingsStore.state.activeGeneral as any)[field.key]"
           />
           <select v-else-if="field.type === 'select'" v-model="(generalSettingsStore.state.activeGeneral as any)[field.key]">
+            <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+          <select v-else-if="field.type === 'boolSelect'" v-model="boolSelectModel(field).value">
             <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </div>
@@ -112,6 +126,10 @@ async function onSavePermanently() {
 .input input,
 .input select {
   width: 100%;
+}
+
+.input input[type='number'] {
+  width: 80px;
 }
 
 .footer {

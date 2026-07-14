@@ -26,6 +26,8 @@ func TestGeneralSettings_GetReturnsExistsFalseUntilSaved(t *testing.T) {
 	want := model.DefaultGeneralSettings()
 	want.TilePct = 0.42
 	want.DefaultSort = "az"
+	want.TilePreviewAlways = true
+	want.AutoplayInitiallyOn = false
 	if err := s.SaveGeneralSettings(want); err != nil {
 		t.Fatalf("SaveGeneralSettings: %v", err)
 	}

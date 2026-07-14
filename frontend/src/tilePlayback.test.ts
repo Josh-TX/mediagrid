@@ -6,7 +6,7 @@ function input(overrides: Partial<TilePlaybackInput>): TilePlaybackInput {
     isVid: true,
     hasThumbnail: false,
     hasHighlight: false,
-    autoPlayTile: 'off',
+    tilePreviewAlways: false,
     fallbackToOriginal: true,
     hovering: false,
     ...overrides,
@@ -22,47 +22,57 @@ describe('resolveTileSource: images', () => {
     expect(resolveTileSource(input({ isVid: false, hasThumbnail: false }))).toBe('original')
   })
 
-  it('ignores hasHighlight/autoPlayTile entirely for images', () => {
-    expect(resolveTileSource(input({ isVid: false, hasThumbnail: true, hasHighlight: true, autoPlayTile: 'always' }))).toBe(
-      'thumbnail',
-    )
+  it('ignores hasHighlight/tilePreviewAlways entirely for images', () => {
+    expect(
+      resolveTileSource(input({ isVid: false, hasThumbnail: true, hasHighlight: true, tilePreviewAlways: true })),
+    ).toBe('thumbnail')
   })
 })
 
-describe('resolveTileSource: videos, playback off', () => {
+describe('resolveTileSource: videos, idle (not hovering, tilePreviewAlways off)', () => {
   it('shows the thumbnail when available', () => {
-    expect(resolveTileSource(input({ autoPlayTile: 'off', hasThumbnail: true, hasHighlight: true }))).toBe('thumbnail')
+    expect(resolveTileSource(input({ tilePreviewAlways: false, hasThumbnail: true, hasHighlight: true }))).toBe(
+      'thumbnail',
+    )
   })
 
   it('shows a placeholder with no thumbnail, even with a highlight available', () => {
-    expect(resolveTileSource(input({ autoPlayTile: 'off', hasThumbnail: false, hasHighlight: true }))).toBe('placeholder')
-  })
-})
-
-describe('resolveTileSource: videos, hover mode', () => {
-  it('idle (not hovering) behaves like "off": thumbnail or placeholder, never plays', () => {
-    expect(resolveTileSource(input({ autoPlayTile: 'hover', hovering: false, hasThumbnail: true, hasHighlight: true }))).toBe(
-      'thumbnail',
-    )
-    expect(resolveTileSource(input({ autoPlayTile: 'hover', hovering: false, hasThumbnail: false, hasHighlight: true }))).toBe(
+    expect(resolveTileSource(input({ tilePreviewAlways: false, hasThumbnail: false, hasHighlight: true }))).toBe(
       'placeholder',
     )
   })
+})
+
+describe('resolveTileSource: videos, "On Interaction" (tilePreviewAlways off, hover-driven)', () => {
+  it('idle (not hovering) behaves like the idle case: thumbnail or placeholder, never plays', () => {
+    expect(
+      resolveTileSource(input({ tilePreviewAlways: false, hovering: false, hasThumbnail: true, hasHighlight: true })),
+    ).toBe('thumbnail')
+    expect(
+      resolveTileSource(input({ tilePreviewAlways: false, hovering: false, hasThumbnail: false, hasHighlight: true })),
+    ).toBe('placeholder')
+  })
 
   it('hovering plays the highlight when one exists', () => {
-    expect(resolveTileSource(input({ autoPlayTile: 'hover', hovering: true, hasHighlight: true }))).toBe('highlight')
+    expect(resolveTileSource(input({ tilePreviewAlways: false, hovering: true, hasHighlight: true }))).toBe('highlight')
   })
 
   it('hovering with no highlight plays the original when fallbackToOriginal is true', () => {
     expect(
-      resolveTileSource(input({ autoPlayTile: 'hover', hovering: true, hasHighlight: false, fallbackToOriginal: true })),
+      resolveTileSource(input({ tilePreviewAlways: false, hovering: true, hasHighlight: false, fallbackToOriginal: true })),
     ).toBe('original')
   })
 
   it('hovering with no highlight and fallbackToOriginal false stays on the idle thumbnail', () => {
     expect(
       resolveTileSource(
-        input({ autoPlayTile: 'hover', hovering: true, hasHighlight: false, fallbackToOriginal: false, hasThumbnail: true }),
+        input({
+          tilePreviewAlways: false,
+          hovering: true,
+          hasHighlight: false,
+          fallbackToOriginal: false,
+          hasThumbnail: true,
+        }),
       ),
     ).toBe('thumbnail')
   })
@@ -70,19 +80,25 @@ describe('resolveTileSource: videos, hover mode', () => {
   it('hovering with no highlight, no fallback, and no thumbnail shows the placeholder', () => {
     expect(
       resolveTileSource(
-        input({ autoPlayTile: 'hover', hovering: true, hasHighlight: false, fallbackToOriginal: false, hasThumbnail: false }),
+        input({
+          tilePreviewAlways: false,
+          hovering: true,
+          hasHighlight: false,
+          fallbackToOriginal: false,
+          hasThumbnail: false,
+        }),
       ),
     ).toBe('placeholder')
   })
 })
 
-describe('resolveTileSource: videos, always mode', () => {
+describe('resolveTileSource: videos, "Always" (tilePreviewAlways on)', () => {
   it('plays the highlight when one exists', () => {
-    expect(resolveTileSource(input({ autoPlayTile: 'always', hasHighlight: true }))).toBe('highlight')
+    expect(resolveTileSource(input({ tilePreviewAlways: true, hasHighlight: true }))).toBe('highlight')
   })
 
   it('plays the original when no highlight and fallbackToOriginal is true', () => {
-    expect(resolveTileSource(input({ autoPlayTile: 'always', hasHighlight: false, fallbackToOriginal: true }))).toBe(
+    expect(resolveTileSource(input({ tilePreviewAlways: true, hasHighlight: false, fallbackToOriginal: true }))).toBe(
       'original',
     )
   })
@@ -90,7 +106,7 @@ describe('resolveTileSource: videos, always mode', () => {
   it('shows the thumbnail when no highlight and fallbackToOriginal is false', () => {
     expect(
       resolveTileSource(
-        input({ autoPlayTile: 'always', hasHighlight: false, fallbackToOriginal: false, hasThumbnail: true }),
+        input({ tilePreviewAlways: true, hasHighlight: false, fallbackToOriginal: false, hasThumbnail: true }),
       ),
     ).toBe('thumbnail')
   })
@@ -98,7 +114,7 @@ describe('resolveTileSource: videos, always mode', () => {
   it('shows the placeholder when no highlight, no fallback, and no thumbnail', () => {
     expect(
       resolveTileSource(
-        input({ autoPlayTile: 'always', hasHighlight: false, fallbackToOriginal: false, hasThumbnail: false }),
+        input({ tilePreviewAlways: true, hasHighlight: false, fallbackToOriginal: false, hasThumbnail: false }),
       ),
     ).toBe('placeholder')
   })

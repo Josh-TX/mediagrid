@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { presetsStore } from '../stores/presetsStore'
-import { presetSettingFields } from '../settingsFields'
+import { presetSettingRows, type SettingField } from '../settingsFields'
 import type { Preset } from '../types'
 
 const preset = computed<Preset | undefined>(() => presetsStore.selectedPreset.value)
@@ -19,14 +19,16 @@ function onNewPreset() {
   }
 }
 
-function onDuplicate() {
-  if (!preset.value) return
-  const suggested = presetsStore.suggestDuplicateName(preset.value.name)
-  const name = window.prompt('Duplicate preset as:', suggested)
-  if (name === null) return
-  if (!presetsStore.duplicatePreset(preset.value.name, name)) {
-    window.alert(`A preset named "${name}" already exists.`)
-  }
+// Blank-if-zero fields (e.g. min/max duration) show "" instead of "0" so the placeholder text can read.
+function numValue(field: SettingField<Preset>): string | number {
+  const v = (preset.value as any)[field.key]
+  if (field.placeholder && v === 0) return ''
+  return v
+}
+
+function onNumInput(field: SettingField<Preset>, e: Event) {
+  const raw = (e.target as HTMLInputElement).value
+  ;(preset.value as any)[field.key] = raw === '' ? 0 : Number(raw)
 }
 
 function onRename() {
@@ -66,32 +68,44 @@ async function onSavePermanently() {
       </option>
     </select>
     <button type="button" @click="onRename">Rename</button>
-    <button type="button" @click="onDuplicate">Duplicate</button>
     <button type="button" @click="onDelete">Delete</button>
     <button type="button" @click="onNewPreset">New</button>
   </section>
 
   <section class="body" v-if="preset">
-    <div v-for="field in presetSettingFields" :key="field.key" class="row">
+    <div v-for="row in presetSettingRows" :key="row.label" class="row">
       <label class="label">
-        {{ field.label }}
-        <span class="help" :title="field.help" @click="showHelp(field.help)">?</span>
+        {{ row.label }}
+        <span class="help" :title="row.help" @click="showHelp(row.help)">?</span>
       </label>
-      <div class="input">
-        <input
-          v-if="field.type === 'float'"
-          type="number"
-          step="0.01"
-          min="0"
-          max="1"
-          v-model.number="(preset as any)[field.key]"
-        />
-        <input v-else-if="field.type === 'int'" type="number" step="1" min="0" v-model.number="(preset as any)[field.key]" />
-        <input v-else-if="field.type === 'text'" type="text" v-model="(preset as any)[field.key]" />
-        <input v-else-if="field.type === 'bool'" type="checkbox" v-model="(preset as any)[field.key]" />
-        <select v-else-if="field.type === 'select'" v-model="(preset as any)[field.key]">
-          <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-        </select>
+      <div class="input group">
+        <template v-for="(field, i) in row.fields" :key="String(field.key)">
+          <span v-if="i > 0 && row.separator" class="sep">{{ row.separator }}</span>
+          <input
+            v-if="field.type === 'float'"
+            type="number"
+            step="0.01"
+            min="0"
+            max="1"
+            v-model.number="(preset as any)[field.key]"
+          />
+          <input
+            v-else-if="field.type === 'int'"
+            type="number"
+            step="1"
+            min="0"
+            :placeholder="field.placeholder"
+            :value="numValue(field)"
+            @input="onNumInput(field, $event)"
+          />
+          <input v-else-if="field.type === 'text'" type="text" v-model="(preset as any)[field.key]" />
+          <label v-else-if="field.type === 'bool'" class="inline-check">
+            <input type="checkbox" v-model="(preset as any)[field.key]" /> {{ field.label }}
+          </label>
+          <select v-else-if="field.type === 'select'" v-model="(preset as any)[field.key]">
+            <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </template>
       </div>
     </div>
   </section>
@@ -149,6 +163,35 @@ async function onSavePermanently() {
 .input input,
 .input select {
   width: 100%;
+}
+
+.input.group {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.input.group input,
+.input.group select {
+  width: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.input.group input[type='number'] {
+  flex: 0 0 60px;
+  width: 60px;
+}
+
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.sep {
+  opacity: 0.6;
 }
 
 .footer {

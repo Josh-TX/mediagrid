@@ -1,7 +1,5 @@
 export type SortType = 'rand' | 'size' | 'az' | 'date' | 'dur'
 export type SortDir = 'asc' | 'desc'
-export type AutoPlayTile = 'off' | 'hover' | 'always'
-export type OnVidEnd = 'loop' | 'stop' | 'next'
 
 // One row in the `presets` table: the filter settings plus a unique name.
 // Round-trips as-is through GET /api/settings (as part of `presets`) and
@@ -28,11 +26,11 @@ export interface GeneralSettings {
   tileCropX: number
   tileCropY: number
   defaultSort: SortType
-  autoPlayTile: AutoPlayTile
+  tilePreviewAlways: boolean
   fallbackToOriginal: boolean
 
   // Player settings
-  onVidEnd: OnVidEnd
+  autoplayInitiallyOn: boolean
   playerCropX: number
   playerCropY: number
   rewindSeconds: number

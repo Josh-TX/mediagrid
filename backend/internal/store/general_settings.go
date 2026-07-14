@@ -6,17 +6,17 @@ import (
 	"mediagrid/internal/model"
 )
 
-const generalSettingsColumns = `tilePct, tileCropX, tileCropY, defaultSort, autoPlayTile, fallbackToOriginal,
-	onVidEnd, playerCropX, playerCropY, rewindSeconds, forwardSeconds`
+const generalSettingsColumns = `tilePct, tileCropX, tileCropY, defaultSort, tilePreviewAlways, fallbackToOriginal,
+	autoplayInitiallyOn, playerCropX, playerCropY, rewindSeconds, forwardSeconds`
 
 // GetGeneralSettings returns the single stored GeneralSettings row and
 // whether it exists yet (false on a fresh DB, before the first save).
 func (s *Store) GetGeneralSettings() (model.GeneralSettings, bool, error) {
 	var g model.GeneralSettings
-	var fallbackToOriginal int
+	var tilePreviewAlways, fallbackToOriginal, autoplayInitiallyOn int
 	err := s.DB.QueryRow(`SELECT `+generalSettingsColumns+` FROM general_settings WHERE id = 1`).Scan(
-		&g.TilePct, &g.TileCropX, &g.TileCropY, &g.DefaultSort, &g.AutoPlayTile, &fallbackToOriginal,
-		&g.OnVidEnd, &g.PlayerCropX, &g.PlayerCropY, &g.RewindSeconds, &g.ForwardSeconds,
+		&g.TilePct, &g.TileCropX, &g.TileCropY, &g.DefaultSort, &tilePreviewAlways, &fallbackToOriginal,
+		&autoplayInitiallyOn, &g.PlayerCropX, &g.PlayerCropY, &g.RewindSeconds, &g.ForwardSeconds,
 	)
 	if err == sql.ErrNoRows {
 		return model.GeneralSettings{}, false, nil
@@ -24,7 +24,9 @@ func (s *Store) GetGeneralSettings() (model.GeneralSettings, bool, error) {
 	if err != nil {
 		return model.GeneralSettings{}, false, err
 	}
+	g.TilePreviewAlways = tilePreviewAlways != 0
 	g.FallbackToOriginal = fallbackToOriginal != 0
+	g.AutoplayInitiallyOn = autoplayInitiallyOn != 0
 	return g, true, nil
 }
 
@@ -38,15 +40,15 @@ ON CONFLICT(id) DO UPDATE SET
   tileCropX = excluded.tileCropX,
   tileCropY = excluded.tileCropY,
   defaultSort = excluded.defaultSort,
-  autoPlayTile = excluded.autoPlayTile,
+  tilePreviewAlways = excluded.tilePreviewAlways,
   fallbackToOriginal = excluded.fallbackToOriginal,
-  onVidEnd = excluded.onVidEnd,
+  autoplayInitiallyOn = excluded.autoplayInitiallyOn,
   playerCropX = excluded.playerCropX,
   playerCropY = excluded.playerCropY,
   rewindSeconds = excluded.rewindSeconds,
   forwardSeconds = excluded.forwardSeconds`,
-		g.TilePct, g.TileCropX, g.TileCropY, g.DefaultSort, g.AutoPlayTile, boolToInt(g.FallbackToOriginal),
-		g.OnVidEnd, g.PlayerCropX, g.PlayerCropY, g.RewindSeconds, g.ForwardSeconds,
+		g.TilePct, g.TileCropX, g.TileCropY, g.DefaultSort, boolToInt(g.TilePreviewAlways), boolToInt(g.FallbackToOriginal),
+		boolToInt(g.AutoplayInitiallyOn), g.PlayerCropX, g.PlayerCropY, g.RewindSeconds, g.ForwardSeconds,
 	)
 	return err
 }

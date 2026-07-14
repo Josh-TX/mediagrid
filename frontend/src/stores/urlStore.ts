@@ -192,7 +192,7 @@ function closePlayer() {
 }
 
 // Called after the Player swaps to a different Media (swipe, wheel,
-// keyboard, or onVidEnd: 'next') — always replaceState, never pushState.
+// keyboard, or autoplayInitiallyOn-triggered advance) — always replaceState, never pushState.
 function onSwap() {
   replaceUrl({ i: String(playerStore.state.currentIndex) })
 }

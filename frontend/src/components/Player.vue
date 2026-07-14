@@ -37,7 +37,7 @@ const cropX = computed(() => general.value.playerCropX)
 const cropY = computed(() => general.value.playerCropY)
 const rewindSeconds = computed(() => general.value.rewindSeconds)
 const forwardSeconds = computed(() => general.value.forwardSeconds)
-const onVidEnd = computed(() => general.value.onVidEnd)
+const autoplayInitiallyOn = computed(() => general.value.autoplayInitiallyOn)
 
 const mediaList = playerStore.mediaList
 const currentTile = computed(() => mediaList.value[playerStore.state.currentIndex])
@@ -158,25 +158,22 @@ function onMediaPlay(entry: ContainerEntry) {
 
 function onMediaPause(entry: ContainerEntry) {
   if (roleOf(entry.mediaIndex) !== 0) return
-  // A video reaching its end fires a native 'pause' just before 'ended'. In
-  // 'next'/'loop' modes that's about to be immediately superseded (by the
-  // swap or the replay), so treating it as a real pause here would flash the
-  // HUD to high-contrast for an instant right as the swap-out fade starts.
-  // 'stop' mode has no such follow-up, so the pause is real there.
+  // A video reaching its end fires a native 'pause' just before 'ended'. When
+  // autoplay is on, that's about to be immediately superseded by the swap, so
+  // treating it as a real pause here would flash the HUD to high-contrast for
+  // an instant right as the swap-out fade starts. With autoplay off there's
+  // no such follow-up, so the pause is real there.
   const ref = mediaRefs.get(entry.id)
-  if (ref?.isEnded() && onVidEnd.value !== 'stop') return
+  if (ref?.isEnded() && autoplayInitiallyOn.value) return
   paused.value = true
 }
 
 function onEnded(entry: ContainerEntry) {
   if (roleOf(entry.mediaIndex) !== 0) return
-  const mode = onVidEnd.value
-  if (mode === 'loop') {
-    mediaRefs.get(entry.id)?.play()
-  } else if (mode === 'next') {
+  if (autoplayInitiallyOn.value) {
     triggerDiscreteSwap(1)
   }
-  // 'stop': the video already paused itself on its last frame; nothing to do.
+  // Otherwise: the video already paused itself on its last frame; nothing to do.
 }
 
 function togglePlayPause() {

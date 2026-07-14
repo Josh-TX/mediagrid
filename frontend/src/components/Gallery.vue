@@ -171,7 +171,7 @@ defineExpose({ handleScroll })
           :row="item.row"
           :crop-x="generalSettingsStore.state.activeGeneral.tileCropX"
           :crop-y="generalSettingsStore.state.activeGeneral.tileCropY"
-          :auto-play-tile="generalSettingsStore.state.activeGeneral.autoPlayTile"
+          :tile-preview-always="generalSettingsStore.state.activeGeneral.tilePreviewAlways"
           :fallback-to-original="generalSettingsStore.state.activeGeneral.fallbackToOriginal"
         />
       </div>

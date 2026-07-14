@@ -119,25 +119,12 @@ function suggestNewPresetName(): string {
   return `New Preset ${n}`
 }
 
-function suggestDuplicateName(sourceName: string): string {
-  return `${sourceName} copy`
-}
-
 // Returns false (and leaves state untouched) if name is already taken —
 // callers are expected to alert() the user themselves.
 function addPreset(name: string): boolean {
   if (nameExists(name)) return false
   state.activePresets.push(makeDefaultPreset(name))
   selectPreset(name)
-  return true
-}
-
-function duplicatePreset(sourceName: string, newName: string): boolean {
-  if (nameExists(newName)) return false
-  const source = state.activePresets.find((p) => p.name === sourceName)
-  if (!source) return false
-  state.activePresets.push({ ...source, name: newName })
-  selectPreset(newName)
   return true
 }
 
@@ -174,9 +161,7 @@ export const presetsStore = {
   savePermanently,
   nameExists,
   suggestNewPresetName,
-  suggestDuplicateName,
   addPreset,
-  duplicatePreset,
   renamePreset,
   deletePreset,
 }

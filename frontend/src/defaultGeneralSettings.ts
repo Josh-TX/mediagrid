@@ -6,12 +6,12 @@ export function makeDefaultGeneralSettings(): GeneralSettings {
     tileCropX: 0.1,
     tileCropY: 0.1,
     defaultSort: 'rand',
-    autoPlayTile: 'off',
+    tilePreviewAlways: false,
     fallbackToOriginal: true,
 
-    onVidEnd: 'next',
-    playerCropX: 0.2,
-    playerCropY: 0.2,
+    autoplayInitiallyOn: true,
+    playerCropX: 0,
+    playerCropY: 0,
     rewindSeconds: 10,
     forwardSeconds: 10,
   }

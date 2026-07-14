@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
-import type { Tile, AutoPlayTile } from '../types'
+import type { Tile } from '../types'
 import type { TileSource } from '../tilePlayback'
 import { mediaUrl, thumbnailUrl, highlightUrl } from '../api/shuffle'
 import { formatClock } from '../format'
@@ -18,7 +18,7 @@ const props = defineProps<{
   rowH: number
   cropX: number
   cropY: number
-  autoPlayTile: AutoPlayTile
+  tilePreviewAlways: boolean
   fallbackToOriginal: boolean
 }>()
 
@@ -72,7 +72,7 @@ const source = computed(() =>
     isVid: props.tile.isVid,
     hasThumbnail: props.tile.preview.hasThumbnail,
     hasHighlight: props.tile.preview.hasHighlight,
-    autoPlayTile: props.autoPlayTile,
+    tilePreviewAlways: props.tilePreviewAlways,
     fallbackToOriginal: props.fallbackToOriginal,
     hovering: hovering.value,
   }),

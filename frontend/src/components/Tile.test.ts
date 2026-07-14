@@ -26,7 +26,7 @@ function makeTile(overrides: Partial<TileType> = {}): TileType {
 
 function mountTile(tile: TileType) {
   return mount(Tile, {
-    props: { tile, rowi: 0, rowH: 100, cropX: 0, cropY: 0, autoPlayTile: 'off', fallbackToOriginal: true },
+    props: { tile, rowi: 0, rowH: 100, cropX: 0, cropY: 0, tilePreviewAlways: false, fallbackToOriginal: true },
   })
 }
 
@@ -135,7 +135,7 @@ describe('Tile failed-load message', () => {
         rowH: 100,
         cropX: 0,
         cropY: 0,
-        autoPlayTile: 'always',
+        tilePreviewAlways: true,
         fallbackToOriginal: true,
       },
     })

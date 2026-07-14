@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { Row, AutoPlayTile } from '../types'
+import type { Row } from '../types'
 import Tile from './Tile.vue'
 
 defineProps<{
   row: Row
   cropX: number
   cropY: number
-  autoPlayTile: AutoPlayTile
+  tilePreviewAlways: boolean
   fallbackToOriginal: boolean
 }>()
 </script>
@@ -21,7 +21,7 @@ defineProps<{
       :row-h="row.h"
       :crop-x="cropX"
       :crop-y="cropY"
-      :auto-play-tile="autoPlayTile"
+      :tile-preview-always="tilePreviewAlways"
       :fallback-to-original="fallbackToOriginal"
     />
   </div>
