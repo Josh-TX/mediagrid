@@ -3,14 +3,14 @@ import { computed, ref, watch, onUnmounted } from 'vue'
 import type { Tile, AutoPlayTile } from '../types'
 import type { TileSource } from '../tilePlayback'
 import { mediaUrl, thumbnailUrl, highlightUrl } from '../api/shuffle'
-import { deleteMedia, renameMedia } from '../api/media'
 import { formatClock } from '../format'
+import { splitNameExt } from '../pathUtils'
 import { resolveTileSource } from '../tilePlayback'
 import { playerStore } from '../stores/playerStore'
 import { urlStore } from '../stores/urlStore'
-import { galleryStore } from '../stores/galleryStore'
 import { videoLoadQueue } from '../stores/videoLoadQueue'
 import TileContextMenu from './TileContextMenu.vue'
+import FileInfoModal from './FileInfoModal.vue'
 
 const props = defineProps<{
   tile: Tile
@@ -155,16 +155,6 @@ const failedMessage = computed(() => {
 
 const filename = computed(() => props.tile.path.split('/').pop() ?? props.tile.path)
 
-function splitNameExt(name: string): { base: string; ext: string } {
-  const dot = name.lastIndexOf('.')
-  return dot > 0 ? { base: name.slice(0, dot), ext: name.slice(dot) } : { base: name, ext: '' }
-}
-
-function dirOf(path: string): string {
-  const idx = path.lastIndexOf('/')
-  return idx === -1 ? '' : path.slice(0, idx + 1)
-}
-
 const title = computed(() => splitNameExt(filename.value).base)
 
 const durationText = computed(() => formatClock(props.tile.duration))
@@ -195,56 +185,11 @@ function onMenuOpen() {
   onClick()
 }
 
-function onMenuOpenRaw() {
-  menuOpen.value = false
-  window.open(mediaUrl(props.tile.path), '_blank', 'noopener,noreferrer')
-}
+const infoOpen = ref(false)
 
-// Re-prompts (rather than alerting) on both local validation failures and
-// backend errors (e.g. a name conflict), so the user can fix the name and
-// resubmit, or cancel out entirely, without losing what they typed.
-async function onRename() {
+function onMenuInfo() {
   menuOpen.value = false
-  const { base, ext } = splitNameExt(filename.value)
-  let promptValue = base
-  let message = `Enter Filename Without Extension (it stays ${ext})`
-  for (;;) {
-    const input = window.prompt(message, promptValue)
-    if (input === null) return
-    const trimmed = input.trim()
-    if (!trimmed) {
-      promptValue = trimmed
-      message = `Name cannot be empty. Enter Filename Without Extension (it stays ${ext})`
-      continue
-    }
-    if (trimmed.includes('/') || trimmed.includes('\\')) {
-      promptValue = trimmed
-      message = `Name cannot contain "/" or "\\". Enter Filename Without Extension (it stays ${ext})`
-      continue
-    }
-    if (trimmed === base) return // unchanged: silent no-op
-
-    const newName = trimmed + ext
-    try {
-      await renameMedia(props.tile.path, newName)
-      galleryStore.renameTile(props.tile.tilei, dirOf(props.tile.path) + newName)
-      return
-    } catch (err) {
-      promptValue = trimmed
-      message = `${(err as Error).message}. Enter Filename Without Extension (it stays ${ext})`
-    }
-  }
-}
-
-async function onDelete() {
-  menuOpen.value = false
-  if (!window.confirm(`Delete "${filename.value}"?`)) return
-  try {
-    await deleteMedia(props.tile.path)
-    cacheBust.value++
-  } catch (err) {
-    window.alert((err as Error).message)
-  }
+  infoOpen.value = true
 }
 </script>
 
@@ -292,11 +237,19 @@ async function onDelete() {
       :x="menuPos.x"
       :y="menuPos.y"
       @click.stop
+      @contextmenu.stop
       @open="onMenuOpen"
-      @open-raw="onMenuOpenRaw"
-      @rename="onRename"
-      @delete="onDelete"
+      @info="onMenuInfo"
       @close="menuOpen = false"
+    />
+
+    <FileInfoModal
+      v-if="infoOpen"
+      :tile="tile"
+      @click.stop
+      @contextmenu.stop
+      @close="infoOpen = false"
+      @deleted="cacheBust++"
     />
   </div>
 </template>

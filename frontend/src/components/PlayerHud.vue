@@ -48,36 +48,11 @@ const emit = defineEmits<{
   rewind: []
   forward: []
   'toggle-play-pause': []
+  info: []
 }>()
 
-// --- Title / info tooltip ---
-const infoOpen = ref(false)
+// --- Title ---
 const title = computed(() => props.tile.path.split('/').pop() ?? props.tile.path)
-
-function formatFilesize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  const units = ['KB', 'MB', 'GB', 'TB']
-  let val = bytes / 1024
-  let i = 0
-  while (val >= 1024 && i < units.length - 1) {
-    val /= 1024
-    i++
-  }
-  return `${val.toFixed(1)} ${units[i]}`
-}
-
-function formatDate(mdateSeconds: number): string {
-  return new Date(mdateSeconds * 1000).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-const dateText = computed(() => formatDate(props.tile.mdate))
-const filesizeText = computed(() => formatFilesize(props.tile.filesize))
-const resolutionText = computed(() => `${props.tile.preview.w}w x ${props.tile.preview.h}h`)
-const durationText = computed(() => formatClock(props.tile.duration))
 
 // --- Seek bar / time-remaining, with a live local preview while scrubbing ---
 const scrubPreviewTime = ref<number | null>(null)
@@ -263,12 +238,10 @@ function handleTap(zone: Zone, x: number) {
 // suppresses the browser's synthetic post-touch click, so this only ever
 // fires for genuine mouse input.
 function onClick(e: MouseEvent) {
-  if (infoOpen.value) return
   handleTap(classifyZone(e.clientX, e.clientY), e.clientX)
 }
 
 function onTouchStart(e: TouchEvent) {
-  if (infoOpen.value) return
   const t = e.touches[0]
   gesture = {
     mode: 'pending',
@@ -460,23 +433,13 @@ function onTouchEnd(e: TouchEvent) {
         <div class="title-time-row">
           <div class="title">{{ title }}</div>
           <div v-if="tile.isVid" class="time-remaining">{{ timeRemainingText }}</div>
-          <span class="info-icon-hit" @click.stop="infoOpen = true">
+          <span class="info-icon-hit" @click.stop="emit('info')">
             <span class="info-icon">i</span>
           </span>
         </div>
         <div v-if="tile.isVid" class="seek-bar">
           <div class="seek-fill" :style="{ width: seekPct + '%' }" />
         </div>
-      </div>
-    </div>
-
-    <div v-if="infoOpen" class="info-backdrop" @click="infoOpen = false">
-      <div class="info-tooltip">
-        <div class="info-row">{{ title }}</div>
-        <div class="info-row">{{ dateText }}</div>
-        <div class="info-row">{{ filesizeText }}</div>
-        <div class="info-row">{{ resolutionText }}</div>
-        <div v-if="tile.isVid" class="info-row">{{ durationText }}</div>
       </div>
     </div>
   </div>
@@ -684,26 +647,5 @@ function onTouchEnd(e: TouchEvent) {
 .seek-fill {
   height: 100%;
   background: #fff;
-}
-
-.info-backdrop {
-  position: absolute;
-  inset: 0;
-  pointer-events: auto;
-  z-index: 7;
-}
-.info-tooltip {
-  position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: 100px;
-  background: rgba(20, 20, 20, 0.92);
-  color: #fff;
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-size: 14px;
-}
-.info-row {
-  padding: 2px 0;
 }
 </style>

@@ -7,9 +7,7 @@ const props = defineProps<{ x: number; y: number }>()
 
 const emit = defineEmits<{
   open: []
-  'open-raw': []
-  rename: []
-  delete: []
+  info: []
   close: []
 }>()
 
@@ -47,9 +45,7 @@ onBeforeUnmount(() => {
   <div class="backdrop" @click.self="emit('close')" @contextmenu.prevent.self="emit('close')">
     <div ref="menuEl" class="menu" :style="style">
       <button type="button" @click="emit('open')">Open</button>
-      <button type="button" @click="emit('open-raw')">Open Raw</button>
-      <button type="button" @click="emit('rename')">Rename</button>
-      <button type="button" @click="emit('delete')">Delete</button>
+      <button type="button" @click="emit('info')">Info</button>
     </div>
   </div>
 </template>

@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import Tile from './Tile.vue'
 import type { Tile as TileType } from '../types'
-import { galleryStore } from '../stores/galleryStore'
 import { urlStore } from '../stores/urlStore'
 import * as mediaApi from '../api/media'
 
@@ -41,7 +40,7 @@ describe('Tile context menu', () => {
   it('opens on contextmenu (native event also fired by mobile long-press) and closes on outside click', async () => {
     const wrapper = mountTile(makeTile())
     await wrapper.find('.tile').trigger('contextmenu')
-    expect(wrapper.findAll('button').map((b) => b.text())).toEqual(['Open', 'Open Raw', 'Rename', 'Delete'])
+    expect(wrapper.findAll('button').map((b) => b.text())).toEqual(['Open', 'Info'])
 
     await wrapper.find('.backdrop').trigger('click')
     expect(wrapper.findAll('button').length).toBe(0)
@@ -57,80 +56,51 @@ describe('Tile context menu', () => {
     wrapper.unmount()
   })
 
-  it('Open Raw opens the original media URL (not a thumbnail/highlight) in a new tab', async () => {
-    const openWindowSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+  it('Info opens the File Info modal for this tile, replacing the old menu', async () => {
     const wrapper = mountTile(makeTile({ path: 'sub/clip.mp4' }))
     await wrapper.find('.tile').trigger('contextmenu')
     await wrapper.findAll('button')[1].trigger('click')
-    expect(openWindowSpy).toHaveBeenCalledWith('/media/sub/clip.mp4', '_blank', 'noopener,noreferrer')
-    wrapper.unmount()
-  })
-})
 
-describe('Tile rename', () => {
-  it('re-prompts on an invalid name and on a backend conflict, then patches the shufflelist path on success', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValueOnce('bad/name').mockReturnValueOnce('taken').mockReturnValueOnce('final')
-    vi.mocked(mediaApi.renameMedia)
-      .mockRejectedValueOnce(new Error('a file already exists at the new name'))
-      .mockResolvedValueOnce(undefined)
-    const renameTileSpy = vi.spyOn(galleryStore, 'renameTile').mockImplementation(() => {})
-
-    const wrapper = mountTile(makeTile({ tilei: 3, path: 'sub/clip.mp4' }))
-    await wrapper.find('.tile').trigger('contextmenu')
-    await wrapper.findAll('button')[2].trigger('click')
-
-    await vi.waitFor(() => expect(renameTileSpy).toHaveBeenCalled())
-
-    expect(window.prompt).toHaveBeenCalledTimes(3)
-    expect(mediaApi.renameMedia).toHaveBeenNthCalledWith(1, 'sub/clip.mp4', 'taken.mp4')
-    expect(mediaApi.renameMedia).toHaveBeenNthCalledWith(2, 'sub/clip.mp4', 'final.mp4')
-    expect(renameTileSpy).toHaveBeenCalledWith(3, 'sub/final.mp4')
+    expect(wrapper.findAll('.backdrop').length).toBe(0) // context menu closed
+    expect(wrapper.text()).toContain('sub/clip.mp4')
     wrapper.unmount()
   })
 
-  it('rejects a name containing a slash before ever calling the backend', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValueOnce('nested/name').mockReturnValueOnce(null)
-    const wrapper = mountTile(makeTile({ path: 'clip.mp4' }))
-    await wrapper.find('.tile').trigger('contextmenu')
-    await wrapper.findAll('button')[2].trigger('click')
-
-    await vi.waitFor(() => expect(window.prompt).toHaveBeenCalledTimes(2))
-    expect(mediaApi.renameMedia).not.toHaveBeenCalled()
-    wrapper.unmount()
-  })
-
-  it('treats submitting the unchanged (trimmed) name as a silent no-op', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValueOnce('  clip  ')
+  // Regression check: a right-click landing on the modal (e.g. to use the
+  // browser's native "open link"/"copy link" on the raw-file link) shouldn't
+  // bubble up to the tile's own contextmenu handler and reopen this menu on
+  // top of the modal.
+  it('right-clicking inside the open File Info modal does not reopen the context menu', async () => {
     const wrapper = mountTile(makeTile({ path: 'sub/clip.mp4' }))
     await wrapper.find('.tile').trigger('contextmenu')
-    await wrapper.findAll('button')[2].trigger('click')
-    await Promise.resolve()
+    await wrapper.findAll('button')[1].trigger('click') // Info
 
-    expect(mediaApi.renameMedia).not.toHaveBeenCalled()
+    await wrapper.find('.overlay').trigger('contextmenu')
+    expect(wrapper.findAll('.backdrop').length).toBe(0)
+    expect(wrapper.find('.overlay').exists()).toBe(true)
     wrapper.unmount()
   })
 })
 
-describe('Tile delete', () => {
-  it('does nothing if the confirm is cancelled', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
-    const wrapper = mountTile(makeTile())
-    await wrapper.find('.tile').trigger('contextmenu')
-    await wrapper.findAll('button')[3].trigger('click')
-    expect(mediaApi.deleteMedia).not.toHaveBeenCalled()
-    wrapper.unmount()
-  })
-
-  it('alerts on a failed delete rather than mutating anything', async () => {
+describe('Tile + File Info modal delete', () => {
+  // Regression check for the wiring between the shared modal and this tile's
+  // own cache-bust mechanism: a successful delete from the modal must still
+  // force the tile's preview to re-fetch (bypassing cache) so the
+  // "failed to load" state kicks in immediately, same as before this modal existed.
+  it('bumps the cache-bust src param after a successful delete via the modal', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    vi.mocked(mediaApi.deleteMedia).mockRejectedValueOnce(new Error('failed to delete file'))
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    vi.mocked(mediaApi.deleteMedia).mockResolvedValueOnce(undefined)
 
-    const wrapper = mountTile(makeTile())
+    const wrapper = mountTile(makeTile({ isVid: false, path: 'sub/clip.jpg' }))
     await wrapper.find('.tile').trigger('contextmenu')
-    await wrapper.findAll('button')[3].trigger('click')
+    await wrapper.findAll('button')[1].trigger('click') // Info
 
-    await vi.waitFor(() => expect(alertSpy).toHaveBeenCalledWith('failed to delete file'))
+    const deleteBtn = wrapper.findAll('button').find((b) => b.text() === 'Delete')!
+    await deleteBtn.trigger('click')
+    await vi.waitFor(() => expect(mediaApi.deleteMedia).toHaveBeenCalled())
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('img').attributes('src')).toContain('_=1')
     wrapper.unmount()
   })
 })

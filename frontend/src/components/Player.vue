@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PlayerMedia from './PlayerMedia.vue'
 import PlayerHud from './PlayerHud.vue'
+import FileInfoModal from './FileInfoModal.vue'
 import { playerStore } from '../stores/playerStore'
 import { generalSettingsStore } from '../stores/generalSettingsStore'
 import { urlStore } from '../stores/urlStore'
@@ -23,6 +24,7 @@ interface ContainerEntry {
 
 const rootEl = ref<HTMLElement | null>(null)
 const hudRef = ref<InstanceType<typeof PlayerHud> | null>(null)
+const infoOpen = ref(false)
 const viewportW = ref(window.innerWidth)
 const viewportH = ref(window.innerHeight)
 function onResize() {
@@ -362,6 +364,9 @@ function close() {
 }
 
 function onKeydown(e: KeyboardEvent) {
+  // While the File Info modal is open, it owns Escape (to close itself) and
+  // no other player shortcuts should fire underneath it.
+  if (infoOpen.value) return
   if (e.key === 'Escape') {
     close()
   } else if (e.key === 'ArrowDown') {
@@ -453,7 +458,10 @@ onBeforeUnmount(() => {
       @rewind="onRewind"
       @forward="onForward"
       @toggle-play-pause="togglePlayPause"
+      @info="infoOpen = true"
     />
+
+    <FileInfoModal v-if="infoOpen && currentTile" :tile="currentTile" @close="infoOpen = false" />
   </div>
 </template>
 
