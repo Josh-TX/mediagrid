@@ -48,7 +48,7 @@ const emit = defineEmits<{
   rewind: []
   forward: []
   'toggle-play-pause': []
-  info: []
+  menu: [pos: { x: number; y: number }]
 }>()
 
 // --- Title ---
@@ -289,6 +289,11 @@ defineExpose({
   triggerPlayPause: doPlayPauseTap,
 })
 
+function onMenuIconClick(e: MouseEvent) {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  emit('menu', { x: rect.right, y: rect.top })
+}
+
 function onTouchEnd(e: TouchEvent) {
   if (!gesture) return
   const g = gesture
@@ -433,8 +438,8 @@ function onTouchEnd(e: TouchEvent) {
         <div class="title-time-row">
           <div class="title">{{ title }}</div>
           <div v-if="tile.isVid" class="time-remaining">{{ timeRemainingText }}</div>
-          <span class="info-icon-hit" @click.stop="emit('info')">
-            <span class="info-icon">i</span>
+          <span class="menu-icon-hit" @click.stop="onMenuIconClick">
+            <span class="menu-icon">&#8942;</span>
           </span>
         </div>
         <div v-if="tile.isVid" class="seek-bar">
@@ -598,7 +603,7 @@ function onTouchEnd(e: TouchEvent) {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 12px 0 20px;
   margin-bottom: 11px;
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
@@ -611,28 +616,19 @@ function onTouchEnd(e: TouchEvent) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.info-icon-hit {
+.menu-icon-hit {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  position: relative;
-  top: -2px;
   padding: 8px;
   margin: -8px;
   pointer-events: auto;
   cursor: pointer;
 }
-.info-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 1px solid #fff;
-  font-size: 9px;
-  font-style: italic;
+.menu-icon {
+  font-size: 16px;
+  line-height: 1;
 }
 .time-remaining {
   flex-shrink: 0;

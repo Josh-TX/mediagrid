@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PlayerMedia from './PlayerMedia.vue'
 import PlayerHud from './PlayerHud.vue'
 import FileInfoModal from './FileInfoModal.vue'
+import PlayerContextMenu from './PlayerContextMenu.vue'
 import { playerStore } from '../stores/playerStore'
 import { generalSettingsStore } from '../stores/generalSettingsStore'
 import { urlStore } from '../stores/urlStore'
@@ -25,6 +26,12 @@ interface ContainerEntry {
 const rootEl = ref<HTMLElement | null>(null)
 const hudRef = ref<InstanceType<typeof PlayerHud> | null>(null)
 const infoOpen = ref(false)
+const menuOpen = ref(false)
+const menuAnchor = ref({ x: 0, y: 0 })
+const menuOpensDownRight = ref(false)
+const loopEnabled = ref(false)
+const speed2xEnabled = ref(false)
+const playbackRate = computed(() => (speed2xEnabled.value ? 2 : 1))
 const viewportW = ref(window.innerWidth)
 const viewportH = ref(window.innerHeight)
 function onResize() {
@@ -37,7 +44,10 @@ const cropX = computed(() => general.value.playerCropX)
 const cropY = computed(() => general.value.playerCropY)
 const rewindSeconds = computed(() => general.value.rewindSeconds)
 const forwardSeconds = computed(() => general.value.forwardSeconds)
-const autoplayInitiallyOn = computed(() => general.value.autoplayInitiallyOn)
+// Seeded once from the general setting when the player opens (Player.vue is
+// mounted fresh each time), then becomes an independent local toggle for the
+// rest of the session — toggling it never writes back to the setting.
+const autoplayEnabled = ref(general.value.autoplayInitiallyOn)
 
 const mediaList = playerStore.mediaList
 const currentTile = computed(() => mediaList.value[playerStore.state.currentIndex])
@@ -164,13 +174,13 @@ function onMediaPause(entry: ContainerEntry) {
   // an instant right as the swap-out fade starts. With autoplay off there's
   // no such follow-up, so the pause is real there.
   const ref = mediaRefs.get(entry.id)
-  if (ref?.isEnded() && autoplayInitiallyOn.value) return
+  if (ref?.isEnded() && autoplayEnabled.value) return
   paused.value = true
 }
 
 function onEnded(entry: ContainerEntry) {
   if (roleOf(entry.mediaIndex) !== 0) return
-  if (autoplayInitiallyOn.value) {
+  if (autoplayEnabled.value) {
     triggerDiscreteSwap(1)
   }
   // Otherwise: the video already paused itself on its last frame; nothing to do.
@@ -360,6 +370,24 @@ function close() {
   urlStore.closePlayer()
 }
 
+function onMenuOpen(pos: { x: number; y: number }) {
+  menuAnchor.value = pos
+  menuOpensDownRight.value = false
+  menuOpen.value = true
+}
+
+function onContextMenu(e: MouseEvent) {
+  e.preventDefault()
+  menuAnchor.value = { x: e.clientX, y: e.clientY }
+  menuOpensDownRight.value = true
+  menuOpen.value = true
+}
+
+function onMenuInfo() {
+  menuOpen.value = false
+  infoOpen.value = true
+}
+
 function onKeydown(e: KeyboardEvent) {
   // While the File Info modal is open, it owns Escape (to close itself) and
   // no other player shortcuts should fire underneath it.
@@ -412,7 +440,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="rootEl" class="player" @wheel="onWheel">
+  <div ref="rootEl" class="player" @wheel="onWheel" @contextmenu="onContextMenu">
     <div class="containers">
       <div v-for="entry in containers" :key="entry.id" class="container-slot" :style="containerStyle(entry)">
         <PlayerMedia
@@ -422,6 +450,8 @@ onBeforeUnmount(() => {
           :crop-y="cropY"
           :viewport-w="viewportW"
           :viewport-h="viewportH"
+          :loop="loopEnabled"
+          :playback-rate="playbackRate"
           @loaded="onMediaLoaded(entry)"
           @timeupdate="(ct, dur) => onTimeUpdate(entry, ct, dur)"
           @ended="onEnded(entry)"
@@ -455,7 +485,23 @@ onBeforeUnmount(() => {
       @rewind="onRewind"
       @forward="onForward"
       @toggle-play-pause="togglePlayPause"
-      @info="infoOpen = true"
+      @menu="onMenuOpen"
+    />
+
+    <PlayerContextMenu
+      v-if="menuOpen && currentTile"
+      :x="menuAnchor.x"
+      :y="menuAnchor.y"
+      :down-right="menuOpensDownRight"
+      :is-video="currentTile.isVid"
+      :loop="loopEnabled"
+      :autoplay="autoplayEnabled"
+      :speed2x="speed2xEnabled"
+      @close="menuOpen = false"
+      @toggle-loop="loopEnabled = !loopEnabled"
+      @toggle-autoplay="autoplayEnabled = !autoplayEnabled"
+      @toggle-speed="speed2xEnabled = !speed2xEnabled"
+      @info="onMenuInfo"
     />
 
     <FileInfoModal v-if="infoOpen && currentTile" :tile="currentTile" @close="infoOpen = false" />

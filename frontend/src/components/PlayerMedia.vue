@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import type { Tile } from '../types'
 import { mediaUrl } from '../api/shuffle'
 
@@ -9,6 +9,8 @@ const props = defineProps<{
   cropY: number
   viewportW: number
   viewportH: number
+  loop: boolean
+  playbackRate: number
 }>()
 
 const emit = defineEmits<{
@@ -68,8 +70,20 @@ const mediaStyle = computed(() => {
 })
 
 function onLoadedData() {
+  if (videoEl.value) videoEl.value.playbackRate = props.playbackRate
   emit('loaded')
 }
+
+watch(
+  () => props.playbackRate,
+  (rate) => {
+    if (videoEl.value) videoEl.value.playbackRate = rate
+  },
+)
+
+onMounted(() => {
+  if (videoEl.value) videoEl.value.playbackRate = props.playbackRate
+})
 
 function onError() {
   failed.value = true
@@ -139,6 +153,7 @@ defineExpose({ play, pause, seek, getCurrentTime, getDuration, isPaused, isEnded
         ref="videoEl"
         :src="mediaUrl(tile.path)"
         :style="mediaStyle"
+        :loop="loop"
         playsinline
         preload="auto"
         @loadeddata="onLoadedData"

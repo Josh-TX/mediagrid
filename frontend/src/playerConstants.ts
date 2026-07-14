@@ -43,8 +43,8 @@ export const REWIND_ZONE_RATIO = 0.25 // left fraction of HUD (excluding seek ba
 export const FORWARD_ZONE_RATIO = 0.25 // right fraction of HUD (excluding seek band)
 
 // --- Rewind/forward/pause-play tap feedback ---
-export const TAP_OVERLAY_OPACITY = 0.05
-export const TAP_OVERLAY_FADE_MS = 200
+export const TAP_OVERLAY_OPACITY = 0.2
+export const TAP_OVERLAY_FADE_MS = 150
 export const TAP_TEXT_FADE_MS = 500
 export const TAP_ACCUMULATE_WINDOW_MS = 500 // taps within this window accumulate instead of resetting
 
