@@ -52,3 +52,8 @@ Adds a backend-only auto-incrementing `id` to the `media` table (replacing `path
 Date: 2026-07-12
 
 Adds a custom right-click/long-press context menu on Gallery tiles (Open, Open Raw, Rename, Delete) wired to the existing `/api/delete` endpoint and a new `PUT /api/rename/{path...}` endpoint that renames the media file plus any thumbnail/highlight previews (same-directory filename change only, disk-first ordering, conflict/missing-source errors). Also adds generic `@error` handling for failed thumbnail/highlight/media loads in both the Gallery (per-source "failed to load thumbnail/highlight/video/image" messages) and the Player ("failed to load video/image"), which incidentally closes out the previously-deferred `"//deleted"` tile handling with no special-casing needed.
+
+# File Info Modal
+Date: 2026-07-13
+
+Replaces the Gallery tile context menu's Rename/Delete options with a single Info option that opens a new shared File Info modal (also reachable from the Player's info icon, replacing its old tooltip), showing filename, full path, date, filesize, resolution, and duration, plus Rename/Delete buttons using the same native prompt/confirm/alert flow as before. On success the modal auto-closes and shows a toast ("file renamed"/"file deleted") via the existing `toastStore`, styled as a centered overlay card like `SettingsModal` with Escape-to-close support.
