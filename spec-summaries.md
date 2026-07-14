@@ -57,3 +57,8 @@ Adds a custom right-click/long-press context menu on Gallery tiles (Open, Open R
 Date: 2026-07-13
 
 Replaces the Gallery tile context menu's Rename/Delete options with a single Info option that opens a new shared File Info modal (also reachable from the Player's info icon, replacing its old tooltip), showing filename, full path, date, filesize, resolution, and duration, plus Rename/Delete buttons using the same native prompt/confirm/alert flow as before. On success the modal auto-closes and shows a toast ("file renamed"/"file deleted") via the existing `toastStore`, styled as a centered overlay card like `SettingsModal` with Escape-to-close support.
+
+# Preset and General Settings Revamp
+Date: 2026-07-13
+
+Relabels and regroups several Settings modal fields: crop settings consolidate into a new "Letterbox Cropping" section, `onVidEnd` becomes a boolean `autoplayInitiallyOn` (Player autoplay-to-next-on-end), `autoPlayTile` becomes a boolean `tilePreviewAlways` (dropping the "off" state), and Presets combine include-vids/images, portrait/landscape, and min/max duration each onto single rows while dropping the Duplicate action. Requires corresponding Go struct, SQLite column, and frontend type renames, with no migration since there's no prod database yet.
