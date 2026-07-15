@@ -335,7 +335,7 @@ function onMenuInfo() {
   padding: 1px 6px;
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
-  font-size: 0.75rem;
+  font-size: 13px;
   border-radius: 3px;
   pointer-events: none;
 }
@@ -347,7 +347,7 @@ function onMenuInfo() {
   bottom: 0;
   padding: 10px 6px 4px;
   color: #fff;
-  font-size: 0.8rem;
+  font-size: 13px;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
   white-space: nowrap;
   overflow: hidden;
