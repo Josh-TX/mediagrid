@@ -10,6 +10,8 @@ export function makeDefaultGeneralSettings(): GeneralSettings {
     fallbackToOriginal: true,
 
     autoplayInitiallyOn: true,
+    playbackSpeed1: 2,
+    playbackSpeed2: 4,
     playerCropX: 0,
     playerCropY: 0,
     rewindSeconds: 10,

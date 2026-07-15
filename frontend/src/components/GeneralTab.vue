@@ -39,9 +39,9 @@ async function onSavePermanently() {
           <input
             v-if="field.type === 'float'"
             type="number"
-            step="0.01"
-            min="0"
-            max="1"
+            :step="field.step ?? 0.01"
+            :min="field.min ?? 0"
+            :max="field.max ?? 1"
             v-model.number="(generalSettingsStore.state.activeGeneral as any)[field.key]"
           />
           <input

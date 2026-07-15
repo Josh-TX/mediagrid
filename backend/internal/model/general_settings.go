@@ -15,6 +15,8 @@ type GeneralSettings struct {
 
 	// Player settings
 	AutoplayInitiallyOn bool    `json:"autoplayInitiallyOn"`
+	PlaybackSpeed1      float64 `json:"playbackSpeed1"`
+	PlaybackSpeed2      float64 `json:"playbackSpeed2"`
 	PlayerCropX         float64 `json:"playerCropX"`
 	PlayerCropY         float64 `json:"playerCropY"`
 	RewindSeconds       int     `json:"rewindSeconds"`
@@ -31,6 +33,8 @@ func DefaultGeneralSettings() GeneralSettings {
 		FallbackToOriginal: true,
 
 		AutoplayInitiallyOn: true,
+		PlaybackSpeed1:      2,
+		PlaybackSpeed2:      4,
 		PlayerCropX:         0,
 		PlayerCropY:         0,
 		RewindSeconds:       10,

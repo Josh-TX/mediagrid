@@ -7,7 +7,7 @@ import (
 )
 
 const generalSettingsColumns = `tilePct, tileCropX, tileCropY, defaultSort, tilePreviewAlways, fallbackToOriginal,
-	autoplayInitiallyOn, playerCropX, playerCropY, rewindSeconds, forwardSeconds`
+	autoplayInitiallyOn, playbackSpeed1, playbackSpeed2, playerCropX, playerCropY, rewindSeconds, forwardSeconds`
 
 // GetGeneralSettings returns the single stored GeneralSettings row and
 // whether it exists yet (false on a fresh DB, before the first save).
@@ -16,7 +16,7 @@ func (s *Store) GetGeneralSettings() (model.GeneralSettings, bool, error) {
 	var tilePreviewAlways, fallbackToOriginal, autoplayInitiallyOn int
 	err := s.DB.QueryRow(`SELECT `+generalSettingsColumns+` FROM general_settings WHERE id = 1`).Scan(
 		&g.TilePct, &g.TileCropX, &g.TileCropY, &g.DefaultSort, &tilePreviewAlways, &fallbackToOriginal,
-		&autoplayInitiallyOn, &g.PlayerCropX, &g.PlayerCropY, &g.RewindSeconds, &g.ForwardSeconds,
+		&autoplayInitiallyOn, &g.PlaybackSpeed1, &g.PlaybackSpeed2, &g.PlayerCropX, &g.PlayerCropY, &g.RewindSeconds, &g.ForwardSeconds,
 	)
 	if err == sql.ErrNoRows {
 		return model.GeneralSettings{}, false, nil
@@ -34,7 +34,7 @@ func (s *Store) GetGeneralSettings() (model.GeneralSettings, bool, error) {
 func (s *Store) SaveGeneralSettings(g model.GeneralSettings) error {
 	_, err := s.DB.Exec(`
 INSERT INTO general_settings (id, `+generalSettingsColumns+`)
-VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
   tilePct = excluded.tilePct,
   tileCropX = excluded.tileCropX,
@@ -43,12 +43,14 @@ ON CONFLICT(id) DO UPDATE SET
   tilePreviewAlways = excluded.tilePreviewAlways,
   fallbackToOriginal = excluded.fallbackToOriginal,
   autoplayInitiallyOn = excluded.autoplayInitiallyOn,
+  playbackSpeed1 = excluded.playbackSpeed1,
+  playbackSpeed2 = excluded.playbackSpeed2,
   playerCropX = excluded.playerCropX,
   playerCropY = excluded.playerCropY,
   rewindSeconds = excluded.rewindSeconds,
   forwardSeconds = excluded.forwardSeconds`,
 		g.TilePct, g.TileCropX, g.TileCropY, g.DefaultSort, boolToInt(g.TilePreviewAlways), boolToInt(g.FallbackToOriginal),
-		boolToInt(g.AutoplayInitiallyOn), g.PlayerCropX, g.PlayerCropY, g.RewindSeconds, g.ForwardSeconds,
+		boolToInt(g.AutoplayInitiallyOn), g.PlaybackSpeed1, g.PlaybackSpeed2, g.PlayerCropX, g.PlayerCropY, g.RewindSeconds, g.ForwardSeconds,
 	)
 	return err
 }

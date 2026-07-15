@@ -7,6 +7,9 @@ export interface SettingField<T> {
   type: 'float' | 'int' | 'bool' | 'select' | 'boolSelect' | 'text'
   options?: { value: string; label: string }[]
   placeholder?: string
+  min?: number
+  max?: number
+  step?: number
 }
 
 export interface SettingSection<T> {
@@ -50,6 +53,8 @@ export const generalSettingSections: SettingSection<GeneralSettings>[] = [
     title: 'Player',
     fields: [
       { key: 'autoplayInitiallyOn', label: 'Autoplay initially on', type: 'bool', help: 'When a video finishes playing in the Player, automatically swap to the next video.' },
+      { key: 'playbackSpeed1', label: 'Playback Speed 1', type: 'float', help: 'First alternate playback speed offered in the Player context menu.', min: 0, max: 16, step: 0.1 },
+      { key: 'playbackSpeed2', label: 'Playback Speed 2', type: 'float', help: 'Second alternate playback speed offered in the Player context menu.', min: 0, max: 16, step: 0.1 },
       { key: 'rewindSeconds', label: 'Rewind seconds', type: 'int', help: 'Seconds to rewind when the rewind control is tapped.' },
       { key: 'forwardSeconds', label: 'Forward seconds', type: 'int', help: 'Seconds to fast-forward when the forward control is tapped.' },
     ],

@@ -31,6 +31,8 @@ export interface GeneralSettings {
 
   // Player settings
   autoplayInitiallyOn: boolean
+  playbackSpeed1: number
+  playbackSpeed2: number
   playerCropX: number
   playerCropY: number
   rewindSeconds: number

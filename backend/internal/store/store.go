@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS general_settings (
   tilePreviewAlways INTEGER NOT NULL,
   fallbackToOriginal INTEGER NOT NULL,
   autoplayInitiallyOn INTEGER NOT NULL,
+  playbackSpeed1 REAL NOT NULL,
+  playbackSpeed2 REAL NOT NULL,
   playerCropX REAL NOT NULL,
   playerCropY REAL NOT NULL,
   rewindSeconds INTEGER NOT NULL,
@@ -87,6 +89,16 @@ CREATE TABLE IF NOT EXISTS general_settings (
 )`)
 	if err != nil {
 		return fmt.Errorf("creating general_settings table: %w", err)
+	}
+
+	// Columns added after general_settings first shipped need an explicit
+	// ALTER TABLE for existing databases, since CREATE TABLE IF NOT EXISTS
+	// only affects brand-new tables.
+	if err := s.addColumnIfMissing("general_settings", "playbackSpeed1", "REAL NOT NULL DEFAULT 2"); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing("general_settings", "playbackSpeed2", "REAL NOT NULL DEFAULT 4"); err != nil {
+		return err
 	}
 
 	// gen_settings holds at most one row (id fixed to 1), storing the last
@@ -100,6 +112,32 @@ CREATE TABLE IF NOT EXISTS gen_settings (
 )`)
 	if err != nil {
 		return fmt.Errorf("creating gen_settings table: %w", err)
+	}
+	return nil
+}
+
+// addColumnIfMissing runs ALTER TABLE ... ADD COLUMN for tables that
+// predate the column, leaving already-migrated databases untouched.
+func (s *Store) addColumnIfMissing(table, column, ddl string) error {
+	rows, err := s.DB.Query(`SELECT name FROM pragma_table_info(?)`, table)
+	if err != nil {
+		return fmt.Errorf("inspecting %s columns: %w", table, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		if name == column {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if _, err := s.DB.Exec(fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s`, table, column, ddl)); err != nil {
+		return fmt.Errorf("adding column %s.%s: %w", table, column, err)
 	}
 	return nil
 }

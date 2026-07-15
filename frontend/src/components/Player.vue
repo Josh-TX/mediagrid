@@ -30,8 +30,12 @@ const menuOpen = ref(false)
 const menuAnchor = ref({ x: 0, y: 0 })
 const menuOpensDownRight = ref(false)
 const loopEnabled = ref(false)
-const speed2xEnabled = ref(false)
-const playbackRate = computed(() => (speed2xEnabled.value ? 2 : 1))
+const speedMode = ref<0 | 1 | 2>(0)
+const playbackRate = computed(() => {
+  if (speedMode.value === 1) return general.value.playbackSpeed1
+  if (speedMode.value === 2) return general.value.playbackSpeed2
+  return 1
+})
 const viewportW = ref(window.innerWidth)
 const viewportH = ref(window.innerHeight)
 function onResize() {
@@ -496,11 +500,13 @@ onBeforeUnmount(() => {
       :is-video="currentTile.isVid"
       :loop="loopEnabled"
       :autoplay="autoplayEnabled"
-      :speed2x="speed2xEnabled"
+      :speed-mode="speedMode"
+      :speed1="general.playbackSpeed1"
+      :speed2="general.playbackSpeed2"
       @close="menuOpen = false"
       @toggle-loop="loopEnabled = !loopEnabled"
       @toggle-autoplay="autoplayEnabled = !autoplayEnabled"
-      @toggle-speed="speed2xEnabled = !speed2xEnabled"
+      @select-speed="speedMode = $event"
       @info="onMenuInfo"
     />
 

@@ -14,14 +14,16 @@ const props = defineProps<{
   isVideo: boolean
   loop: boolean
   autoplay: boolean
-  speed2x: boolean
+  speedMode: 0 | 1 | 2
+  speed1: number
+  speed2: number
 }>()
 
 const emit = defineEmits<{
   close: []
   'toggle-loop': []
   'toggle-autoplay': []
-  'toggle-speed': []
+  'select-speed': [mode: 0 | 1 | 2]
   info: []
 }>()
 
@@ -73,12 +75,26 @@ onBeforeUnmount(() => {
             <path d="M5 13l4 4L19 7" />
           </svg>
         </button>
-        <button type="button" class="menu-item" @click="emit('toggle-speed')">
-          <span>x2 Speed</span>
-          <svg v-if="speed2x" class="check-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="menu-separator" />
+        <button type="button" class="menu-item" @click="emit('select-speed', 0)">
+          <span>x1 Speed</span>
+          <svg v-if="speedMode === 0" class="check-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M5 13l4 4L19 7" />
           </svg>
         </button>
+        <button type="button" class="menu-item" @click="emit('select-speed', 1)">
+          <span>x{{ speed1 }} Speed</span>
+          <svg v-if="speedMode === 1" class="check-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 13l4 4L19 7" />
+          </svg>
+        </button>
+        <button type="button" class="menu-item" @click="emit('select-speed', 2)">
+          <span>x{{ speed2 }} Speed</span>
+          <svg v-if="speedMode === 2" class="check-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 13l4 4L19 7" />
+          </svg>
+        </button>
+        <div class="menu-separator" />
       </template>
       <button type="button" class="menu-item" @click="emit('info')">
         <span>Info</span>
@@ -126,5 +142,10 @@ onBeforeUnmount(() => {
 
 .check-icon {
   flex-shrink: 0;
+}
+
+.menu-separator {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 4px 14px;
 }
 </style>
