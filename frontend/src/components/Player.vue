@@ -382,6 +382,10 @@ function onMenuOpen(pos: { x: number; y: number }) {
 
 function onContextMenu(e: MouseEvent) {
   e.preventDefault()
+  if (menuOpen.value) {
+    menuOpen.value = false
+    return
+  }
   menuAnchor.value = { x: e.clientX, y: e.clientY }
   menuOpensDownRight.value = true
   menuOpen.value = true

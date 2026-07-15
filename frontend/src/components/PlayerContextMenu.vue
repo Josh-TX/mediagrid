@@ -60,7 +60,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="backdrop" @click.self="emit('close')" @contextmenu.prevent.self="emit('close')">
+  <div class="backdrop" @click.self="emit('close')" @contextmenu.prevent.stop.self="emit('close')">
     <div ref="menuEl" class="menu" :style="style">
       <template v-if="isVideo">
         <button type="button" class="menu-item" @click="emit('toggle-loop')">

@@ -372,63 +372,6 @@ function onTouchEnd(e: TouchEvent) {
       </div>
     </div>
 
-    <button
-      class="hud-btn back-btn"
-      type="button"
-      :style="{ background: buttonBg, transition: `background ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
-      @click="emit('back')"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        width="20"
-        height="20"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        :style="{ opacity: buttonIconOpacity, transition: `opacity ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
-      >
-        <path d="M15 18l-6-6 6-6" />
-      </svg>
-    </button>
-
-    <button
-      class="hud-btn fullscreen-btn"
-      type="button"
-      :style="{ background: buttonBg, transition: `background ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
-      @click="toggleFullscreen"
-    >
-      <svg
-        v-if="!isFullscreen"
-        viewBox="0 0 24 24"
-        width="20"
-        height="20"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        :style="{ opacity: buttonIconOpacity, transition: `opacity ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
-      >
-        <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
-      </svg>
-      <svg
-        v-else
-        viewBox="0 0 24 24"
-        width="20"
-        height="20"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        :style="{ opacity: buttonIconOpacity, transition: `opacity ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
-      >
-        <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
-      </svg>
-    </button>
-
     <div v-if="tapToPlayVisible" class="tap-to-play-hint">tap to play</div>
 
     <div class="bottom-gradient" :style="gradientOpacityStyle" />
@@ -448,6 +391,66 @@ function onTouchEnd(e: TouchEvent) {
       </div>
     </div>
   </div>
+
+  <!-- Rendered outside .hud (rather than its z-index: 5 stacking context) so
+       these can sit above PlayerContextMenu's backdrop and stay clickable
+       while the context menu is open. -->
+  <button
+    class="hud-btn back-btn"
+    type="button"
+    :style="{ background: buttonBg, transition: `background ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
+    @click="emit('back')"
+  >
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      :style="{ opacity: buttonIconOpacity, transition: `opacity ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
+    >
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  </button>
+
+  <button
+    class="hud-btn fullscreen-btn"
+    type="button"
+    :style="{ background: buttonBg, transition: `background ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
+    @click="toggleFullscreen"
+  >
+    <svg
+      v-if="!isFullscreen"
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      :style="{ opacity: buttonIconOpacity, transition: `opacity ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
+    >
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+    </svg>
+    <svg
+      v-else
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      :style="{ opacity: buttonIconOpacity, transition: `opacity ${BUTTON_CONTRAST_TRANSITION_MS}ms` }"
+    >
+      <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+    </svg>
+  </button>
 </template>
 
 <style scoped>
@@ -548,7 +551,9 @@ function onTouchEnd(e: TouchEvent) {
   justify-content: center;
   cursor: pointer;
   pointer-events: auto;
-  z-index: 6;
+  /* Above PlayerContextMenu's backdrop (z-index: 120) so back/fullscreen
+     stay clickable while the context menu is open. */
+  z-index: 130;
 }
 .back-btn {
   left: 8px;
