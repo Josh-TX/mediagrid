@@ -12,6 +12,7 @@ const emit = defineEmits<{
 
 let filterDebounce: ReturnType<typeof setTimeout> | undefined
 const filterInput = ref(uiStore.state.filterText)
+const filterInputEl = ref<HTMLInputElement>()
 const hasFilterValue = computed(() => filterInput.value.trim().length > 0)
 
 function onFilterInput() {
@@ -27,6 +28,7 @@ function onFilterClear() {
   filterInput.value = ''
   uiStore.setFilterText('')
   emit('refetch')
+  filterInputEl.value?.focus()
 }
 
 function onSortTypeChange(e: Event) {
@@ -67,6 +69,7 @@ function onPresetChange(e: Event) {
 
     <div class="filter-wrap">
       <input
+        ref="filterInputEl"
         class="filter-input"
         :class="{ 'has-value': hasFilterValue }"
         type="text"
