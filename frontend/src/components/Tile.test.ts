@@ -26,7 +26,7 @@ function makeTile(overrides: Partial<TileType> = {}): TileType {
 
 function mountTile(tile: TileType) {
   return mount(Tile, {
-    props: { tile, rowi: 0, rowH: 100, cropX: 0, cropY: 0, tilePreviewAlways: false, fallbackToOriginal: true },
+    props: { tile, rowi: 0, rowH: 100, cropX: 0, cropY: 0, tilePreviewAlways: false, fallbackToOriginal: true, titleMode: 'parentTop', titleExt: false },
   })
 }
 
@@ -137,6 +137,8 @@ describe('Tile failed-load message', () => {
         cropY: 0,
         tilePreviewAlways: true,
         fallbackToOriginal: true,
+        titleMode: 'parentTop',
+        titleExt: false,
       },
     })
     await wrapper.find('video').trigger('error')

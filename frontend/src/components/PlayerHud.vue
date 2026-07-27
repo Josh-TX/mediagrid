@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { Tile } from '../types'
+import type { Tile, TitleMode } from '../types'
 import { formatClock } from '../format'
+import { titleParts } from '../pathUtils'
+import { presetsStore } from '../stores/presetsStore'
 import {
   SEEK_BAND_HEIGHT,
   HUD_SIDE_PADDING,
@@ -37,6 +39,8 @@ const props = defineProps<{
   viewportW: number
   viewportH: number
   fullscreenTarget: HTMLElement | null
+  titleMode: TitleMode
+  titleExt: boolean
 }>()
 
 const emit = defineEmits<{
@@ -52,7 +56,7 @@ const emit = defineEmits<{
 }>()
 
 // --- Title ---
-const title = computed(() => props.tile.path.split('/').pop() ?? props.tile.path)
+const title = computed(() => titleParts(props.tile.path, props.titleMode, props.titleExt, presetsStore.selectedPreset.value?.basePath ?? ''))
 
 // --- Seek bar / time-remaining, with a live local preview while scrubbing ---
 const scrubPreviewTime = ref<number | null>(null)
@@ -379,7 +383,10 @@ function onTouchEnd(e: TouchEvent) {
     <div class="bottom-hud" :style="contrastOpacityStyle">
       <div class="swap-fade" :class="{ 'swap-hidden': !hudFadeVisible }" :style="{ transitionDuration: SWAP_MID_MS + 'ms' }">
         <div class="title-time-row">
-          <div class="title">{{ title }}</div>
+          <div class="title-col">
+            <div v-if="title.top" class="title-parent">{{ title.top }}</div>
+            <div class="title">{{ title.bottom }}</div>
+          </div>
           <div v-if="tile.isVid" class="time-remaining">{{ timeRemainingText }}</div>
           <span class="menu-icon-hit" @click.stop="onMenuIconClick">
             <span class="menu-icon">&#8942;</span>
@@ -606,7 +613,7 @@ function onTouchEnd(e: TouchEvent) {
 
 .title-time-row {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
   padding: 0 12px 0 20px;
   margin-bottom: 11px;
@@ -614,9 +621,17 @@ function onTouchEnd(e: TouchEvent) {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   gap: 6px;
 }
-.title {
+.title-col {
   flex: 1;
   min-width: 0;
+}
+.title-parent {
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

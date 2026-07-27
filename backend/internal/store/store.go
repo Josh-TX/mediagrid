@@ -85,7 +85,11 @@ CREATE TABLE IF NOT EXISTS general_settings (
   playerCropX REAL NOT NULL,
   playerCropY REAL NOT NULL,
   rewindSeconds INTEGER NOT NULL,
-  forwardSeconds INTEGER NOT NULL
+  forwardSeconds INTEGER NOT NULL,
+  galleryTitleMode TEXT NOT NULL DEFAULT 'parentTop',
+  galleryTitleExt INTEGER NOT NULL DEFAULT 0,
+  playerTitleMode TEXT NOT NULL DEFAULT 'parentTop',
+  playerTitleExt INTEGER NOT NULL DEFAULT 0
 )`)
 	if err != nil {
 		return fmt.Errorf("creating general_settings table: %w", err)
@@ -98,6 +102,18 @@ CREATE TABLE IF NOT EXISTS general_settings (
 		return err
 	}
 	if err := s.addColumnIfMissing("general_settings", "playbackSpeed2", "REAL NOT NULL DEFAULT 4"); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing("general_settings", "galleryTitleMode", "TEXT NOT NULL DEFAULT 'parentTop'"); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing("general_settings", "galleryTitleExt", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing("general_settings", "playerTitleMode", "TEXT NOT NULL DEFAULT 'parentTop'"); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing("general_settings", "playerTitleExt", "INTEGER NOT NULL DEFAULT 0"); err != nil {
 		return err
 	}
 

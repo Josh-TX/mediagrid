@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
-import type { Tile } from '../types'
+import type { Tile, TitleMode } from '../types'
 import type { TileSource } from '../tilePlayback'
 import { mediaUrl, thumbnailUrl, highlightUrl } from '../api/shuffle'
 import { formatClock } from '../format'
-import { splitNameExt } from '../pathUtils'
+import { titleParts } from '../pathUtils'
 import { resolveTileSource } from '../tilePlayback'
 import { playerStore } from '../stores/playerStore'
 import { urlStore } from '../stores/urlStore'
+import { presetsStore } from '../stores/presetsStore'
 import { videoLoadQueue } from '../stores/videoLoadQueue'
 import { tileInteractionStore } from '../stores/tileInteractionStore'
 import TileContextMenu from './TileContextMenu.vue'
@@ -21,6 +22,8 @@ const props = defineProps<{
   cropY: number
   tilePreviewAlways: boolean
   fallbackToOriginal: boolean
+  titleMode: TitleMode
+  titleExt: boolean
 }>()
 
 const hovering = computed(() => tileInteractionStore.isActive(props.tile.tilei))
@@ -176,9 +179,7 @@ const failedMessage = computed(() => {
   return ''
 })
 
-const filename = computed(() => props.tile.path.split('/').pop() ?? props.tile.path)
-
-const title = computed(() => splitNameExt(filename.value).base)
+const title = computed(() => titleParts(props.tile.path, props.titleMode, props.titleExt, presetsStore.selectedPreset.value?.basePath ?? ''))
 
 const durationText = computed(() => formatClock(props.tile.duration))
 
@@ -261,7 +262,10 @@ function onMenuInfo() {
         <div v-else class="placeholder" :style="mediaStyle" />
       </template>
       <div v-if="tile.isVid" class="duration-badge">{{ durationText }}</div>
-      <div class="title-overlay">{{ title }}</div>
+      <div class="title-overlay">
+        <div v-if="title.top" class="title-parent">{{ title.top }}</div>
+        <div class="title-main">{{ title.bottom }}</div>
+      </div>
     </template>
 
     <TileContextMenu
@@ -347,11 +351,21 @@ function onMenuInfo() {
   bottom: 0;
   padding: 10px 6px 4px;
   color: #fff;
-  font-size: 13px;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+
+.title-parent {
+  font-size: 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  pointer-events: none;
+}
+
+.title-main {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

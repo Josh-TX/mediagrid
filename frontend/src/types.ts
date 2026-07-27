@@ -1,5 +1,6 @@
 export type SortType = 'rand' | 'size' | 'az' | 'date' | 'dur'
 export type SortDir = 'asc' | 'desc'
+export type TitleMode = 'full' | 'filename' | 'parentTop'
 
 // One row in the `presets` table: the filter settings plus a unique name.
 // Round-trips as-is through GET /api/settings (as part of `presets`) and
@@ -28,6 +29,8 @@ export interface GeneralSettings {
   defaultSort: SortType
   tilePreviewAlways: boolean
   fallbackToOriginal: boolean
+  galleryTitleMode: TitleMode
+  galleryTitleExt: boolean
 
   // Player settings
   autoplayInitiallyOn: boolean
@@ -37,6 +40,8 @@ export interface GeneralSettings {
   playerCropY: number
   rewindSeconds: number
   forwardSeconds: number
+  playerTitleMode: TitleMode
+  playerTitleExt: boolean
 }
 
 export interface SettingsResponse {

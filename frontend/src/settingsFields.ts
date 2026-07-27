@@ -47,6 +47,18 @@ export const generalSettingSections: SettingSection<GeneralSettings>[] = [
         ],
       },
       { key: 'fallbackToOriginal', label: 'Fallback to Original Video', type: 'bool', help: 'When a video preview should play but has no highlight, play the original video instead of just showing a thumbnail/placeholder.' },
+      {
+        key: 'galleryTitleMode',
+        label: 'Tile title',
+        type: 'select',
+        help: 'What to show as a tile\'s title in the Gallery.',
+        options: [
+          { value: 'full', label: 'Full Path' },
+          { value: 'filename', label: 'Filename Only' },
+          { value: 'parentTop', label: 'Parent directory on top' },
+        ],
+      },
+      { key: 'galleryTitleExt', label: 'File ext in title', type: 'bool', help: 'Include the file extension in the tile title.' },
     ],
   },
   {
@@ -57,6 +69,18 @@ export const generalSettingSections: SettingSection<GeneralSettings>[] = [
       { key: 'playbackSpeed2', label: 'Playback Speed 2', type: 'float', help: 'Second alternate playback speed offered in the Player context menu.', min: 0, max: 16, step: 0.1 },
       { key: 'rewindSeconds', label: 'Rewind seconds', type: 'int', help: 'Seconds to rewind when the rewind control is tapped.' },
       { key: 'forwardSeconds', label: 'Forward seconds', type: 'int', help: 'Seconds to fast-forward when the forward control is tapped.' },
+      {
+        key: 'playerTitleMode',
+        label: 'Title',
+        type: 'select',
+        help: 'What to show as the title in the Player.',
+        options: [
+          { value: 'full', label: 'Full Path' },
+          { value: 'filename', label: 'Filename Only' },
+          { value: 'parentTop', label: 'Parent directory on top' },
+        ],
+      },
+      { key: 'playerTitleExt', label: 'File ext in title', type: 'bool', help: 'Include the file extension in the Player title.' },
     ],
   },
   {

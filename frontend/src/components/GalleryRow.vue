@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Row } from '../types'
+import type { Row, TitleMode } from '../types'
 import Tile from './Tile.vue'
 
 defineProps<{
@@ -8,6 +8,8 @@ defineProps<{
   cropY: number
   tilePreviewAlways: boolean
   fallbackToOriginal: boolean
+  titleMode: TitleMode
+  titleExt: boolean
 }>()
 </script>
 
@@ -23,6 +25,8 @@ defineProps<{
       :crop-y="cropY"
       :tile-preview-always="tilePreviewAlways"
       :fallback-to-original="fallbackToOriginal"
+      :title-mode="titleMode"
+      :title-ext="titleExt"
     />
   </div>
 </template>

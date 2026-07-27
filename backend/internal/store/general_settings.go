@@ -6,17 +6,17 @@ import (
 	"mediagrid/internal/model"
 )
 
-const generalSettingsColumns = `tilePct, tileCropX, tileCropY, defaultSort, tilePreviewAlways, fallbackToOriginal,
-	autoplayInitiallyOn, playbackSpeed1, playbackSpeed2, playerCropX, playerCropY, rewindSeconds, forwardSeconds`
+const generalSettingsColumns = `tilePct, tileCropX, tileCropY, defaultSort, tilePreviewAlways, fallbackToOriginal, galleryTitleMode, galleryTitleExt,
+	autoplayInitiallyOn, playbackSpeed1, playbackSpeed2, playerCropX, playerCropY, rewindSeconds, forwardSeconds, playerTitleMode, playerTitleExt`
 
 // GetGeneralSettings returns the single stored GeneralSettings row and
 // whether it exists yet (false on a fresh DB, before the first save).
 func (s *Store) GetGeneralSettings() (model.GeneralSettings, bool, error) {
 	var g model.GeneralSettings
-	var tilePreviewAlways, fallbackToOriginal, autoplayInitiallyOn int
+	var tilePreviewAlways, fallbackToOriginal, galleryTitleExt, autoplayInitiallyOn, playerTitleExt int
 	err := s.DB.QueryRow(`SELECT `+generalSettingsColumns+` FROM general_settings WHERE id = 1`).Scan(
-		&g.TilePct, &g.TileCropX, &g.TileCropY, &g.DefaultSort, &tilePreviewAlways, &fallbackToOriginal,
-		&autoplayInitiallyOn, &g.PlaybackSpeed1, &g.PlaybackSpeed2, &g.PlayerCropX, &g.PlayerCropY, &g.RewindSeconds, &g.ForwardSeconds,
+		&g.TilePct, &g.TileCropX, &g.TileCropY, &g.DefaultSort, &tilePreviewAlways, &fallbackToOriginal, &g.GalleryTitleMode, &galleryTitleExt,
+		&autoplayInitiallyOn, &g.PlaybackSpeed1, &g.PlaybackSpeed2, &g.PlayerCropX, &g.PlayerCropY, &g.RewindSeconds, &g.ForwardSeconds, &g.PlayerTitleMode, &playerTitleExt,
 	)
 	if err == sql.ErrNoRows {
 		return model.GeneralSettings{}, false, nil
@@ -26,7 +26,9 @@ func (s *Store) GetGeneralSettings() (model.GeneralSettings, bool, error) {
 	}
 	g.TilePreviewAlways = tilePreviewAlways != 0
 	g.FallbackToOriginal = fallbackToOriginal != 0
+	g.GalleryTitleExt = galleryTitleExt != 0
 	g.AutoplayInitiallyOn = autoplayInitiallyOn != 0
+	g.PlayerTitleExt = playerTitleExt != 0
 	return g, true, nil
 }
 
@@ -34,7 +36,7 @@ func (s *Store) GetGeneralSettings() (model.GeneralSettings, bool, error) {
 func (s *Store) SaveGeneralSettings(g model.GeneralSettings) error {
 	_, err := s.DB.Exec(`
 INSERT INTO general_settings (id, `+generalSettingsColumns+`)
-VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
   tilePct = excluded.tilePct,
   tileCropX = excluded.tileCropX,
@@ -42,15 +44,19 @@ ON CONFLICT(id) DO UPDATE SET
   defaultSort = excluded.defaultSort,
   tilePreviewAlways = excluded.tilePreviewAlways,
   fallbackToOriginal = excluded.fallbackToOriginal,
+  galleryTitleMode = excluded.galleryTitleMode,
+  galleryTitleExt = excluded.galleryTitleExt,
   autoplayInitiallyOn = excluded.autoplayInitiallyOn,
   playbackSpeed1 = excluded.playbackSpeed1,
   playbackSpeed2 = excluded.playbackSpeed2,
   playerCropX = excluded.playerCropX,
   playerCropY = excluded.playerCropY,
   rewindSeconds = excluded.rewindSeconds,
-  forwardSeconds = excluded.forwardSeconds`,
-		g.TilePct, g.TileCropX, g.TileCropY, g.DefaultSort, boolToInt(g.TilePreviewAlways), boolToInt(g.FallbackToOriginal),
-		boolToInt(g.AutoplayInitiallyOn), g.PlaybackSpeed1, g.PlaybackSpeed2, g.PlayerCropX, g.PlayerCropY, g.RewindSeconds, g.ForwardSeconds,
+  forwardSeconds = excluded.forwardSeconds,
+  playerTitleMode = excluded.playerTitleMode,
+  playerTitleExt = excluded.playerTitleExt`,
+		g.TilePct, g.TileCropX, g.TileCropY, g.DefaultSort, boolToInt(g.TilePreviewAlways), boolToInt(g.FallbackToOriginal), g.GalleryTitleMode, boolToInt(g.GalleryTitleExt),
+		boolToInt(g.AutoplayInitiallyOn), g.PlaybackSpeed1, g.PlaybackSpeed2, g.PlayerCropX, g.PlayerCropY, g.RewindSeconds, g.ForwardSeconds, g.PlayerTitleMode, boolToInt(g.PlayerTitleExt),
 	)
 	return err
 }

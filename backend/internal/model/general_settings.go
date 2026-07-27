@@ -12,6 +12,8 @@ type GeneralSettings struct {
 	DefaultSort        string  `json:"defaultSort"`
 	TilePreviewAlways  bool    `json:"tilePreviewAlways"`
 	FallbackToOriginal bool    `json:"fallbackToOriginal"`
+	GalleryTitleMode   string  `json:"galleryTitleMode"`
+	GalleryTitleExt    bool    `json:"galleryTitleExt"`
 
 	// Player settings
 	AutoplayInitiallyOn bool    `json:"autoplayInitiallyOn"`
@@ -21,6 +23,8 @@ type GeneralSettings struct {
 	PlayerCropY         float64 `json:"playerCropY"`
 	RewindSeconds       int     `json:"rewindSeconds"`
 	ForwardSeconds      int     `json:"forwardSeconds"`
+	PlayerTitleMode     string  `json:"playerTitleMode"`
+	PlayerTitleExt      bool    `json:"playerTitleExt"`
 }
 
 func DefaultGeneralSettings() GeneralSettings {
@@ -31,6 +35,8 @@ func DefaultGeneralSettings() GeneralSettings {
 		DefaultSort:        "rand",
 		TilePreviewAlways:  false,
 		FallbackToOriginal: true,
+		GalleryTitleMode:   "parentTop",
+		GalleryTitleExt:    false,
 
 		AutoplayInitiallyOn: true,
 		PlaybackSpeed1:      2,
@@ -39,5 +45,7 @@ func DefaultGeneralSettings() GeneralSettings {
 		PlayerCropY:         0,
 		RewindSeconds:       10,
 		ForwardSeconds:      10,
+		PlayerTitleMode:     "parentTop",
+		PlayerTitleExt:      false,
 	}
 }

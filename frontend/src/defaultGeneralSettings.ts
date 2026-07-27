@@ -8,6 +8,8 @@ export function makeDefaultGeneralSettings(): GeneralSettings {
     defaultSort: 'rand',
     tilePreviewAlways: false,
     fallbackToOriginal: true,
+    galleryTitleMode: 'parentTop',
+    galleryTitleExt: false,
 
     autoplayInitiallyOn: true,
     playbackSpeed1: 2,
@@ -16,5 +18,7 @@ export function makeDefaultGeneralSettings(): GeneralSettings {
     playerCropY: 0,
     rewindSeconds: 10,
     forwardSeconds: 10,
+    playerTitleMode: 'parentTop',
+    playerTitleExt: false,
   }
 }

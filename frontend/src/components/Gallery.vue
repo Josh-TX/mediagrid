@@ -173,6 +173,8 @@ defineExpose({ handleScroll })
           :crop-y="generalSettingsStore.state.activeGeneral.tileCropY"
           :tile-preview-always="generalSettingsStore.state.activeGeneral.tilePreviewAlways"
           :fallback-to-original="generalSettingsStore.state.activeGeneral.fallbackToOriginal"
+          :title-mode="generalSettingsStore.state.activeGeneral.galleryTitleMode"
+          :title-ext="generalSettingsStore.state.activeGeneral.galleryTitleExt"
         />
       </div>
     </div>
