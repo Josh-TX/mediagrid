@@ -4,6 +4,7 @@ import GalleryRow from './GalleryRow.vue'
 import { galleryStore } from '../stores/galleryStore'
 import { generalSettingsStore } from '../stores/generalSettingsStore'
 import { playerStore } from '../stores/playerStore'
+import { urlStore } from '../stores/urlStore'
 
 const ROW_GAP = 1
 const LOAD_THRESHOLD = 1200
@@ -58,6 +59,18 @@ const visibleRows = computed(() => {
   return result
 })
 
+// Debounce for how often a scroll updates the `r` query param — cheap either
+// way (replaceState, no re-render), but no need to do it on every scroll tick.
+const ROW_URL_DEBOUNCE_MS = 200
+let rowUrlTimer: ReturnType<typeof setTimeout> | null = null
+
+function topmostFullyVisibleRowIndex(): number {
+  for (let i = 0; i < rows.value.length; i++) {
+    if (offsets.value[i] >= scrollTop.value) return i
+  }
+  return Math.max(0, rows.value.length - 1)
+}
+
 function handleScroll() {
   if (!container.value) return
   scrollTop.value = container.value.scrollTop
@@ -65,6 +78,8 @@ function handleScroll() {
   if (scrollTop.value + viewportHeight.value > totalHeight.value - LOAD_THRESHOLD) {
     galleryStore.loadMore()
   }
+  if (rowUrlTimer) clearTimeout(rowUrlTimer)
+  rowUrlTimer = setTimeout(() => urlStore.onGalleryScroll(topmostFullyVisibleRowIndex()), ROW_URL_DEBOUNCE_MS)
 }
 
 // Px below the viewport top the direct-load target row should land at.
@@ -146,11 +161,59 @@ watch(
   },
 )
 
+// onGalleryScroll() refuses to write `r` while the Player is open (it never
+// coexists with `i`), so real scroll events during a Player session (the
+// anchor-driven applyScrollTop() calls above) never land in the URL. Without
+// this, closing the Player would leave `r` stale (or absent) at whatever it
+// was before the Player opened. Fires once right as the Player closes, using
+// whatever scrollTop the anchor logic already settled on.
+watch(
+  () => playerStore.state.open,
+  (open) => {
+    if (!open) urlStore.onGalleryScroll(topmostFullyVisibleRowIndex())
+  },
+)
+
+// Restores scroll position from `r` on a fresh page load (only set when `i`
+// isn't present — see urlStore.init()). urlStore's initRowLoad() already
+// fetches enough rows up front to cover the target row, so the loadMore()
+// loops below are normally no-ops — they're just a fallback (e.g. extra
+// content needed to fill the viewport below the target row, same clamping
+// concern as the direct-load watcher above). Consumes
+// urlStore.state.initialRowIndex once applied (or once found invalid) so
+// this doesn't refire.
+watch(
+  () => rows.value.length,
+  async () => {
+    const target = urlStore.state.initialRowIndex
+    if (target === null || galleryStore.state.totalRows === 0) return
+    // Consumed immediately (before the first await) so the loadMore() calls
+    // below — which mutate rows.value.length and thus re-trigger this same
+    // watcher — see initialRowIndex already null and bail out instead of
+    // recursively racing this invocation.
+    urlStore.state.initialRowIndex = null
+    if (target >= galleryStore.state.totalRows) return
+    while (rows.value.length <= target && rows.value.length < galleryStore.state.totalRows) {
+      await galleryStore.loadMore()
+    }
+    if (rows.value.length <= target) return
+    while (totalHeight.value < offsets.value[target] + viewportHeight.value && rows.value.length < galleryStore.state.totalRows) {
+      await galleryStore.loadMore()
+    }
+    await nextTick()
+    applyScrollTop(offsets.value[target])
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
   if (container.value) viewportHeight.value = container.value.clientHeight
   window.addEventListener('resize', handleScroll)
 })
-onBeforeUnmount(() => window.removeEventListener('resize', handleScroll))
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleScroll)
+  if (rowUrlTimer) clearTimeout(rowUrlTimer)
+})
 
 defineExpose({ handleScroll })
 </script>

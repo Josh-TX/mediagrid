@@ -2,7 +2,7 @@ import { reactive } from 'vue'
 import type { Row } from '../types'
 import { fetchShuffle, type ShuffleQuery } from '../api/shuffle'
 
-const ROWS_PER_PAGE = 20
+export const ROWS_PER_PAGE = 20
 
 const state = reactive({
   rows: [] as Row[],
@@ -18,7 +18,7 @@ const state = reactive({
 // filtered/sorted list.
 let currentParams: ShuffleQuery | null = null
 
-async function resetInternal(params: ShuffleQuery, takei?: number) {
+async function resetInternal(params: ShuffleQuery, opts?: { takei?: number; taker?: number }) {
   currentParams = params
   state.loading = true
   state.error = false
@@ -26,7 +26,12 @@ async function resetInternal(params: ShuffleQuery, takei?: number) {
   state.totalRows = 0
   state.totalTiles = 0
   try {
-    const result = await fetchShuffle({ ...params, skipr: 0, taker: ROWS_PER_PAGE, takei })
+    const result = await fetchShuffle({
+      ...params,
+      skipr: 0,
+      taker: opts?.taker ?? ROWS_PER_PAGE,
+      takei: opts?.takei,
+    })
     state.rows = result.rows
     state.totalRows = result.totalRows
     state.totalTiles = result.totalTiles
@@ -45,7 +50,15 @@ async function reset(params: ShuffleQuery) {
 // and loads far enough to cover `takei` (the Player's target tile), so the
 // Player never needs a second, separate fetch to open at that index.
 async function resetWithTakei(params: ShuffleQuery, takei: number) {
-  await resetInternal(params, takei)
+  await resetInternal(params, { takei })
+}
+
+// Row-restore variant: a single fetch sized to cover a target row index
+// up front (see urlStore's `r`-only init path), instead of the default page
+// size followed by however many sequential loadMore() calls it takes to
+// page up to that row.
+async function resetWithTaker(params: ShuffleQuery, taker: number) {
+  await resetInternal(params, { taker })
 }
 
 async function loadMore() {
@@ -95,4 +108,4 @@ function renameTile(tilei: number, newPath: string) {
   }
 }
 
-export const galleryStore = { state, reset, resetWithTakei, loadMore, ensureRowsForTile, retry, renameTile }
+export const galleryStore = { state, reset, resetWithTakei, resetWithTaker, loadMore, ensureRowsForTile, retry, renameTile }

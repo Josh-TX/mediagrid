@@ -2,7 +2,7 @@ import { reactive, watch, nextTick } from 'vue'
 import { presetsStore } from './presetsStore'
 import { generalSettingsStore } from './generalSettingsStore'
 import { uiStore, defaultDirFor } from './uiStore'
-import { galleryStore } from './galleryStore'
+import { galleryStore, ROWS_PER_PAGE } from './galleryStore'
 import { playerStore } from './playerStore'
 import { toastStore } from './toastStore'
 import { buildShuffleQuery } from '../buildShuffleQuery'
@@ -16,6 +16,7 @@ interface UrlParams {
   sortDir?: SortDir
   f?: string
   i?: number
+  r?: number
 }
 
 const state = reactive({
@@ -24,6 +25,10 @@ const state = reactive({
   // rest of the page's lifetime. Governs how closing the Player behaves
   // (native history.back() vs manually stripping `i`) — see closePlayer().
   useNativeBack: false,
+  // Set from `r` during init() (only when `i` isn't present), and consumed
+  // by Gallery.vue to restore scroll position on a fresh load — see
+  // onGalleryScroll() below for how `r` itself gets written.
+  initialRowIndex: null as number | null,
 })
 
 // Set while urlStore itself is applying a URL (initial load or popstate) to
@@ -42,9 +47,15 @@ function markPush() {
   state.useNativeBack = true
 }
 
+// Every pushUrl()/replaceUrl() call funnels through here, making this the
+// one place param invariants need enforcing. Currently: `i` and `r` never
+// coexist — opening/moving the Player always clears `r`, since the Gallery
+// isn't scrolling on the user's own behalf while the Player is open (see
+// onGalleryScroll(), which also refuses to set `r` while the Player's open).
 function patchedUrl(patch: Record<string, string | undefined>): URL {
+  const finalPatch = patch.i !== undefined ? { ...patch, r: undefined } : patch
   const url = new URL(window.location.href)
-  for (const [key, value] of Object.entries(patch)) {
+  for (const [key, value] of Object.entries(finalPatch)) {
     if (value === undefined) url.searchParams.delete(key)
     else url.searchParams.set(key, value)
   }
@@ -75,6 +86,11 @@ function parseUrlParams(): UrlParams {
   if (iRaw !== null && iRaw !== '') {
     const n = Number(iRaw)
     if (Number.isInteger(n)) result.i = n
+  }
+  const rRaw = sp.get('r')
+  if (rRaw !== null && rRaw !== '') {
+    const n = Number(rRaw)
+    if (Number.isInteger(n) && n > 0) result.r = n
   }
   return result
 }
@@ -197,6 +213,17 @@ function onSwap() {
   replaceUrl({ i: String(playerStore.state.currentIndex) })
 }
 
+// --- Gallery `r` <-> URL ---
+
+// Called (debounced) as the user scrolls the Gallery, with the topmost fully
+// visible row index. Never sets `r` while the Player is open — `i` alone
+// governs restoring position in that state, and the Gallery underneath it is
+// only scrolling to track the Player, not the user's own scroll intent.
+function onGalleryScroll(rowIndex: number) {
+  if (playerStore.state.open) return
+  replaceUrl({ r: rowIndex > 0 ? String(rowIndex) : undefined })
+}
+
 // Resolves a popstate-driven `i` (possibly requiring more rows to be
 // fetched) and applies it to playerStore, guarding against stale responses
 // from overlapping back-button-spam requests.
@@ -261,6 +288,18 @@ async function initDirectLoad(targetIndex: number) {
   }
 }
 
+// Row-restore load: the page loaded with `r` (no `i`) in the URL. Resolves
+// against a single combined /api/shuffle fetch sized to cover the target
+// row (+ROWS_PER_PAGE headroom), rather than the default-sized fetch
+// followed by however many sequential loadMore() calls Gallery.vue's
+// restore watcher would otherwise need to page up to it.
+async function initRowLoad(targetRow: number) {
+  state.initialRowIndex = targetRow
+  const query = buildQuery()
+  if (!query) return
+  await galleryStore.resetWithTaker(query, targetRow + ROWS_PER_PAGE)
+}
+
 async function init() {
   // GET /api/settings is only ever called once, here — its result seeds both
   // presetsStore and generalSettingsStore.
@@ -286,6 +325,8 @@ async function init() {
 
   if (params.i !== undefined) {
     initDirectLoad(params.i) // not awaited — fires the shared fetch in the background
+  } else if (params.r !== undefined) {
+    initRowLoad(params.r) // not awaited, same as above
   } else {
     refetchGallery() // not awaited, so callers can flip `ready` immediately
   }
@@ -297,6 +338,7 @@ export const urlStore = {
   openTile,
   closePlayer,
   onSwap,
+  onGalleryScroll,
   refetchGallery,
   reshuffle,
 }
