@@ -4,6 +4,8 @@ import { generalSettingsStore } from '../stores/generalSettingsStore'
 import { generalSettingSections, type SettingField } from '../settingsFields'
 import type { GeneralSettings } from '../types'
 
+const emit = defineEmits<{ close: [] }>()
+
 function boolSelectModel(field: SettingField<GeneralSettings>) {
   return computed({
     get: () => String((generalSettingsStore.state.activeGeneral as any)[field.key]),
@@ -73,6 +75,7 @@ async function onSavePermanently() {
   </section>
 
   <footer class="footer">
+    <button type="button" @click="emit('close')">Close</button>
     <div class="spacer" />
     <button type="button" :disabled="!generalSettingsStore.isDirty.value" @click="onRevert">Revert</button>
     <button type="button" :disabled="!generalSettingsStore.isDirty.value" @click="onSavePermanently">Save permanently</button>

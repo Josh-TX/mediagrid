@@ -1,3 +1,8 @@
+<script lang="ts">
+type Tab = 'general' | 'presets' | 'tasks'
+let lastActiveTab: Tab = 'general'
+</script>
+
 <script setup lang="ts">
 import { ref } from 'vue'
 import GeneralTab from './GeneralTab.vue'
@@ -6,8 +11,12 @@ import TasksTab from './TasksTab.vue'
 
 const emit = defineEmits<{ close: [] }>()
 
-type Tab = 'general' | 'presets' | 'tasks'
-const activeTab = ref<Tab>('general')
+const activeTab = ref<Tab>(lastActiveTab)
+
+function setActiveTab(tab: Tab) {
+  activeTab.value = tab
+  lastActiveTab = tab
+}
 
 function onClose() {
   emit('close')
@@ -18,22 +27,22 @@ function onClose() {
   <div class="overlay" @click.self="onClose">
     <div class="modal">
       <header class="tabbar">
-        <button type="button" class="tab" :class="{ active: activeTab === 'general' }" @click="activeTab = 'general'">
+        <button type="button" class="tab" :class="{ active: activeTab === 'general' }" @click="setActiveTab('general')">
           General
         </button>
-        <button type="button" class="tab" :class="{ active: activeTab === 'presets' }" @click="activeTab = 'presets'">
+        <button type="button" class="tab" :class="{ active: activeTab === 'presets' }" @click="setActiveTab('presets')">
           Presets
         </button>
-        <button type="button" class="tab" :class="{ active: activeTab === 'tasks' }" @click="activeTab = 'tasks'">
+        <button type="button" class="tab" :class="{ active: activeTab === 'tasks' }" @click="setActiveTab('tasks')">
           Tasks
         </button>
         <div class="spacer" />
         <button type="button" class="close-btn" @click="onClose" title="Close">&times;</button>
       </header>
 
-      <GeneralTab v-if="activeTab === 'general'" />
-      <PresetsTab v-else-if="activeTab === 'presets'" />
-      <TasksTab v-else />
+      <GeneralTab v-if="activeTab === 'general'" @close="onClose" />
+      <PresetsTab v-else-if="activeTab === 'presets'" @close="onClose" />
+      <TasksTab v-else @close="onClose" />
     </div>
   </div>
 </template>

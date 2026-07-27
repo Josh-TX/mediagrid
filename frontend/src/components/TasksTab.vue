@@ -6,6 +6,8 @@ import GenThumbnailsModal from './GenThumbnailsModal.vue'
 import GenHighlightsModal from './GenHighlightsModal.vue'
 import type { TaskInfo } from '../types'
 
+const emit = defineEmits<{ close: [] }>()
+
 const showThumbnailsModal = ref(false)
 const showHighlightsModal = ref(false)
 
@@ -112,6 +114,10 @@ function progressLabel(t: TaskInfo): string {
     </div>
   </section>
 
+  <footer class="footer">
+    <button type="button" @click="emit('close')">Close</button>
+  </footer>
+
   <GenThumbnailsModal v-if="showThumbnailsModal" @close="showThumbnailsModal = false" @generate="onGenerated" />
   <GenHighlightsModal v-if="showHighlightsModal" @close="showHighlightsModal = false" @generate="onGenerated" />
 </template>
@@ -170,6 +176,14 @@ function progressLabel(t: TaskInfo): string {
   opacity: 0.6;
   font-size: 13px;
   padding: 6px 0;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid #444;
 }
 
 button {

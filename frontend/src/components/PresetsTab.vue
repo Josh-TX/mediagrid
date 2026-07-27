@@ -4,6 +4,8 @@ import { presetsStore } from '../stores/presetsStore'
 import { presetSettingRows, type SettingField } from '../settingsFields'
 import type { Preset } from '../types'
 
+const emit = defineEmits<{ close: [] }>()
+
 const preset = computed<Preset | undefined>(() => presetsStore.selectedPreset.value)
 
 function onPresetSelect(e: Event) {
@@ -111,6 +113,7 @@ async function onSavePermanently() {
   </section>
 
   <footer class="footer">
+    <button type="button" @click="emit('close')">Close</button>
     <div class="spacer" />
     <button type="button" :disabled="!presetsStore.isDirty.value" @click="onRevert">Revert</button>
     <button type="button" :disabled="!presetsStore.isDirty.value" @click="onSavePermanently">Save permanently</button>
