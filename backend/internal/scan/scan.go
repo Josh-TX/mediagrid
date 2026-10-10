@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"mediagrid/internal/library"
 	"mediagrid/internal/model"
 	"mediagrid/internal/preview"
 	"mediagrid/internal/store"
@@ -27,12 +28,12 @@ var videoExts = map[string]bool{
 	".mp4": true, ".webm": true, ".mov": true, ".mkv": true, ".avi": true, ".m4v": true,
 }
 
-// walkCandidates walks mediaRoot, skipping dotfiles/dirs and symlinks, and
-// invokes fn for every file with a recognized image/video extension. It's
+// walkCandidates walks mediaRoot, skipping dotfiles/dirs, symlinks, and
+// anything outside lib, and invokes fn for every file with a recognized image/video extension. It's
 // shared by the counting pass and the working pass in Run so both apply
 // identical skip/filter logic. When ctx is non-nil and gets cancelled, the
 // walk stops early (via filepath.SkipAll) without error.
-func walkCandidates(ctx context.Context, mediaRoot string, fn func(relPath string, isVid bool) error) error {
+func walkCandidates(ctx context.Context, mediaRoot string, lib library.Filter, fn func(relPath string, isVid bool) error) error {
 	return filepath.WalkDir(mediaRoot, func(path string, d fs.DirEntry, err error) error {
 		if ctx != nil && ctx.Err() != nil {
 			return filepath.SkipAll
@@ -55,6 +56,11 @@ func walkCandidates(ctx context.Context, mediaRoot string, fn func(relPath strin
 			return nil
 		}
 		if d.IsDir() {
+			if path != mediaRoot {
+				if rel, err := filepath.Rel(mediaRoot, path); err == nil && !lib.DescendDir(rel) {
+					return filepath.SkipDir
+				}
+			}
 			return nil
 		}
 
@@ -69,6 +75,9 @@ func walkCandidates(ctx context.Context, mediaRoot string, fn func(relPath strin
 			log.Printf("scan: error computing relative path for %s: %v", path, err)
 			return nil
 		}
+		if !lib.InLibrary(relPath) {
+			return nil
+		}
 
 		return fn(relPath, isVid)
 	})
@@ -80,9 +89,9 @@ func walkCandidates(ctx context.Context, mediaRoot string, fn func(relPath strin
 // inserts new files, calling progress(processed, total) after each one.
 // progress may be nil. ctx cancellation stops the working pass between
 // files (whatever ffprobe call is in flight is allowed to finish).
-func Run(ctx context.Context, s *store.Store, mediaRoot string, progress func(processed, total int)) error {
+func Run(ctx context.Context, s *store.Store, mediaRoot string, lib library.Filter, progress func(processed, total int)) error {
 	total := 0
-	if err := walkCandidates(nil, mediaRoot, func(relPath string, isVid bool) error {
+	if err := walkCandidates(nil, mediaRoot, lib, func(relPath string, isVid bool) error {
 		exists, err := s.MediaExists(relPath)
 		if err != nil {
 			log.Printf("scan: error checking existing media %s: %v", relPath, err)
@@ -100,7 +109,7 @@ func Run(ctx context.Context, s *store.Store, mediaRoot string, progress func(pr
 	}
 
 	processed := 0
-	err := walkCandidates(ctx, mediaRoot, func(relPath string, isVid bool) error {
+	err := walkCandidates(ctx, mediaRoot, lib, func(relPath string, isVid bool) error {
 		exists, err := s.MediaExists(relPath)
 		if err != nil {
 			log.Printf("scan: error checking existing media %s: %v", relPath, err)
@@ -149,21 +158,23 @@ func Run(ctx context.Context, s *store.Store, mediaRoot string, progress func(pr
 }
 
 // Clean removes media rows whose underlying file no longer exists under
-// mediaRoot, along with any thumbnail/highlight preview files generated for
+// mediaRoot or that fall outside lib, along with any thumbnail/highlight preview files generated for
 // them. It does not otherwise sweep PREVIEW_ROOT for orphans.
-func Clean(s *store.Store, mediaRoot, previewRoot string) error {
+func Clean(s *store.Store, mediaRoot, previewRoot string, lib library.Filter) error {
 	all, err := s.ListAllMedia()
 	if err != nil {
 		return fmt.Errorf("clean: listing media: %w", err)
 	}
 
 	for _, m := range all {
-		fullPath := filepath.Join(mediaRoot, m.Path)
-		if _, err := os.Stat(fullPath); err == nil {
-			continue
-		} else if !os.IsNotExist(err) {
-			log.Printf("clean: error stating %s: %v", fullPath, err)
-			continue
+		if lib.InLibrary(m.Path) {
+			fullPath := filepath.Join(mediaRoot, m.Path)
+			if _, err := os.Stat(fullPath); err == nil {
+				continue
+			} else if !os.IsNotExist(err) {
+				log.Printf("clean: error stating %s: %v", fullPath, err)
+				continue
+			}
 		}
 
 		if err := s.DeleteMedia(m.Path); err != nil {

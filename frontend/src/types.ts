@@ -128,3 +128,17 @@ export interface GenSettingsResponse {
   thumbnail: ThumbnailSettings
   highlight: HighlightSettings
 }
+
+// Global path filters (StartsWith / Contains) gating Scan / Scan + Clean, plus the
+// read-only roots. Round-trips through GET/POST /api/library.
+export interface LibrarySettings {
+  whitelistCSV: string
+  blacklistCSV: string
+  whitelistContainsCSV: string
+  blacklistContainsCSV: string
+}
+
+export interface LibraryResponse extends LibrarySettings {
+  mediaRoot: string
+  dataRoot: string
+}

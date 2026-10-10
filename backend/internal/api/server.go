@@ -35,6 +35,8 @@ func (s *Server) routes(staticHandler http.Handler) {
 	s.mux.HandleFunc("GET /api/settings", s.handleGetSettings)
 	s.mux.HandleFunc("POST /api/presets", s.handlePostPresets)
 	s.mux.HandleFunc("POST /api/general-settings", s.handlePostGeneralSettings)
+	s.mux.HandleFunc("GET /api/library", s.handleGetLibrary)
+	s.mux.HandleFunc("POST /api/library", s.handlePostLibrary)
 	s.mux.HandleFunc("GET /media/{path...}", s.handleMedia)
 	s.mux.HandleFunc("DELETE /api/delete/{path...}", s.handleDeleteMedia)
 	s.mux.HandleFunc("PUT /api/rename/{path...}", s.handleRenameMedia)

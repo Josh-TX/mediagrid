@@ -129,6 +129,26 @@ CREATE TABLE IF NOT EXISTS gen_settings (
 	if err != nil {
 		return fmt.Errorf("creating gen_settings table: %w", err)
 	}
+
+	// library_settings holds at most one row (id fixed to 1) of the global
+	// StartsWith whitelist/blacklist gating Scan and Clean.
+	_, err = s.DB.Exec(`
+CREATE TABLE IF NOT EXISTS library_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  whitelistCSV TEXT NOT NULL,
+  blacklistCSV TEXT NOT NULL,
+  whitelistContainsCSV TEXT NOT NULL DEFAULT '',
+  blacklistContainsCSV TEXT NOT NULL DEFAULT ''
+)`)
+	if err != nil {
+		return fmt.Errorf("creating library_settings table: %w", err)
+	}
+	if err := s.addColumnIfMissing("library_settings", "whitelistContainsCSV", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing("library_settings", "blacklistContainsCSV", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -1,30 +1,71 @@
 <script lang="ts">
-type Tab = 'general' | 'presets' | 'tasks'
+type Tab = 'general' | 'presets' | 'library' | 'tasks'
 let lastActiveTab: Tab = 'general'
 </script>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onUnmounted, ref, watch } from 'vue'
 import GeneralTab from './GeneralTab.vue'
 import PresetsTab from './PresetsTab.vue'
+import LibraryTab from './LibraryTab.vue'
 import TasksTab from './TasksTab.vue'
 
 const emit = defineEmits<{ close: [] }>()
 
 const activeTab = ref<Tab>(lastActiveTab)
 
+// Set by the Library tab while it has unsaved edits. Leaving it (switching
+// tabs or closing the modal) asks for confirmation; reload/close-tab gets
+// the browser's native prompt via beforeunload.
+const libraryDirty = ref(false)
+
+function confirmDiscard(): boolean {
+  if (!libraryDirty.value) return true
+  if (!window.confirm('Discard unsaved Library changes?')) return false
+  libraryDirty.value = false
+  return true
+}
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  e.preventDefault()
+}
+
+watch(libraryDirty, (dirty) => {
+  if (dirty) window.addEventListener('beforeunload', onBeforeUnload)
+  else window.removeEventListener('beforeunload', onBeforeUnload)
+})
+onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
+
 function setActiveTab(tab: Tab) {
+  if (tab === activeTab.value || !confirmDiscard()) return
   activeTab.value = tab
   lastActiveTab = tab
 }
 
+// A drag that starts inside the modal and ends on the overlay fires a click
+// on the overlay; only close if the press also began on the overlay.
+let pressStartedOnOverlay = false
+
+function onOverlayPointerDown(e: PointerEvent) {
+  pressStartedOnOverlay = e.target === e.currentTarget
+}
+
+function onOverlayClick() {
+  if (pressStartedOnOverlay) onClose()
+}
+
 function onClose() {
+  if (!confirmDiscard()) return
   emit('close')
 }
 </script>
 
 <template>
-  <div class="overlay" @click.self="onClose">
+  <div
+    class="overlay"
+    @pointerdown="onOverlayPointerDown"
+    @click.self="onOverlayClick"
+  >
     <div class="modal">
       <header class="tabbar">
         <button type="button" class="tab" :class="{ active: activeTab === 'general' }" @click="setActiveTab('general')">
@@ -32,6 +73,9 @@ function onClose() {
         </button>
         <button type="button" class="tab" :class="{ active: activeTab === 'presets' }" @click="setActiveTab('presets')">
           Presets
+        </button>
+        <button type="button" class="tab" :class="{ active: activeTab === 'library' }" @click="setActiveTab('library')">
+          Library
         </button>
         <button type="button" class="tab" :class="{ active: activeTab === 'tasks' }" @click="setActiveTab('tasks')">
           Tasks
@@ -42,6 +86,7 @@ function onClose() {
 
       <GeneralTab v-if="activeTab === 'general'" @close="onClose" />
       <PresetsTab v-else-if="activeTab === 'presets'" @close="onClose" />
+      <LibraryTab v-else-if="activeTab === 'library'" @close="onClose" @dirty="libraryDirty = $event" />
       <TasksTab v-else @close="onClose" />
     </div>
   </div>

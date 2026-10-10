@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"mediagrid/internal/library"
 	"mediagrid/internal/model"
 	"mediagrid/internal/scan"
 )
@@ -21,12 +22,18 @@ func (m *Manager) NewScanTask(clean bool) *Task {
 
 	t := &Task{ID: newTaskID(), Type: typ, Name: name}
 	t.run = func(ctx context.Context, t *Task) {
+		ls, err := m.deps.Store.GetLibrarySettings()
+		if err != nil {
+			log.Printf("scan task: loading library settings: %v", err)
+			return
+		}
+		lib := library.New(ls)
 		if clean {
-			if err := scan.Clean(m.deps.Store, m.deps.MediaRoot, m.deps.PreviewRoot); err != nil {
+			if err := scan.Clean(m.deps.Store, m.deps.MediaRoot, m.deps.PreviewRoot, lib); err != nil {
 				log.Printf("scan task: clean failed: %v", err)
 			}
 		}
-		if err := scan.Run(ctx, m.deps.Store, m.deps.MediaRoot, func(processed, total int) {
+		if err := scan.Run(ctx, m.deps.Store, m.deps.MediaRoot, lib, func(processed, total int) {
 			m.SetProgress(t, processed, total)
 		}); err != nil {
 			log.Printf("scan task: scan failed: %v", err)

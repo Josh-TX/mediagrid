@@ -1,6 +1,13 @@
 package scan
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"mediagrid/internal/library"
+	"mediagrid/internal/model"
+)
 
 func TestParseProbeOutput_Image(t *testing.T) {
 	json := `{
@@ -93,5 +100,31 @@ func TestParseProbeOutput_NoVideoStreamErrors(t *testing.T) {
 	json := `{"streams": [{"codec_type": "audio"}], "format": {}}`
 	if _, _, _, err := parseProbeOutput([]byte(json), false); err == nil {
 		t.Fatal("expected an error when no video/image stream is present")
+	}
+}
+
+func TestWalkCandidates_RespectsLibraryFilter(t *testing.T) {
+	root := t.TempDir()
+	for _, f := range []string{"keep/a.jpg", "keep/tmp/b.jpg", "skip/c.jpg", "keepsake.jpg"} {
+		p := filepath.Join(root, f)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var got []string
+	lib := library.New(model.LibrarySettings{WhitelistCSV: "keep/", BlacklistCSV: "keep/tmp"})
+	err := walkCandidates(nil, root, lib, func(rel string, isVid bool) error {
+		got = append(got, filepath.ToSlash(rel))
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+	if len(got) != 1 || got[0] != "keep/a.jpg" {
+		t.Fatalf("got %v, want [keep/a.jpg]", got)
 	}
 }
