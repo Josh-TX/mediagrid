@@ -382,18 +382,18 @@ function onTouchEnd(e: TouchEvent) {
 
     <div class="bottom-hud" :style="contrastOpacityStyle">
       <div class="swap-fade" :class="{ 'swap-hidden': !hudFadeVisible }" :style="{ transitionDuration: SWAP_MID_MS + 'ms' }">
+        <div v-if="tile.isVid" class="seek-bar">
+          <div class="seek-fill" :style="{ width: seekPct + '%' }" />
+        </div>
         <div class="title-time-row">
           <div class="title-col">
-            <div v-if="title.top" class="title-parent">{{ title.top }}</div>
             <div class="title">{{ title.bottom }}</div>
+            <div v-if="title.top" class="title-parent">{{ title.top }}</div>
           </div>
           <div v-if="tile.isVid" class="time-remaining">{{ timeRemainingText }}</div>
           <span class="menu-icon-hit" @click.stop="onMenuIconClick">
             <span class="menu-icon">&#8942;</span>
           </span>
-        </div>
-        <div v-if="tile.isVid" class="seek-bar">
-          <div class="seek-fill" :style="{ width: seekPct + '%' }" />
         </div>
       </div>
     </div>
@@ -478,8 +478,8 @@ function onTouchEnd(e: TouchEvent) {
 .tap-overlay {
   position: absolute;
   top: 0;
-  bottom: 64px;
-  background: #000;
+  bottom: 86px;
+  background: #0a0a0a;
   animation-name: tapOverlayFade;
   animation-timing-function: ease-out;
   animation-fill-mode: forwards;
@@ -508,7 +508,7 @@ function onTouchEnd(e: TouchEvent) {
 .tap-text {
   position: absolute;
   top: 0;
-  bottom: 64px;
+  bottom: 86px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -616,16 +616,23 @@ function onTouchEnd(e: TouchEvent) {
   align-items: flex-end;
   justify-content: space-between;
   padding: 0 12px 0 20px;
-  margin-bottom: 11px;
+  margin-top: 7px;
+  margin-bottom: 14px;
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   gap: 6px;
 }
 .title-col {
+  position: relative;
   flex: 1;
   min-width: 0;
 }
 .title-parent {
+  position: absolute;
+  top: calc(100% - 1px);
+  line-height: 1;
+  left: 0;
+  right: 0;
   font-size: 10px;
   overflow: hidden;
   text-overflow: ellipsis;

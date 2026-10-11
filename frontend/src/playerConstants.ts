@@ -36,14 +36,14 @@ export const CONTRAST_HIGH_HOLD_MS = 2000 // how long high-contrast holds after 
 export const CONTRAST_FADE_MS = 1000 // fade-to-low duration
 
 // --- Layout ---
-export const SEEK_BAND_HEIGHT = 64 // px, bottom band shared by seek + direction disambiguation
+export const SEEK_BAND_HEIGHT = 86 // px, bottom band shared by seek + direction disambiguation
 export const HUD_SIDE_PADDING = 20 // px, title-time row + seek bar side padding
 export const TITLE_ROW_OFFSET = 11 // px, title-time row sits this far above the seek bar
 export const REWIND_ZONE_RATIO = 0.25 // left fraction of HUD (excluding seek band)
 export const FORWARD_ZONE_RATIO = 0.25 // right fraction of HUD (excluding seek band)
 
 // --- Rewind/forward/pause-play tap feedback ---
-export const TAP_OVERLAY_OPACITY = 0.2
+export const TAP_OVERLAY_OPACITY = 0.4
 export const TAP_OVERLAY_FADE_MS = 150
 export const TAP_TEXT_FADE_MS = 500
 export const TAP_ACCUMULATE_WINDOW_MS = 500 // taps within this window accumulate instead of resetting
