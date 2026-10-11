@@ -74,7 +74,6 @@ async function onSave() {
 <template>
   <section class="body">
     <div class="section">
-      <h3>Roots (set at launch)</h3>
       <div class="field">
         <span class="label">Media root</span>
         <code class="path">{{ mediaRoot }}</code>

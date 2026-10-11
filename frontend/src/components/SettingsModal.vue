@@ -96,7 +96,7 @@ function onClose() {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -112,6 +112,7 @@ function onClose() {
   flex-direction: column;
   border-radius: 6px;
   overflow: hidden;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
 }
 
 .tabbar {
