@@ -6,7 +6,7 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   plugins: [vue()],
   build: {
-    outDir: '../backend/web/dist',
+    outDir: '../backend/internal/webui/dist',
     emptyOutDir: true,
   },
   server: {

@@ -9,8 +9,8 @@
       "program": "${workspaceFolder}/backend",
       "cwd": "${workspaceFolder}/backend",
       "env": {
-        "MEDIA_ROOT": "${workspaceFolder}/backend/media",
-        "DATA_ROOT": "${workspaceFolder}/backend/data"
+        "MEDIAGRID_MEDIA": "${workspaceFolder}/backend/media",
+        "MEDIAGRID_DATA": "${workspaceFolder}/backend/data"
       }
     },
     {

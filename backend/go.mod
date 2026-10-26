@@ -3,6 +3,7 @@ module mediagrid
 go 1.26.4
 
 require (
+	github.com/alecthomas/kong v1.16.1
 	github.com/google/uuid v1.6.0
 	modernc.org/sqlite v1.53.0
 )
