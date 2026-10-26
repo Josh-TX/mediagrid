@@ -67,6 +67,7 @@ describe('FileInfoModal close interactions', () => {
     expect(wrapper.emitted('close')).toHaveLength(1)
 
     const wrapper2 = mountModal(makeTile())
+    await wrapper2.find('.overlay').trigger('pointerdown')
     await wrapper2.find('.overlay').trigger('click')
     expect(wrapper2.emitted('close')).toHaveLength(1)
 
@@ -77,6 +78,16 @@ describe('FileInfoModal close interactions', () => {
     wrapper.unmount()
     wrapper2.unmount()
     wrapper3.unmount()
+  })
+})
+
+describe('FileInfoModal backdrop', () => {
+  it('does not close when the press started inside the modal and was released over the overlay', async () => {
+    const wrapper = mountModal(makeTile())
+    await wrapper.find('.modal').trigger('pointerdown') // started inside the modal
+    await wrapper.find('.overlay').trigger('click') // released over the overlay
+    expect(wrapper.emitted('close')).toBeUndefined()
+    wrapper.unmount()
   })
 })
 

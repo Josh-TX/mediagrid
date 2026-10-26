@@ -40,6 +40,8 @@ func (s *Server) routes(staticHandler http.Handler) {
 	s.mux.HandleFunc("GET /media/{path...}", s.handleMedia)
 	s.mux.HandleFunc("DELETE /api/delete/{path...}", s.handleDeleteMedia)
 	s.mux.HandleFunc("PUT /api/rename/{path...}", s.handleRenameMedia)
+	s.mux.HandleFunc("PUT /api/move/{path...}", s.handleMoveMedia)
+	s.mux.HandleFunc("GET /api/ls", s.handleLs)
 	s.mux.HandleFunc("GET /thumbnail/{path...}", s.handleThumbnail)
 	s.mux.HandleFunc("GET /highlight/{path...}", s.handleHighlight)
 	s.mux.HandleFunc("GET /api/scan", s.handleScan)

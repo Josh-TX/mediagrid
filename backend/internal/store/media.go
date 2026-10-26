@@ -35,6 +35,24 @@ func (s *Store) UpdateMediaPath(oldPath, newPath string) error {
 	return err
 }
 
+// GetMediaByPath loads the media row at path; ok is false if there is none.
+func (s *Store) GetMediaByPath(path string) (m model.Media, ok bool, err error) {
+	var duration sql.NullInt64
+	var isvid int
+	err = s.DB.QueryRow(
+		`SELECT id, path, width, height, filesize, mdate, duration, isvid FROM media WHERE path = ?`, path,
+	).Scan(&m.Id, &m.Path, &m.Width, &m.Height, &m.Filesize, &m.Mdate, &duration, &isvid)
+	if err == sql.ErrNoRows {
+		return model.Media{}, false, nil
+	}
+	if err != nil {
+		return model.Media{}, false, err
+	}
+	m.Duration = int(duration.Int64)
+	m.IsVid = isvid != 0
+	return m, true, nil
+}
+
 func (s *Store) InsertMedia(m model.Media) error {
 	isvid := 0
 	if m.IsVid {
