@@ -20,6 +20,16 @@ export async function renameMedia(path: string, newName: string): Promise<void> 
   if (!res.ok) throw new Error(await errorMessage(res, `PUT ${url}`))
 }
 
+// Carries the HTTP status so callers can tell a name conflict (409) apart
+// from other failures.
+export class HttpError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 async function errorMessage(res: Response, context: string): Promise<string> {
   const text = (await res.text().catch(() => '')).trim()
   return text || `${context} failed: ${res.status}`
@@ -59,6 +69,6 @@ export async function moveMedia(path: string, destDir: string, newName: string, 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ destDir, newName, overwrite, copy }),
   })
-  if (!res.ok) throw new Error(await errorMessage(res, `PUT ${url}`))
+  if (!res.ok) throw new HttpError(await errorMessage(res, `PUT ${url}`), res.status)
   return res.json()
 }

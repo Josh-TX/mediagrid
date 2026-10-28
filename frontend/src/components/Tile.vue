@@ -11,8 +11,7 @@ import { urlStore } from '../stores/urlStore'
 import { presetsStore } from '../stores/presetsStore'
 import { videoLoadQueue } from '../stores/videoLoadQueue'
 import { tileInteractionStore } from '../stores/tileInteractionStore'
-import TileContextMenu from './TileContextMenu.vue'
-import FileInfoModal from './FileInfoModal.vue'
+import { selectionStore } from '../stores/selectionStore'
 
 const props = defineProps<{
   tile: Tile
@@ -86,11 +85,11 @@ const source = computed(() =>
 // "load the original image" when it isn't — only isVid disambiguates it.
 const isVideoPlaying = computed(() => source.value === 'highlight' || (source.value === 'original' && props.tile.isVid))
 
-// Incremented to force a fresh network request after a successful in-app
+// Bumped (via selectionStore) to force a fresh network request after a successful in-app
 // delete, bypassing the browser cache — otherwise the tile would keep
 // showing its already-loaded preview instead of flipping to the "failed to
 // load" state, which would be misleading about whether the delete worked.
-const cacheBust = ref(0)
+const cacheBust = computed(() => selectionStore.state.bust[props.tile.tilei] ?? 0)
 function withCacheBust(url: string): string {
   return cacheBust.value ? `${url}${url.includes('?') ? '&' : '?'}_=${cacheBust.value}` : url
 }
@@ -183,8 +182,21 @@ const title = computed(() => titleParts(props.tile.path, props.titleMode, props.
 
 const durationText = computed(() => formatClock(props.tile.duration))
 
+const selected = computed(() => selectionStore.isSelected(props.tile.tilei))
+const selecting = computed(() => selectionStore.isActive())
+
+// Set when a long-press just entered multi-select, so the click that
+// follows the finger lifting doesn't immediately toggle the tile back off.
+let suppressClick = false
+let suppressTimer: ReturnType<typeof setTimeout> | undefined
+
 function onClick() {
-  urlStore.openTile(props.tile.tilei)
+  if (suppressClick) {
+    suppressClick = false
+    return
+  }
+  if (selecting.value) selectionStore.toggle(props.tile)
+  else urlStore.openTile(props.tile.tilei)
 }
 
 function onHoverStart() {
@@ -195,37 +207,63 @@ function onHoverEnd() {
   tileInteractionStore.end(props.tile.tilei)
 }
 
-const menuOpen = ref(false)
-const menuPos = ref({ x: 0, y: 0 })
+function suppressNextClick() {
+  suppressClick = true
+  clearTimeout(suppressTimer)
+  suppressTimer = setTimeout(() => (suppressClick = false), 600)
+}
 
+// Right-click, and the native contextmenu event on Android long-press:
+// enters multi-select, or toggles the tile if already selecting.
 function onContextMenu(e: MouseEvent) {
   e.preventDefault()
-  menuPos.value = { x: e.clientX, y: e.clientY }
-  menuOpen.value = true
+  if (selecting.value) selectionStore.toggle(props.tile)
+  else selectionStore.enter(props.tile)
+  // A touch long-press is followed by a click on release; a mouse right-click isn't.
+  if ((e as PointerEvent).pointerType !== 'mouse') suppressNextClick()
 }
 
-function onMenuOpen() {
-  menuOpen.value = false
-  onClick()
+// iOS Safari never fires contextmenu on long-press, so also time it manually.
+const LONG_PRESS_MS = 500
+let pressTimer: ReturnType<typeof setTimeout> | undefined
+
+function cancelPress() {
+  clearTimeout(pressTimer)
 }
 
-const infoOpen = ref(false)
-
-function onMenuInfo() {
-  menuOpen.value = false
-  infoOpen.value = true
+function onTouchStart() {
+  onHoverStart()
+  cancelPress()
+  if (selecting.value) return
+  pressTimer = setTimeout(() => {
+    selectionStore.enter(props.tile)
+    suppressNextClick()
+  }, LONG_PRESS_MS)
 }
+
+function onTouchEnd() {
+  onHoverEnd()
+  cancelPress()
+}
+
+onUnmounted(() => {
+  cancelPress()
+  clearTimeout(suppressTimer)
+})
 </script>
 
 <template>
   <div
     class="tile"
+    :class="{ selected }"
     :style="{ width: tile.w + 'px', height: rowH + 'px' }"
     @click="onClick"
     @mouseenter="onHoverStart"
     @mouseleave="onHoverEnd"
-    @touchstart.passive="onHoverStart"
-    @touchend.passive="onHoverEnd"
+    @touchstart.passive="onTouchStart"
+    @touchmove.passive="cancelPress"
+    @touchcancel.passive="onTouchEnd"
+    @touchend.passive="onTouchEnd"
     @contextmenu="onContextMenu"
   >
     <template v-if="!playerStore.state.previewsHidden">
@@ -268,25 +306,12 @@ function onMenuInfo() {
       </div>
     </template>
 
-    <TileContextMenu
-      v-if="menuOpen"
-      :x="menuPos.x"
-      :y="menuPos.y"
-      @click.stop
-      @contextmenu.stop
-      @open="onMenuOpen"
-      @info="onMenuInfo"
-      @close="menuOpen = false"
-    />
-
-    <FileInfoModal
-      v-if="infoOpen"
-      :tile="tile"
-      @click.stop
-      @contextmenu.stop
-      @close="infoOpen = false"
-      @deleted="cacheBust++"
-    />
+    <template v-if="selecting">
+      <div v-if="selected" class="select-border" />
+      <div class="select-check" :class="{ on: selected }">
+        <svg v-if="selected" viewBox="0 0 16 16" width="17" height="17"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -296,6 +321,41 @@ function onMenuInfo() {
   overflow: hidden;
   background: #000;
   cursor: pointer;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.select-border {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 5px solid #2d7cff;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.select-check {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.select-check.on {
+  border: none;
+  background: #2d7cff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
 .tile img,

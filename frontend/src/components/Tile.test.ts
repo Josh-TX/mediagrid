@@ -3,12 +3,7 @@ import { mount } from '@vue/test-utils'
 import Tile from './Tile.vue'
 import type { Tile as TileType } from '../types'
 import { urlStore } from '../stores/urlStore'
-import * as mediaApi from '../api/media'
-
-vi.mock('../api/media', () => ({
-  deleteMedia: vi.fn(),
-  renameMedia: vi.fn(),
-}))
+import { selectionStore } from '../stores/selectionStore'
 
 function makeTile(overrides: Partial<TileType> = {}): TileType {
   return {
@@ -32,74 +27,83 @@ function mountTile(tile: TileType) {
 
 beforeEach(() => {
   vi.restoreAllMocks()
-  vi.mocked(mediaApi.deleteMedia).mockReset()
-  vi.mocked(mediaApi.renameMedia).mockReset()
 })
 
-describe('Tile context menu', () => {
-  it('opens on contextmenu (native event also fired by mobile long-press) and closes on outside click', async () => {
-    const wrapper = mountTile(makeTile())
-    await wrapper.find('.tile').trigger('contextmenu')
-    expect(wrapper.findAll('button').map((b) => b.text())).toEqual(['Open', 'Info'])
+describe('Tile multi-select', () => {
+  beforeEach(() => selectionStore.clear())
 
-    await wrapper.find('.backdrop').trigger('click')
-    expect(wrapper.findAll('button').length).toBe(0)
+  it('contextmenu enters multi-select with the tile selected (no menu), and the following click does not toggle it off', async () => {
+    const openSpy = vi.spyOn(urlStore, 'openTile').mockImplementation(() => {})
+    const wrapper = mountTile(makeTile({ tilei: 3 }))
+    await wrapper.find('.tile').trigger('contextmenu')
+    expect(selectionStore.isSelected(3)).toBe(true)
+    expect(wrapper.find('.select-border').exists()).toBe(true)
+    expect(wrapper.find('.select-check.on').exists()).toBe(true)
+
+    await wrapper.find('.tile').trigger('click')
+    expect(selectionStore.isSelected(3)).toBe(true)
+    expect(openSpy).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
-  it('Open triggers the same navigation as tapping the tile', async () => {
+  it('right-clicking while selecting toggles the tile', async () => {
+    selectionStore.enter(makeTile({ tilei: 1 }))
+    const wrapper = mountTile(makeTile({ tilei: 2 }))
+    await wrapper.find('.tile').trigger('contextmenu')
+    expect(selectionStore.isSelected(2)).toBe(true)
+    await wrapper.find('.tile').trigger('contextmenu')
+    expect(selectionStore.isSelected(2)).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('clicking while selecting toggles the tile instead of opening the player; deselecting the last exits', async () => {
+    const openSpy = vi.spyOn(urlStore, 'openTile').mockImplementation(() => {})
+    selectionStore.enter(makeTile({ tilei: 1 }))
+    const wrapper = mountTile(makeTile({ tilei: 2 }))
+    await wrapper.find('.tile').trigger('click')
+    expect(selectionStore.isSelected(2)).toBe(true)
+    await wrapper.find('.tile').trigger('click')
+    expect(selectionStore.isSelected(2)).toBe(false)
+    expect(openSpy).not.toHaveBeenCalled()
+
+    selectionStore.toggle(makeTile({ tilei: 1 }))
+    expect(selectionStore.isActive()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('clicking when not selecting opens the player', async () => {
     const openSpy = vi.spyOn(urlStore, 'openTile').mockImplementation(() => {})
     const wrapper = mountTile(makeTile({ tilei: 7 }))
-    await wrapper.find('.tile').trigger('contextmenu')
-    await wrapper.findAll('button')[0].trigger('click')
+    await wrapper.find('.tile').trigger('click')
     expect(openSpy).toHaveBeenCalledWith(7)
     wrapper.unmount()
   })
 
-  it('Info opens the File Info modal for this tile, replacing the old menu', async () => {
-    const wrapper = mountTile(makeTile({ path: 'sub/clip.mp4' }))
-    await wrapper.find('.tile').trigger('contextmenu')
-    await wrapper.findAll('button')[1].trigger('click')
-
-    expect(wrapper.findAll('.backdrop').length).toBe(0) // context menu closed
-    expect(wrapper.text()).toContain('sub/clip.mp4')
+  it('a long touch press enters multi-select', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountTile(makeTile({ tilei: 4 }))
+    await wrapper.find('.tile').trigger('touchstart')
+    vi.advanceTimersByTime(600)
+    expect(selectionStore.isSelected(4)).toBe(true)
+    vi.useRealTimers()
     wrapper.unmount()
   })
 
-  // Regression check: a right-click landing on the modal (e.g. to use the
-  // browser's native "open link"/"copy link" on the raw-file link) shouldn't
-  // bubble up to the tile's own contextmenu handler and reopen this menu on
-  // top of the modal.
-  it('right-clicking inside the open File Info modal does not reopen the context menu', async () => {
-    const wrapper = mountTile(makeTile({ path: 'sub/clip.mp4' }))
-    await wrapper.find('.tile').trigger('contextmenu')
-    await wrapper.findAll('button')[1].trigger('click') // Info
-
-    await wrapper.find('.overlay').trigger('contextmenu')
-    expect(wrapper.findAll('.backdrop').length).toBe(0)
-    expect(wrapper.find('.overlay').exists()).toBe(true)
+  it('a short touch (or a move) does not enter multi-select', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountTile(makeTile({ tilei: 4 }))
+    await wrapper.find('.tile').trigger('touchstart')
+    await wrapper.find('.tile').trigger('touchmove')
+    vi.advanceTimersByTime(600)
+    expect(selectionStore.isActive()).toBe(false)
+    vi.useRealTimers()
     wrapper.unmount()
   })
-})
 
-describe('Tile + File Info modal delete', () => {
-  // Regression check for the wiring between the shared modal and this tile's
-  // own cache-bust mechanism: a successful delete from the modal must still
-  // force the tile's preview to re-fetch (bypassing cache) so the
-  // "failed to load" state kicks in immediately, same as before this modal existed.
-  it('bumps the cache-bust src param after a successful delete via the modal', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
-    vi.mocked(mediaApi.deleteMedia).mockResolvedValueOnce(undefined)
-
-    const wrapper = mountTile(makeTile({ isVid: false, path: 'sub/clip.jpg' }))
-    await wrapper.find('.tile').trigger('contextmenu')
-    await wrapper.findAll('button')[1].trigger('click') // Info
-
-    const deleteBtn = wrapper.findAll('button').find((b) => b.text() === 'Delete')!
-    await deleteBtn.trigger('click')
-    await vi.waitFor(() => expect(mediaApi.deleteMedia).toHaveBeenCalled())
+  it('bumps the cache-bust src param after a bulk delete', async () => {
+    const wrapper = mountTile(makeTile({ tilei: 5, isVid: false, path: 'sub/clip.jpg' }))
+    selectionStore.bustTile(5)
     await wrapper.vm.$nextTick()
-
     expect(wrapper.find('img').attributes('src')).toContain('_=1')
     wrapper.unmount()
   })

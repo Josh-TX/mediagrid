@@ -4,7 +4,9 @@ import Toolbar from './components/Toolbar.vue'
 import Gallery from './components/Gallery.vue'
 import SettingsModal from './components/SettingsModal.vue'
 import Player from './components/Player.vue'
+import SelectionBar from './components/SelectionBar.vue'
 import Toast from './components/Toast.vue'
+import { selectionStore } from './stores/selectionStore'
 import { galleryStore } from './stores/galleryStore'
 import { playerStore } from './stores/playerStore'
 import { urlStore } from './stores/urlStore'
@@ -32,6 +34,7 @@ onMounted(async () => {
   <div class="app">
     <template v-if="ready">
       <Gallery />
+      <SelectionBar v-if="selectionStore.isActive() && !playerStore.state.open" />
       <Toolbar @refetch="urlStore.refetchGallery" @reshuffle="urlStore.reshuffle" @open-settings="openSettings" />
 
       <div v-if="galleryStore.state.loading && !playerStore.state.open" class="status">Loading...</div>
