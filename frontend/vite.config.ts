@@ -15,6 +15,7 @@ export default defineConfig({
       '/media': 'http://localhost:8080',
       '/thumbnail': 'http://localhost:8080',
       '/highlight': 'http://localhost:8080',
+      '/sprite': 'http://localhost:8080',
     },
   },
   test: {

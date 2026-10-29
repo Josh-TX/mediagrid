@@ -39,3 +39,30 @@ func HighlightSegmentStart(mediaDuration float64, n, i int, segmentDuration floa
 	}
 	return start
 }
+
+// CalcSpriteRows returns the number of sprite rows for a video: one per
+// minSecondsPerRow of duration, clamped to [1, maxRows]. ok is false when the
+// duration is unknown (<= 0).
+func CalcSpriteRows(videoDuration float64, maxRows int, minSecondsPerRow float64) (rows int, ok bool) {
+	if videoDuration <= 0 || maxRows < 1 {
+		return 0, false
+	}
+	rows = 1
+	if minSecondsPerRow > 0 {
+		rows = int(videoDuration / minSecondsPerRow)
+	}
+	if rows < 1 {
+		rows = 1
+	}
+	if rows > maxRows {
+		rows = maxRows
+	}
+	return rows, true
+}
+
+// SpriteFrameTime returns the timestamp of frame i out of n: the video is
+// split into n+1 equal sections and frames sit on the n boundaries between
+// them (so none at t=0 or the very end).
+func SpriteFrameTime(mediaDuration float64, n, i int) float64 {
+	return mediaDuration * float64(i+1) / float64(n+1)
+}

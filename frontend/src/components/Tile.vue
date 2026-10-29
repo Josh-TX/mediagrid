@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
-import type { Tile, TitleMode } from '../types'
+import type { Tile, TitleMode, VideoTier } from '../types'
 import type { TileSource } from '../tilePlayback'
-import { mediaUrl, thumbnailUrl, highlightUrl } from '../api/shuffle'
+import { mediaUrl, thumbnailUrl, highlightUrl, spriteUrl } from '../api/shuffle'
 import { formatClock } from '../format'
 import { titleParts } from '../pathUtils'
 import { resolveTileSource } from '../tilePlayback'
@@ -19,8 +19,9 @@ const props = defineProps<{
   rowH: number
   cropX: number
   cropY: number
-  tilePreviewAlways: boolean
-  fallbackToOriginal: boolean
+  videoTileInitial: VideoTier
+  videoTileInteract: VideoTier
+  spriteFps: number
   titleMode: TitleMode
   titleExt: boolean
 }>()
@@ -75,15 +76,47 @@ const source = computed(() =>
     isVid: props.tile.isVid,
     hasThumbnail: props.tile.preview.hasThumbnail,
     hasHighlight: props.tile.preview.hasHighlight,
-    tilePreviewAlways: props.tilePreviewAlways,
-    fallbackToOriginal: props.fallbackToOriginal,
+    hasSprite: !!props.tile.preview.sprite,
+    videoTileInitial: props.videoTileInitial,
+    videoTileInteract: props.videoTileInteract,
     hovering: hovering.value,
   }),
 )
 
-// 'original' means "play the original video" when the tile is a video, or
-// "load the original image" when it isn't — only isVid disambiguates it.
-const isVideoPlaying = computed(() => source.value === 'highlight' || (source.value === 'original' && props.tile.isVid))
+const isVideoPlaying = computed(() => source.value === 'highlight')
+
+// Sprite playback: steps through the sheet's cells at spriteFps, row-major.
+const spriteGrid = computed(() => props.tile.preview.sprite ?? { rows: 1, cols: 1 })
+const spriteFrame = ref(0)
+let spriteTimer: ReturnType<typeof setInterval> | undefined
+function stopSpriteTimer() {
+  clearInterval(spriteTimer)
+  spriteTimer = undefined
+}
+watch(
+  [source, () => props.spriteFps],
+  () => {
+    stopSpriteTimer()
+    if (source.value !== 'sprite') return
+    spriteFrame.value = 0
+    const frames = spriteGrid.value.rows * spriteGrid.value.cols
+    spriteTimer = setInterval(() => {
+      spriteFrame.value = (spriteFrame.value + 1) % frames
+    }, 1000 / Math.max(props.spriteFps, 0.1))
+  },
+  { immediate: true },
+)
+const spriteImgStyle = computed(() => {
+  const { rows, cols } = spriteGrid.value
+  const col = spriteFrame.value % cols
+  const row = Math.floor(spriteFrame.value / cols)
+  return {
+    width: `${cols * 100}%`,
+    height: `${rows * 100}%`,
+    left: `${-col * 100}%`,
+    top: `${-row * 100}%`,
+  }
+})
 
 // Bumped (via selectionStore) to force a fresh network request after a successful in-app
 // delete, bypassing the browser cache — otherwise the tile would keep
@@ -94,7 +127,8 @@ function withCacheBust(url: string): string {
   return cacheBust.value ? `${url}${url.includes('?') ? '&' : '?'}_=${cacheBust.value}` : url
 }
 
-const videoSrc = computed(() => withCacheBust(source.value === 'highlight' ? highlightUrl(props.tile.path) : mediaUrl(props.tile.path)))
+const videoSrc = computed(() => withCacheBust(highlightUrl(props.tile.path)))
+const spriteSrc = computed(() => withCacheBust(spriteUrl(props.tile.path)))
 const imgSrc = computed(() => withCacheBust(source.value === 'thumbnail' ? thumbnailUrl(props.tile.path) : mediaUrl(props.tile.path)))
 // Base layer shown behind a playing video, so the thumbnail stays visible
 // (instead of a black gap) until the video has an actual frame to paint.
@@ -117,7 +151,7 @@ watch(isVideoPlaying, (active) => {
 // fallback chain after a failure, just this message in place of the preview.
 const loadFailed = ref(false)
 const failedSource = ref<TileSource | null>(null)
-const currentSrc = computed(() => (isVideoPlaying.value ? videoSrc.value : imgSrc.value))
+const currentSrc = computed(() => (isVideoPlaying.value ? videoSrc.value : source.value === 'sprite' ? spriteSrc.value : imgSrc.value))
 watch(currentSrc, () => {
   loadFailed.value = false
 })
@@ -167,6 +201,7 @@ watch(
 )
 
 onUnmounted(() => {
+  stopSpriteTimer()
   queueMarkSettled()
   tileInteractionStore.end(props.tile.tilei)
 })
@@ -174,7 +209,8 @@ onUnmounted(() => {
 const failedMessage = computed(() => {
   if (failedSource.value === 'thumbnail') return 'failed to load thumbnail'
   if (failedSource.value === 'highlight') return 'failed to load highlight'
-  if (failedSource.value === 'original') return props.tile.isVid ? 'failed to load video' : 'failed to load image'
+  if (failedSource.value === 'sprite') return 'failed to load sprite'
+  if (failedSource.value === 'original') return 'failed to load image'
   return ''
 })
 
@@ -289,6 +325,9 @@ onUnmounted(() => {
             @loadeddata="onVideoLoaded"
           />
         </template>
+        <div v-else-if="source === 'sprite'" class="sprite" :style="mediaStyle">
+          <img :src="spriteSrc" :style="spriteImgStyle" :alt="tile.path" @error="onMediaError" />
+        </div>
         <img
           v-else-if="source !== 'placeholder'"
           :src="imgSrc"
@@ -363,6 +402,15 @@ onUnmounted(() => {
 .tile .placeholder {
   position: absolute;
   object-fit: fill;
+}
+
+.tile .sprite {
+  position: absolute;
+  overflow: hidden;
+}
+
+.tile .sprite img {
+  position: absolute;
 }
 
 .tile video {

@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import type { Row, TitleMode } from '../types'
+import type { Row, TitleMode, VideoTier } from '../types'
 import Tile from './Tile.vue'
 
 defineProps<{
   row: Row
   cropX: number
   cropY: number
-  tilePreviewAlways: boolean
-  fallbackToOriginal: boolean
+  videoTileInitial: VideoTier
+  videoTileInteract: VideoTier
+  spriteFps: number
   titleMode: TitleMode
   titleExt: boolean
 }>()
@@ -23,8 +24,9 @@ defineProps<{
       :row-h="row.h"
       :crop-x="cropX"
       :crop-y="cropY"
-      :tile-preview-always="tilePreviewAlways"
-      :fallback-to-original="fallbackToOriginal"
+      :video-tile-initial="videoTileInitial"
+      :video-tile-interact="videoTileInteract"
+      :sprite-fps="spriteFps"
       :title-mode="titleMode"
       :title-ext="titleExt"
     />

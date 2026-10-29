@@ -234,8 +234,9 @@ defineExpose({ handleScroll })
           :row="item.row"
           :crop-x="generalSettingsStore.state.activeGeneral.tileCropX"
           :crop-y="generalSettingsStore.state.activeGeneral.tileCropY"
-          :tile-preview-always="generalSettingsStore.state.activeGeneral.tilePreviewAlways"
-          :fallback-to-original="generalSettingsStore.state.activeGeneral.fallbackToOriginal"
+          :video-tile-initial="generalSettingsStore.state.activeGeneral.videoTileInitial"
+          :video-tile-interact="generalSettingsStore.state.activeGeneral.videoTileInteract"
+          :sprite-fps="generalSettingsStore.state.activeGeneral.spriteFps"
           :title-mode="generalSettingsStore.state.activeGeneral.galleryTitleMode"
           :title-ext="generalSettingsStore.state.activeGeneral.galleryTitleExt"
         />

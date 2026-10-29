@@ -36,6 +36,7 @@ func (s *Server) handleDeleteMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	os.Remove(preview.ThumbnailPath(s.previewRoot, relPath))
 	os.Remove(preview.HighlightPath(s.previewRoot, relPath))
+	preview.RemoveSprites(s.previewRoot, relPath, "")
 
 	if err := s.store.DeleteMedia(relPath); err != nil {
 		http.Error(w, "failed to delete media row", http.StatusInternalServerError)

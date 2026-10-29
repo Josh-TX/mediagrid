@@ -1,121 +1,66 @@
 import { describe, it, expect } from 'vitest'
 import { resolveTileSource, type TilePlaybackInput } from './tilePlayback'
 
-function input(overrides: Partial<TilePlaybackInput>): TilePlaybackInput {
+function input(overrides: Partial<TilePlaybackInput> = {}): TilePlaybackInput {
   return {
     isVid: true,
     hasThumbnail: false,
+    hasSprite: false,
     hasHighlight: false,
-    tilePreviewAlways: false,
-    fallbackToOriginal: true,
+    videoTileInitial: 'thumbnail',
+    videoTileInteract: 'highlight',
     hovering: false,
     ...overrides,
   }
 }
 
 describe('resolveTileSource: images', () => {
-  it('loads the thumbnail when one exists', () => {
+  it('uses the thumbnail when available', () => {
     expect(resolveTileSource(input({ isVid: false, hasThumbnail: true }))).toBe('thumbnail')
   })
 
-  it('falls back to the original when no thumbnail exists', () => {
+  it('falls back to the original with no thumbnail', () => {
     expect(resolveTileSource(input({ isVid: false, hasThumbnail: false }))).toBe('original')
   })
 
-  it('ignores hasHighlight/tilePreviewAlways entirely for images', () => {
+  it('ignores sprite/highlight and the tier settings entirely', () => {
     expect(
-      resolveTileSource(input({ isVid: false, hasThumbnail: true, hasHighlight: true, tilePreviewAlways: true })),
+      resolveTileSource(
+        input({ isVid: false, hasThumbnail: true, hasSprite: true, hasHighlight: true, videoTileInitial: 'highlight' }),
+      ),
     ).toBe('thumbnail')
   })
 })
 
-describe('resolveTileSource: videos, idle (not hovering, tilePreviewAlways off)', () => {
-  it('shows the thumbnail when available', () => {
-    expect(resolveTileSource(input({ tilePreviewAlways: false, hasThumbnail: true, hasHighlight: true }))).toBe(
-      'thumbnail',
-    )
+describe('resolveTileSource: videos', () => {
+  const all = { hasThumbnail: true, hasSprite: true, hasHighlight: true }
+
+  it('at rest uses the Initial tier', () => {
+    expect(resolveTileSource(input({ ...all, videoTileInitial: 'thumbnail' }))).toBe('thumbnail')
+    expect(resolveTileSource(input({ ...all, videoTileInitial: 'sprite' }))).toBe('sprite')
+    expect(resolveTileSource(input({ ...all, videoTileInitial: 'highlight' }))).toBe('highlight')
   })
 
-  it('shows a placeholder with no thumbnail, even with a highlight available', () => {
-    expect(resolveTileSource(input({ tilePreviewAlways: false, hasThumbnail: false, hasHighlight: true }))).toBe(
+  it('while hovering uses the Interact tier', () => {
+    expect(resolveTileSource(input({ ...all, hovering: true, videoTileInteract: 'sprite' }))).toBe('sprite')
+    expect(resolveTileSource(input({ ...all, hovering: true, videoTileInteract: 'highlight' }))).toBe('highlight')
+  })
+
+  it('falls back to the next lower tier when the max tier is unavailable', () => {
+    expect(resolveTileSource(input({ hasThumbnail: true, hasSprite: true, hovering: true }))).toBe('sprite')
+    expect(resolveTileSource(input({ hasThumbnail: true, hovering: true }))).toBe('thumbnail')
+    expect(resolveTileSource(input({ hasThumbnail: true, videoTileInitial: 'sprite' }))).toBe('thumbnail')
+  })
+
+  it('never goes above the max tier', () => {
+    expect(resolveTileSource(input({ ...all, videoTileInitial: 'thumbnail' }))).toBe('thumbnail')
+    expect(resolveTileSource(input({ ...all, hovering: true, videoTileInteract: 'sprite' }))).toBe('sprite')
+  })
+
+  it('shows a placeholder when no tier at or below the max is available', () => {
+    expect(resolveTileSource(input({ hasHighlight: true }))).toBe('placeholder')
+    expect(resolveTileSource(input({ hasHighlight: true, hovering: true, videoTileInteract: 'sprite' }))).toBe(
       'placeholder',
     )
-  })
-})
-
-describe('resolveTileSource: videos, "On Interaction" (tilePreviewAlways off, hover-driven)', () => {
-  it('idle (not hovering) behaves like the idle case: thumbnail or placeholder, never plays', () => {
-    expect(
-      resolveTileSource(input({ tilePreviewAlways: false, hovering: false, hasThumbnail: true, hasHighlight: true })),
-    ).toBe('thumbnail')
-    expect(
-      resolveTileSource(input({ tilePreviewAlways: false, hovering: false, hasThumbnail: false, hasHighlight: true })),
-    ).toBe('placeholder')
-  })
-
-  it('hovering plays the highlight when one exists', () => {
-    expect(resolveTileSource(input({ tilePreviewAlways: false, hovering: true, hasHighlight: true }))).toBe('highlight')
-  })
-
-  it('hovering with no highlight plays the original when fallbackToOriginal is true', () => {
-    expect(
-      resolveTileSource(input({ tilePreviewAlways: false, hovering: true, hasHighlight: false, fallbackToOriginal: true })),
-    ).toBe('original')
-  })
-
-  it('hovering with no highlight and fallbackToOriginal false stays on the idle thumbnail', () => {
-    expect(
-      resolveTileSource(
-        input({
-          tilePreviewAlways: false,
-          hovering: true,
-          hasHighlight: false,
-          fallbackToOriginal: false,
-          hasThumbnail: true,
-        }),
-      ),
-    ).toBe('thumbnail')
-  })
-
-  it('hovering with no highlight, no fallback, and no thumbnail shows the placeholder', () => {
-    expect(
-      resolveTileSource(
-        input({
-          tilePreviewAlways: false,
-          hovering: true,
-          hasHighlight: false,
-          fallbackToOriginal: false,
-          hasThumbnail: false,
-        }),
-      ),
-    ).toBe('placeholder')
-  })
-})
-
-describe('resolveTileSource: videos, "Always" (tilePreviewAlways on)', () => {
-  it('plays the highlight when one exists', () => {
-    expect(resolveTileSource(input({ tilePreviewAlways: true, hasHighlight: true }))).toBe('highlight')
-  })
-
-  it('plays the original when no highlight and fallbackToOriginal is true', () => {
-    expect(resolveTileSource(input({ tilePreviewAlways: true, hasHighlight: false, fallbackToOriginal: true }))).toBe(
-      'original',
-    )
-  })
-
-  it('shows the thumbnail when no highlight and fallbackToOriginal is false', () => {
-    expect(
-      resolveTileSource(
-        input({ tilePreviewAlways: true, hasHighlight: false, fallbackToOriginal: false, hasThumbnail: true }),
-      ),
-    ).toBe('thumbnail')
-  })
-
-  it('shows the placeholder when no highlight, no fallback, and no thumbnail', () => {
-    expect(
-      resolveTileSource(
-        input({ tilePreviewAlways: true, hasHighlight: false, fallbackToOriginal: false, hasThumbnail: false }),
-      ),
-    ).toBe('placeholder')
   })
 })

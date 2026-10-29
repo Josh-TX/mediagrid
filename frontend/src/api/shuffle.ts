@@ -67,6 +67,12 @@ export function highlightUrl(path: string): string {
   return buildRootedUrl('/highlight/', path)
 }
 
+// Builds a /sprite/<path> URL for the media at path; the backend locates the
+// sprite sheet (its filename encodes the grid) itself.
+export function spriteUrl(path: string): string {
+  return buildRootedUrl('/sprite/', path)
+}
+
 export function buildRootedUrl(prefix: string, path: string): string {
   return prefix + path.split('/').map(encodeURIComponent).join('/')
 }

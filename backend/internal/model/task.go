@@ -8,6 +8,7 @@ const (
 	TaskTypeScanClean     TaskType = "scan_clean"
 	TaskTypeGenThumbnails TaskType = "gen_thumbnails"
 	TaskTypeGenHighlights TaskType = "gen_highlights"
+	TaskTypeGenSprites    TaskType = "gen_sprites"
 )
 
 // TaskStatus is a Task's current lifecycle state.

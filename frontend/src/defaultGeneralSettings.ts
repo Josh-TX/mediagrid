@@ -6,8 +6,9 @@ export function makeDefaultGeneralSettings(): GeneralSettings {
     tileCropX: 0.1,
     tileCropY: 0.1,
     defaultSort: 'rand',
-    tilePreviewAlways: false,
-    fallbackToOriginal: true,
+    videoTileInitial: 'thumbnail',
+    videoTileInteract: 'highlight',
+    spriteFps: 5,
     galleryTitleMode: 'parentTop',
     galleryTitleExt: false,
 

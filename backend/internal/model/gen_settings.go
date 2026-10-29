@@ -49,3 +49,32 @@ func DefaultHighlightSettings() HighlightSettings {
 		PresetName:      "",
 	}
 }
+
+// SpriteSettings configures a Gen Sprites task. See ThumbnailSettings.
+// Rows per video = clamp(floor(duration / MinSecondsPerRow), 1, MaxRows).
+// TargetPixels applies to each cell, not the whole sheet.
+type SpriteSettings struct {
+	Quality          int     `json:"quality"`
+	TargetPixels     int     `json:"targetPixels"`
+	Override         bool    `json:"override"`
+	Columns          int     `json:"columns"`
+	MaxRows          int     `json:"maxRows"`
+	MinSecondsPerRow float64 `json:"minSecondsPerRow"`
+	Filter           string  `json:"filter"`
+	UsePresetFilter  bool    `json:"usePresetFilter"`
+	PresetName       string  `json:"presetName"`
+}
+
+func DefaultSpriteSettings() SpriteSettings {
+	return SpriteSettings{
+		Quality:          50,
+		TargetPixels:     40000, // 200x200
+		Override:         false,
+		Columns:          4,
+		MaxRows:          6,
+		MinSecondsPerRow: 60,
+		Filter:           "",
+		UsePresetFilter:  false,
+		PresetName:       "",
+	}
+}

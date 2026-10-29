@@ -111,3 +111,47 @@ func GenerateHighlight(srcPath, outPath string, mediaDuration float64, n int, se
 	}
 	return nil
 }
+
+// GenerateSprite writes a webp sprite sheet of srcPath to outPath: rows*cols
+// frames (see SpriteFrameTime), each scaled to w x h, tiled row-major.
+// Frames are extracted one at a time to a temp dir, then tiled in a single
+// ffmpeg call.
+//
+// Deliberately takes no context; see GenerateThumbnail.
+func GenerateSprite(srcPath, outPath string, mediaDuration float64, rows, cols, w, h, quality int) error {
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		return err
+	}
+
+	tempDir, err := os.MkdirTemp("", "mediagrid-sprite-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tempDir)
+
+	n := rows * cols
+	for i := 0; i < n; i++ {
+		frameFile := filepath.Join(tempDir, fmt.Sprintf("f_%04d.png", i))
+		cmd := exec.Command("ffmpeg", "-y",
+			"-ss", fmt.Sprintf("%.3f", SpriteFrameTime(mediaDuration, n, i)),
+			"-i", srcPath,
+			"-vframes", "1",
+			"-vf", fmt.Sprintf("scale=%d:%d", w, h),
+			frameFile)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("ffmpeg sprite frame %d: %w: %s", i, err, out)
+		}
+	}
+
+	cmd := exec.Command("ffmpeg", "-y",
+		"-framerate", "1",
+		"-i", filepath.Join(tempDir, "f_%04d.png"),
+		"-vf", fmt.Sprintf("tile=%dx%d", cols, rows),
+		"-frames:v", "1",
+		"-quality", fmt.Sprintf("%d", quality),
+		outPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("ffmpeg sprite tile: %w: %s", err, out)
+	}
+	return nil
+}

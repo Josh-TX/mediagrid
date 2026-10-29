@@ -12,7 +12,7 @@ func TestGenSettings_SavingOneTypeDoesNotClobberTheOther(t *testing.T) {
 	}
 	defer s.DB.Close()
 
-	thumb, highlight, err := s.GetGenSettings()
+	thumb, highlight, _, err := s.GetGenSettings()
 	if err != nil {
 		t.Fatalf("GetGenSettings: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestGenSettings_SavingOneTypeDoesNotClobberTheOther(t *testing.T) {
 	if err := s.SaveThumbnailSettings(`{"quality":50}`); err != nil {
 		t.Fatalf("SaveThumbnailSettings: %v", err)
 	}
-	thumb, highlight, err = s.GetGenSettings()
+	thumb, highlight, _, err = s.GetGenSettings()
 	if err != nil {
 		t.Fatalf("GetGenSettings: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestGenSettings_SavingOneTypeDoesNotClobberTheOther(t *testing.T) {
 	if err := s.SaveHighlightSettings(`{"segmentCount":5}`); err != nil {
 		t.Fatalf("SaveHighlightSettings: %v", err)
 	}
-	thumb, highlight, err = s.GetGenSettings()
+	thumb, highlight, _, err = s.GetGenSettings()
 	if err != nil {
 		t.Fatalf("GetGenSettings: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestGenSettings_SavingOneTypeDoesNotClobberTheOther(t *testing.T) {
 	if err := s.SaveThumbnailSettings(`{"quality":80}`); err != nil {
 		t.Fatalf("SaveThumbnailSettings (update): %v", err)
 	}
-	thumb, highlight, err = s.GetGenSettings()
+	thumb, highlight, _, err = s.GetGenSettings()
 	if err != nil {
 		t.Fatalf("GetGenSettings: %v", err)
 	}

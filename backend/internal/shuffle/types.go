@@ -33,7 +33,7 @@ type Params struct {
 // PreviewData describes the tile's Preview: the original media's dimensions
 // (thumbnails/highlights are assumed to preserve aspect ratio, so these are
 // never read back off the generated files themselves) plus whether a
-// generated thumbnail/highlight file exists on disk. HasThumbnail/
+// generated thumbnail/highlight file exists (and the sprite grid, if any) on disk. HasThumbnail/
 // HasHighlight are left false by BuildRows/BuildRandomRows and are only
 // populated afterward, for the specific page of tiles a /api/shuffle
 // response actually returns (see handleShuffle) — checking existence across
@@ -43,6 +43,14 @@ type PreviewData struct {
 	H            int  `json:"h"`
 	HasThumbnail bool `json:"hasThumbnail"`
 	HasHighlight bool `json:"hasHighlight"`
+	// Sprite is nil when the tile has no sprite sheet (always for images).
+	Sprite *SpriteData `json:"sprite,omitempty"`
+}
+
+// SpriteData is a sprite sheet's grid, parsed from its filename.
+type SpriteData struct {
+	Rows int `json:"rows"`
+	Cols int `json:"cols"`
 }
 
 type Tile struct {

@@ -19,6 +19,8 @@ export interface Preset {
   basePath: string
 }
 
+export type VideoTier = 'thumbnail' | 'sprite' | 'highlight'
+
 // The single global Gallery/Player settings object. Round-trips as-is
 // through GET /api/settings (as `general`) and POST /api/general-settings.
 export interface GeneralSettings {
@@ -27,8 +29,9 @@ export interface GeneralSettings {
   tileCropX: number
   tileCropY: number
   defaultSort: SortType
-  tilePreviewAlways: boolean
-  fallbackToOriginal: boolean
+  videoTileInitial: VideoTier
+  videoTileInteract: VideoTier
+  spriteFps: number
   galleryTitleMode: TitleMode
   galleryTitleExt: boolean
 
@@ -54,6 +57,8 @@ export interface PreviewData {
   h: number
   hasThumbnail: boolean
   hasHighlight: boolean
+  // Present only when the video has a sprite sheet; the grid comes from its filename.
+  sprite?: { rows: number; cols: number }
 }
 
 export interface Tile {
@@ -124,9 +129,22 @@ export interface HighlightSettings {
   presetName: string
 }
 
+export interface SpriteSettings {
+  quality: number
+  targetPixels: number
+  override: boolean
+  columns: number
+  maxRows: number
+  minSecondsPerRow: number
+  filter: string
+  usePresetFilter: boolean
+  presetName: string
+}
+
 export interface GenSettingsResponse {
   thumbnail: ThumbnailSettings
   highlight: HighlightSettings
+  sprite: SpriteSettings
 }
 
 // Global path filters (StartsWith / Contains) gating Scan / Scan + Clean, plus the

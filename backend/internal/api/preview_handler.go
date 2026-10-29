@@ -21,3 +21,15 @@ func (s *Server) handleHighlight(w http.ResponseWriter, r *http.Request) {
 	fullPath := preview.HighlightPath(s.previewRoot, relPath)
 	serveGuarded(w, r, s.previewRoot, fullPath)
 }
+
+// handleSprite serves the generated sprite sheet for the media at {path...}.
+// The filename carries the grid, so it's located by listing the folder.
+func (s *Server) handleSprite(w http.ResponseWriter, r *http.Request) {
+	relPath := r.PathValue("path")
+	fullPath, _, _, ok := preview.FindSprite(s.previewRoot, relPath)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	serveGuarded(w, r, s.previewRoot, fullPath)
+}

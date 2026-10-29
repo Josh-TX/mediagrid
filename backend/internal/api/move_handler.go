@@ -115,6 +115,7 @@ func (s *Server) handleMoveMedia(w http.ResponseWriter, r *http.Request) {
 	if destExists {
 		os.Remove(preview.ThumbnailPath(s.previewRoot, newRel))
 		os.Remove(preview.HighlightPath(s.previewRoot, newRel))
+		preview.RemoveSprites(s.previewRoot, newRel, "")
 		if err := s.store.DeleteMedia(newRel); err != nil {
 			http.Error(w, "failed to delete overwritten media row", http.StatusInternalServerError)
 			return
@@ -147,10 +148,16 @@ func (s *Server) handleMoveMedia(w http.ResponseWriter, r *http.Request) {
 			}
 			copyPreviewIfExists(preview.ThumbnailPath(s.previewRoot, relPath), preview.ThumbnailPath(s.previewRoot, newRel))
 			copyPreviewIfExists(preview.HighlightPath(s.previewRoot, relPath), preview.HighlightPath(s.previewRoot, newRel))
+			if oldSprite, rows, cols, ok := preview.FindSprite(s.previewRoot, relPath); ok {
+				copyPreviewIfExists(oldSprite, preview.SpritePath(s.previewRoot, newRel, rows, cols))
+			}
 		}
 	case inLib:
 		movePreviewIfExists(preview.ThumbnailPath(s.previewRoot, relPath), preview.ThumbnailPath(s.previewRoot, newRel))
 		movePreviewIfExists(preview.HighlightPath(s.previewRoot, relPath), preview.HighlightPath(s.previewRoot, newRel))
+		if oldSprite, rows, cols, ok := preview.FindSprite(s.previewRoot, relPath); ok {
+			movePreviewIfExists(oldSprite, preview.SpritePath(s.previewRoot, newRel, rows, cols))
+		}
 		if err := s.store.UpdateMediaPath(relPath, newRel); err != nil {
 			http.Error(w, "failed to update media row", http.StatusInternalServerError)
 			return
@@ -158,6 +165,7 @@ func (s *Server) handleMoveMedia(w http.ResponseWriter, r *http.Request) {
 	default:
 		os.Remove(preview.ThumbnailPath(s.previewRoot, relPath))
 		os.Remove(preview.HighlightPath(s.previewRoot, relPath))
+		preview.RemoveSprites(s.previewRoot, relPath, "")
 		if err := s.store.DeleteMedia(relPath); err != nil {
 			http.Error(w, "failed to delete media row", http.StatusInternalServerError)
 			return

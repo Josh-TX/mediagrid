@@ -4,12 +4,14 @@ import { tasksStore } from '../stores/tasksStore'
 import { triggerScan } from '../api/tasks'
 import GenThumbnailsModal from './GenThumbnailsModal.vue'
 import GenHighlightsModal from './GenHighlightsModal.vue'
+import GenSpritesModal from './GenSpritesModal.vue'
 import type { TaskInfo } from '../types'
 
 const emit = defineEmits<{ close: [] }>()
 
 const showThumbnailsModal = ref(false)
 const showHighlightsModal = ref(false)
+const showSpritesModal = ref(false)
 
 onMounted(() => tasksStore.startPolling())
 onUnmounted(() => tasksStore.stopPolling())
@@ -79,6 +81,7 @@ function progressLabel(t: TaskInfo): string {
         <button type="button" @click="onScan(true)">Scan + Clean</button>
         <button type="button" @click="showThumbnailsModal = true">Gen Thumbnails</button>
         <button type="button" @click="showHighlightsModal = true">Gen Highlights</button>
+        <button type="button" @click="showSpritesModal = true">Gen Sprites</button>
       </div>
     </div>
 
@@ -120,6 +123,7 @@ function progressLabel(t: TaskInfo): string {
 
   <GenThumbnailsModal v-if="showThumbnailsModal" @close="showThumbnailsModal = false" @generate="onGenerated" />
   <GenHighlightsModal v-if="showHighlightsModal" @close="showHighlightsModal = false" @generate="onGenerated" />
+  <GenSpritesModal v-if="showSpritesModal" @close="showSpritesModal = false" @generate="onGenerated" />
 </template>
 
 <style scoped>

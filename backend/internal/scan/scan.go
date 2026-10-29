@@ -158,7 +158,7 @@ func Run(ctx context.Context, s *store.Store, mediaRoot string, lib library.Filt
 }
 
 // Clean removes media rows whose underlying file no longer exists under
-// mediaRoot or that fall outside lib, along with any thumbnail/highlight preview files generated for
+// mediaRoot or that fall outside lib, along with any thumbnail/highlight/sprite preview files generated for
 // them. It does not otherwise sweep PREVIEW_ROOT for orphans.
 func Clean(s *store.Store, mediaRoot, previewRoot string, lib library.Filter) error {
 	all, err := s.ListAllMedia()
@@ -183,6 +183,7 @@ func Clean(s *store.Store, mediaRoot, previewRoot string, lib library.Filter) er
 		}
 		os.Remove(preview.ThumbnailPath(previewRoot, m.Path))
 		os.Remove(preview.HighlightPath(previewRoot, m.Path))
+		preview.RemoveSprites(previewRoot, m.Path, "")
 	}
 	return nil
 }

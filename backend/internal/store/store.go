@@ -77,8 +77,6 @@ CREATE TABLE IF NOT EXISTS general_settings (
   tileCropX REAL NOT NULL,
   tileCropY REAL NOT NULL,
   defaultSort TEXT NOT NULL,
-  tilePreviewAlways INTEGER NOT NULL,
-  fallbackToOriginal INTEGER NOT NULL,
   autoplayInitiallyOn INTEGER NOT NULL,
   playbackSpeed1 REAL NOT NULL,
   playbackSpeed2 REAL NOT NULL,
@@ -89,7 +87,10 @@ CREATE TABLE IF NOT EXISTS general_settings (
   galleryTitleMode TEXT NOT NULL DEFAULT 'parentTop',
   galleryTitleExt INTEGER NOT NULL DEFAULT 0,
   playerTitleMode TEXT NOT NULL DEFAULT 'parentTop',
-  playerTitleExt INTEGER NOT NULL DEFAULT 0
+  playerTitleExt INTEGER NOT NULL DEFAULT 0,
+  videoTileInitial TEXT NOT NULL DEFAULT 'thumbnail',
+  videoTileInteract TEXT NOT NULL DEFAULT 'highlight',
+  spriteFps REAL NOT NULL DEFAULT 5
 )`)
 	if err != nil {
 		return fmt.Errorf("creating general_settings table: %w", err)
@@ -117,17 +118,43 @@ CREATE TABLE IF NOT EXISTS general_settings (
 		return err
 	}
 
+	// SPRITES MIGRATION (existing databases): replace the removed
+	// tilePreviewAlways/fallbackToOriginal settings with the video tile
+	// tier settings. The CREATE TABLE above already reflects this for fresh
+	// databases; these steps bring older ones in line.
+	if err := s.addColumnIfMissing("general_settings", "videoTileInitial", "TEXT NOT NULL DEFAULT 'thumbnail'"); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing("general_settings", "videoTileInteract", "TEXT NOT NULL DEFAULT 'highlight'"); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing("general_settings", "spriteFps", "REAL NOT NULL DEFAULT 5"); err != nil {
+		return err
+	}
+	if err := s.dropColumnIfExists("general_settings", "tilePreviewAlways"); err != nil {
+		return err
+	}
+	if err := s.dropColumnIfExists("general_settings", "fallbackToOriginal"); err != nil {
+		return err
+	}
+
 	// gen_settings holds at most one row (id fixed to 1), storing the last
-	// submitted thumbnail/highlight generation settings as JSON so the gen
+	// submitted thumbnail/highlight/sprite generation settings as JSON so the gen
 	// modals can prefill from whatever was used last time.
 	_, err = s.DB.Exec(`
 CREATE TABLE IF NOT EXISTS gen_settings (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   thumbnail_settings TEXT NOT NULL,
-  highlight_settings TEXT NOT NULL
+  highlight_settings TEXT NOT NULL,
+  sprite_settings TEXT NOT NULL DEFAULT ''
 )`)
 	if err != nil {
 		return fmt.Errorf("creating gen_settings table: %w", err)
+	}
+	// SPRITES MIGRATION: sprite_settings was added to gen_settings after it
+	// first shipped.
+	if err := s.addColumnIfMissing("gen_settings", "sprite_settings", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
 	}
 
 	// library_settings holds at most one row (id fixed to 1) of the global
@@ -148,6 +175,23 @@ CREATE TABLE IF NOT EXISTS library_settings (
 	}
 	if err := s.addColumnIfMissing("library_settings", "blacklistContainsCSV", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
+	}
+	return nil
+}
+
+// dropColumnIfExists runs ALTER TABLE ... DROP COLUMN for databases that
+// still have a column the code no longer uses (needed here because the old
+// columns are NOT NULL with no default, which would break inserts).
+func (s *Store) dropColumnIfExists(table, column string) error {
+	var n int
+	if err := s.DB.QueryRow(`SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?`, table, column).Scan(&n); err != nil {
+		return fmt.Errorf("inspecting %s columns: %w", table, err)
+	}
+	if n == 0 {
+		return nil
+	}
+	if _, err := s.DB.Exec(fmt.Sprintf(`ALTER TABLE %s DROP COLUMN %s`, table, column)); err != nil {
+		return fmt.Errorf("dropping %s.%s: %w", table, column, err)
 	}
 	return nil
 }

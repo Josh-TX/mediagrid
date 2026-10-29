@@ -69,6 +69,9 @@ func (s *Server) handleRenameMedia(w http.ResponseWriter, r *http.Request) {
 
 	renamePreviewIfExists(preview.ThumbnailPath(s.previewRoot, relPath), preview.ThumbnailPath(s.previewRoot, newRelPath))
 	renamePreviewIfExists(preview.HighlightPath(s.previewRoot, relPath), preview.HighlightPath(s.previewRoot, newRelPath))
+	if oldSprite, rows, cols, ok := preview.FindSprite(s.previewRoot, relPath); ok {
+		renamePreviewIfExists(oldSprite, preview.SpritePath(s.previewRoot, newRelPath, rows, cols))
+	}
 
 	if err := s.store.UpdateMediaPath(relPath, newRelPath); err != nil {
 		http.Error(w, "failed to update media row", http.StatusInternalServerError)

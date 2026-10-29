@@ -1,4 +1,4 @@
-import type { GenSettingsResponse, ThumbnailSettings, HighlightSettings } from '../types'
+import type { GenSettingsResponse, ThumbnailSettings, HighlightSettings, SpriteSettings } from '../types'
 
 export async function fetchGenSettings(): Promise<GenSettingsResponse> {
   const res = await fetch('/api/gen-settings')
@@ -22,4 +22,13 @@ export async function triggerGenHighlights(settings: HighlightSettings): Promise
     body: JSON.stringify(settings),
   })
   if (!res.ok) throw new Error(`POST /api/gen-highlights failed: ${res.status}`)
+}
+
+export async function triggerGenSprites(settings: SpriteSettings): Promise<void> {
+  const res = await fetch('/api/gen-sprites', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  if (!res.ok) throw new Error(`POST /api/gen-sprites failed: ${res.status}`)
 }
