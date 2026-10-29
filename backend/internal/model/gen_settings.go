@@ -51,30 +51,34 @@ func DefaultHighlightSettings() HighlightSettings {
 }
 
 // SpriteSettings configures a Gen Sprites task. See ThumbnailSettings.
-// Rows per video = clamp(floor(duration / MinSecondsPerRow), 1, MaxRows).
+// Rows per video is linearly interpolated/extrapolated through the points
+// (MinDurationTwoRows, 2) and (MinDurationMaxRows, MaxRows), rounded to the
+// nearest int and clamped to [1, MaxRows].
 // TargetPixels applies to each cell, not the whole sheet.
 type SpriteSettings struct {
-	Quality          int     `json:"quality"`
-	TargetPixels     int     `json:"targetPixels"`
-	Override         bool    `json:"override"`
-	Columns          int     `json:"columns"`
-	MaxRows          int     `json:"maxRows"`
-	MinSecondsPerRow float64 `json:"minSecondsPerRow"`
-	Filter           string  `json:"filter"`
-	UsePresetFilter  bool    `json:"usePresetFilter"`
-	PresetName       string  `json:"presetName"`
+	Quality            int     `json:"quality"`
+	TargetPixels       int     `json:"targetPixels"`
+	Override           bool    `json:"override"`
+	Columns            int     `json:"columns"`
+	MaxRows            int     `json:"maxRows"`
+	MinDurationTwoRows float64 `json:"minDurationTwoRows"`
+	MinDurationMaxRows float64 `json:"minDurationMaxRows"`
+	Filter             string  `json:"filter"`
+	UsePresetFilter    bool    `json:"usePresetFilter"`
+	PresetName         string  `json:"presetName"`
 }
 
 func DefaultSpriteSettings() SpriteSettings {
 	return SpriteSettings{
-		Quality:          50,
-		TargetPixels:     40000, // 200x200
-		Override:         false,
-		Columns:          4,
-		MaxRows:          6,
-		MinSecondsPerRow: 60,
-		Filter:           "",
-		UsePresetFilter:  false,
-		PresetName:       "",
+		Quality:            60,
+		TargetPixels:       40000, // 200x200
+		Override:           false,
+		Columns:            4,
+		MaxRows:            6,
+		MinDurationTwoRows: 120,
+		MinDurationMaxRows: 360,
+		Filter:             "",
+		UsePresetFilter:    false,
+		PresetName:         "",
 	}
 }

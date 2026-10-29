@@ -136,8 +136,12 @@ func (s *Server) handleGenSprites(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
-	if settings.Columns < 1 || settings.MaxRows < 1 || settings.MinSecondsPerRow <= 0 || settings.TargetPixels < 1 {
-		http.Error(w, "columns, maxRows, minSecondsPerRow, and targetPixels must be positive", http.StatusBadRequest)
+	if settings.Columns < 1 || settings.MaxRows < 1 || settings.MinDurationTwoRows <= 0 || settings.TargetPixels < 1 {
+		http.Error(w, "columns, maxRows, minDurationTwoRows, and targetPixels must be positive", http.StatusBadRequest)
+		return
+	}
+	if settings.MaxRows > 2 && settings.MinDurationMaxRows <= settings.MinDurationTwoRows {
+		http.Error(w, "minDurationMaxRows must exceed minDurationTwoRows", http.StatusBadRequest)
 		return
 	}
 

@@ -1,5 +1,7 @@
 package preview
 
+import "math"
+
 // CalcHighlightSegments returns the number of segments (capped at
 // segmentCount, minimum 1) a video of the given duration supports, per the
 // max-proportion rule: N segments require
@@ -40,17 +42,24 @@ func HighlightSegmentStart(mediaDuration float64, n, i int, segmentDuration floa
 	return start
 }
 
-// CalcSpriteRows returns the number of sprite rows for a video: one per
-// minSecondsPerRow of duration, clamped to [1, maxRows]. ok is false when the
-// duration is unknown (<= 0).
-func CalcSpriteRows(videoDuration float64, maxRows int, minSecondsPerRow float64) (rows int, ok bool) {
+// CalcSpriteRows returns the number of sprite rows for a video: the line
+// through (minDurTwoRows, 2) and (minDurMaxRows, maxRows) evaluated at the
+// duration, rounded to the nearest int and clamped to [1, maxRows]. ok is
+// false when the duration is unknown (<= 0).
+func CalcSpriteRows(videoDuration float64, maxRows int, minDurTwoRows, minDurMaxRows float64) (rows int, ok bool) {
 	if videoDuration <= 0 || maxRows < 1 {
 		return 0, false
 	}
-	rows = 1
-	if minSecondsPerRow > 0 {
-		rows = int(videoDuration / minSecondsPerRow)
+	if maxRows <= 2 || minDurMaxRows <= minDurTwoRows {
+		// No usable slope: step from 1 row to maxRows (capped at 2) at minDurTwoRows.
+		rows = 1
+		if videoDuration >= minDurTwoRows {
+			rows = min(2, maxRows)
+		}
+		return rows, true
 	}
+	slope := float64(maxRows-2) / (minDurMaxRows - minDurTwoRows)
+	rows = int(math.Round(2 + (videoDuration-minDurTwoRows)*slope))
 	if rows < 1 {
 		rows = 1
 	}

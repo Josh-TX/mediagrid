@@ -85,6 +85,13 @@ const source = computed(() =>
 
 const isVideoPlaying = computed(() => source.value === 'highlight')
 
+// Brief ↻ icon marking each sprite/highlight loop. Bumping the key
+// remounts the icon, restarting its CSS animation.
+const flashKey = ref(0)
+function triggerFlash() {
+  flashKey.value++
+}
+
 // Sprite playback: steps through the sheet's cells at spriteFps, row-major.
 const spriteGrid = computed(() => props.tile.preview.sprite ?? { rows: 1, cols: 1 })
 const spriteFrame = ref(0)
@@ -102,6 +109,7 @@ watch(
     const frames = spriteGrid.value.rows * spriteGrid.value.cols
     spriteTimer = setInterval(() => {
       spriteFrame.value = (spriteFrame.value + 1) % frames
+      if (spriteFrame.value === 0 && frames > 1) triggerFlash()
     }, 1000 / Math.max(props.spriteFps, 0.1))
   },
   { immediate: true },
@@ -162,9 +170,27 @@ function onMediaError() {
   queueMarkSettled()
 }
 
-function onVideoLoaded() {
+// `loop` videos never fire `ended`, so detect the wrap by mediaTime going
+// backwards between presented frames.
+let loopVideo: HTMLVideoElement | undefined
+let loopLastTime = -1
+let loopCallbackId: number | undefined
+function watchLoop(video: HTMLVideoElement) {
+  if (loopVideo === video || !('requestVideoFrameCallback' in video)) return
+  loopVideo = video
+  const onFrame = (_now: number, meta: VideoFrameCallbackMetadata) => {
+    if (loopLastTime >= 0 && meta.mediaTime < loopLastTime) triggerFlash()
+    loopLastTime = meta.mediaTime
+    loopCallbackId = video.requestVideoFrameCallback(onFrame)
+  }
+  loopCallbackId = video.requestVideoFrameCallback(onFrame)
+}
+
+function onVideoLoaded(e: Event) {
   queueMarkSettled()
   videoReady.value = true
+  loopLastTime = -1
+  watchLoop(e.target as HTMLVideoElement)
 }
 
 // Row-level load gate: this tile's video is only allowed to actually fetch
@@ -201,6 +227,7 @@ watch(
 )
 
 onUnmounted(() => {
+  if (loopCallbackId !== undefined) loopVideo?.cancelVideoFrameCallback(loopCallbackId)
   stopSpriteTimer()
   queueMarkSettled()
   tileInteractionStore.end(props.tile.tilei)
@@ -338,6 +365,7 @@ onUnmounted(() => {
         />
         <div v-else class="placeholder" :style="mediaStyle" />
       </template>
+      <div v-if="flashKey" :key="flashKey" class="loop-icon">↻</div>
       <div v-if="tile.isVid" class="duration-badge">{{ durationText }}</div>
       <div class="title-overlay">
         <div v-if="title.top" class="title-parent">{{ title.top }}</div>
@@ -421,6 +449,23 @@ onUnmounted(() => {
 
 .tile video.ready {
   opacity: 1;
+}
+
+.loop-icon {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  text-shadow: 0 0 3px #000, 0 0 6px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  animation: loop-icon 500ms ease-out forwards;
+}
+
+@keyframes loop-icon {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .placeholder {

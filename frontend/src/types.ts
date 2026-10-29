@@ -135,7 +135,8 @@ export interface SpriteSettings {
   override: boolean
   columns: number
   maxRows: number
-  minSecondsPerRow: number
+  minDurationTwoRows: number
+  minDurationMaxRows: number
   filter: string
   usePresetFilter: boolean
   presetName: string

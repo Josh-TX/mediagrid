@@ -11,12 +11,13 @@ const RESOLUTION_OPTIONS = [100, 150, 200, 250, 300, 400]
 
 const loaded = ref(false)
 const settings = ref<SpriteSettings>({
-  quality: 50,
+  quality: 60,
   targetPixels: 40000,
   override: false,
   columns: 4,
   maxRows: 6,
-  minSecondsPerRow: 60,
+  minDurationTwoRows: 120,
+  minDurationMaxRows: 360,
   filter: '',
   usePresetFilter: false,
   presetName: '',
@@ -31,9 +32,20 @@ const resolution = computed<number>({
   },
 })
 
+// Mirrors the backend's TargetDimensions: even-rounded cell size for a 16:9 source.
+function roundToEven(v: number): number {
+  const n = Math.round(v)
+  return Math.max(2, n % 2 ? n + 1 : n)
+}
+const sheetResolution169 = computed(() => {
+  const ratio = 16 / 9
+  const h = Math.sqrt(settings.value.targetPixels / ratio)
+  const cellW = roundToEven(h * ratio)
+  const cellH = roundToEven(h)
+  return `${cellW * settings.value.columns}x${cellH * settings.value.maxRows}`
+})
+
 const maxFrames = computed(() => settings.value.columns * settings.value.maxRows)
-const minDurationFor1Row = computed(() => settings.value.minSecondsPerRow)
-const minDurationForAllRows = computed(() => settings.value.minSecondsPerRow * settings.value.maxRows)
 
 onMounted(async () => {
   const resp = await fetchGenSettings()
@@ -91,8 +103,13 @@ function onClose() {
       </div>
 
       <div class="row">
-        <label>Min seconds per row</label>
-        <input type="number" min="1" step="1" v-model.number="settings.minSecondsPerRow" />
+        <label>Min duration for 2 rows (s)</label>
+        <input type="number" min="1" step="1" v-model.number="settings.minDurationTwoRows" />
+      </div>
+
+      <div class="row">
+        <label>Min duration for {{ settings.maxRows }} rows (s)</label>
+        <input type="number" min="1" step="1" v-model.number="settings.minDurationMaxRows" />
       </div>
 
       <div class="row">
@@ -113,8 +130,7 @@ function onClose() {
 
       <div class="info">
         <div>Max frames: {{ maxFrames }}</div>
-        <div>Min video duration (1 row): {{ minDurationFor1Row.toFixed(1) }}s</div>
-        <div>Min video duration (all rows): {{ minDurationForAllRows.toFixed(1) }}s</div>
+        <div>Sheet Resolution (16:9, {{ settings.columns }} &times; {{ settings.maxRows }}): {{ sheetResolution169 }}</div>
       </div>
 
       <div class="actions">

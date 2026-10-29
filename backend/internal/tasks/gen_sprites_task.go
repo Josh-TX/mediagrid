@@ -48,7 +48,7 @@ func (m *Manager) runGenSprites(ctx context.Context, t *Task, settings model.Spr
 		if !med.IsVid {
 			continue
 		}
-		rows, ok := preview.CalcSpriteRows(float64(med.Duration), settings.MaxRows, settings.MinSecondsPerRow)
+		rows, ok := preview.CalcSpriteRows(float64(med.Duration), settings.MaxRows, settings.MinDurationTwoRows, settings.MinDurationMaxRows)
 		if !ok {
 			continue
 		}

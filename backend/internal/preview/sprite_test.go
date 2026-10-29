@@ -11,19 +11,26 @@ func TestCalcSpriteRows(t *testing.T) {
 	cases := []struct {
 		dur      float64
 		maxRows  int
-		minSecs  float64
+		twoRows  float64
+		maxDur   float64
 		wantRows int
 		wantOK   bool
 	}{
-		{10, 6, 60, 1, true},   // shorter than one row: clamped to 1
-		{130, 6, 60, 2, true},  // floor(130/60)
-		{9999, 6, 60, 6, true}, // capped at maxRows
-		{0, 6, 60, 0, false},   // unknown duration
+		{10, 6, 120, 360, 1, true},   // extrapolates below 1: clamped to 1
+		{120, 6, 120, 360, 2, true},  // exactly the 2-row point
+		{180, 6, 120, 360, 3, true},  // 2 + 60*(4/240) = 3
+		{200, 6, 120, 360, 3, true},  // 3.33 rounds to 3
+		{230, 6, 120, 360, 4, true},  // 3.83 rounds to 4
+		{360, 6, 120, 360, 6, true},  // exactly the max-row point
+		{9999, 6, 120, 360, 6, true}, // capped at maxRows
+		{500, 2, 120, 360, 2, true},  // maxRows 2: step
+		{50, 2, 120, 360, 1, true},
+		{0, 6, 120, 360, 0, false}, // unknown duration
 	}
 	for _, c := range cases {
-		rows, ok := CalcSpriteRows(c.dur, c.maxRows, c.minSecs)
+		rows, ok := CalcSpriteRows(c.dur, c.maxRows, c.twoRows, c.maxDur)
 		if rows != c.wantRows || ok != c.wantOK {
-			t.Errorf("CalcSpriteRows(%v,%d,%v) = %d,%v; want %d,%v", c.dur, c.maxRows, c.minSecs, rows, ok, c.wantRows, c.wantOK)
+			t.Errorf("CalcSpriteRows(%v,%d,%v,%v) = %d,%v; want %d,%v", c.dur, c.maxRows, c.twoRows, c.maxDur, rows, ok, c.wantRows, c.wantOK)
 		}
 	}
 }
