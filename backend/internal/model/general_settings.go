@@ -39,7 +39,7 @@ func DefaultGeneralSettings() GeneralSettings {
 		DefaultSort:       "rand",
 		VideoTileInitial:  "thumbnail",
 		VideoTileInteract: "highlight",
-		SpriteFps:         5,
+		SpriteFps:         3,
 		GalleryTitleMode:  "parentTop",
 		GalleryTitleExt:   false,
 

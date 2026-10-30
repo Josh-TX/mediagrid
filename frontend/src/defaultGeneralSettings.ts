@@ -8,7 +8,7 @@ export function makeDefaultGeneralSettings(): GeneralSettings {
     defaultSort: 'rand',
     videoTileInitial: 'thumbnail',
     videoTileInteract: 'highlight',
-    spriteFps: 5,
+    spriteFps: 3,
     galleryTitleMode: 'parentTop',
     galleryTitleExt: false,
 

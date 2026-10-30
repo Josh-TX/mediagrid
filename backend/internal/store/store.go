@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS general_settings (
   playerTitleExt INTEGER NOT NULL DEFAULT 0,
   videoTileInitial TEXT NOT NULL DEFAULT 'thumbnail',
   videoTileInteract TEXT NOT NULL DEFAULT 'highlight',
-  spriteFps REAL NOT NULL DEFAULT 5
+  spriteFps REAL NOT NULL DEFAULT 3
 )`)
 	if err != nil {
 		return fmt.Errorf("creating general_settings table: %w", err)
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS general_settings (
 	if err := s.addColumnIfMissing("general_settings", "videoTileInteract", "TEXT NOT NULL DEFAULT 'highlight'"); err != nil {
 		return err
 	}
-	if err := s.addColumnIfMissing("general_settings", "spriteFps", "REAL NOT NULL DEFAULT 5"); err != nil {
+	if err := s.addColumnIfMissing("general_settings", "spriteFps", "REAL NOT NULL DEFAULT 3"); err != nil {
 		return err
 	}
 	if err := s.dropColumnIfExists("general_settings", "tilePreviewAlways"); err != nil {

@@ -93,12 +93,12 @@ function closeModal() {
 
 <template>
   <div class="selection-bar">
-    <button type="button" class="exit" title="Cancel selection" :disabled="busy" @click="exit">&times;</button>
     <div class="count">
       <div>{{ count }} selected</div>
       <div class="size">{{ sizeText }}</div>
     </div>
-    <button type="button" :disabled="busy" @click="modalMode = 'move'">Move</button>
+    <button type="button" class="exit" :disabled="busy" @click="exit">Cancel</button>
+    <button type="button" class="first-action" :disabled="busy" @click="modalMode = 'move'">Move</button>
     <button type="button" :disabled="busy" @click="modalMode = 'copy'">Copy</button>
     <button type="button" class="danger" :disabled="busy" @click="onDelete">Delete</button>
   </div>
@@ -135,12 +135,13 @@ function closeModal() {
   align-items: center;
   gap: 8px;
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-  background: rgba(0, 0, 0, 0.85);
+  background: #14213d;
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.6);
   color: #fff;
 }
 .count {
-  flex: 1;
   font-size: 14px;
+  font-weight: 600;
 }
 .size {
   font-size: 12px;
@@ -165,10 +166,11 @@ button:disabled {
 button.danger {
   border-color: #ff6b6b;
 }
-button.exit {
-  font-size: 20px;
-  line-height: 1;
-  padding: 2px 10px;
+.exit {
+  margin-left: 8px;
+}
+.first-action {
+  margin-left: auto;
 }
 
 .overlay {

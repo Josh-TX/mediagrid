@@ -37,13 +37,14 @@ function roundToEven(v: number): number {
   const n = Math.round(v)
   return Math.max(2, n % 2 ? n + 1 : n)
 }
-const sheetResolution169 = computed(() => {
-  const ratio = 16 / 9
+function sheetResolution(ratio: number) {
   const h = Math.sqrt(settings.value.targetPixels / ratio)
   const cellW = roundToEven(h * ratio)
   const cellH = roundToEven(h)
   return `${cellW * settings.value.columns}x${cellH * settings.value.maxRows}`
-})
+}
+const sheetResolution169 = computed(() => sheetResolution(16 / 9))
+const sheetResolution916 = computed(() => sheetResolution(9 / 16))
 
 const maxFrames = computed(() => settings.value.columns * settings.value.maxRows)
 
@@ -131,6 +132,7 @@ function onClose() {
       <div class="info">
         <div>Max frames: {{ maxFrames }}</div>
         <div>Sheet Resolution (16:9, {{ settings.columns }} &times; {{ settings.maxRows }}): {{ sheetResolution169 }}</div>
+        <div>Sheet Resolution (9:16, {{ settings.columns }} &times; {{ settings.maxRows }}): {{ sheetResolution916 }}</div>
       </div>
 
       <div class="actions">

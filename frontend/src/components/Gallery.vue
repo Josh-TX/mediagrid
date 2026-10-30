@@ -5,6 +5,7 @@ import { galleryStore } from '../stores/galleryStore'
 import { generalSettingsStore } from '../stores/generalSettingsStore'
 import { playerStore } from '../stores/playerStore'
 import { urlStore } from '../stores/urlStore'
+import { selectionStore } from '../stores/selectionStore'
 
 const ROW_GAP = 1
 const LOAD_THRESHOLD = 1200
@@ -219,7 +220,7 @@ defineExpose({ handleScroll })
 </script>
 
 <template>
-  <div class="gallery" ref="container" @scroll="handleScroll">
+  <div class="gallery" :class="{ selecting: selectionStore.isActive() }" ref="container" @scroll="handleScroll">
     <div class="track" :style="{ height: totalHeight + 'px' }">
       <div class="gallery-header" :style="{ height: HEADER_HEIGHT + 'px' }">
         <div class="results-text">{{ resultsText }}</div>
@@ -252,6 +253,11 @@ defineExpose({ handleScroll })
   overflow-y: auto;
   overflow-x: hidden;
   background: #fff;
+}
+
+/* Room to scroll the last row clear of the floating SelectionBar. */
+.gallery.selecting {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
 }
 
 .track {

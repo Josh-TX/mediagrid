@@ -114,6 +114,11 @@ watch(
   },
   { immediate: true },
 )
+const spriteProgress = computed(() => {
+  const frames = spriteGrid.value.rows * spriteGrid.value.cols
+  // Mirrors backend SpriteFrameTime: frame i sits at (i+1)/(n+1) of the video.
+  return `${((spriteFrame.value + 1) / (frames + 1)) * 100}%`
+})
 const spriteImgStyle = computed(() => {
   const { rows, cols } = spriteGrid.value
   const col = spriteFrame.value % cols
@@ -365,6 +370,9 @@ onUnmounted(() => {
         />
         <div v-else class="placeholder" :style="mediaStyle" />
       </template>
+      <div v-if="source === 'sprite' && !loadFailed" class="sprite-progress">
+        <div class="sprite-progress-fill" :style="{ width: spriteProgress }" />
+      </div>
       <div v-if="flashKey" :key="flashKey" class="loop-icon">↻</div>
       <div v-if="tile.isVid" class="duration-badge">{{ durationText }}</div>
       <div class="title-overlay">
@@ -449,6 +457,22 @@ onUnmounted(() => {
 
 .tile video.ready {
   opacity: 1;
+}
+
+.sprite-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 2px;
+  background: rgba(128, 128, 128, 0.55);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sprite-progress-fill {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .loop-icon {
