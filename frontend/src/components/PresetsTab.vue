@@ -75,7 +75,7 @@ async function onSavePermanently() {
   </section>
 
   <section class="body" v-if="preset">
-    <div v-for="row in presetSettingRows" :key="row.label" class="row">
+    <div v-for="row in presetSettingRows" :key="row.label" class="row" :class="{ stacked: row.fields.length === 1 && row.fields[0].type === 'text' }">
       <label class="label">
         {{ row.label }}
         <span class="help" :title="row.help" @click="showHelp(row.help)">?</span>
@@ -142,6 +142,12 @@ async function onSavePermanently() {
   gap: 12px;
   padding: 6px 0;
   border-bottom: 1px solid #2c2c2c;
+}
+
+.row.stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
 }
 
 .label {

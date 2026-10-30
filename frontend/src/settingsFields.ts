@@ -142,18 +142,18 @@ export const presetSettingRows: SettingRow<Preset>[] = [
     ],
   },
   {
-    label: 'Whitelist CSV',
-    help: 'Comma-separated terms; media must match at least one term to be included.',
-    fields: [{ key: 'whitelistCSV', label: 'Whitelist CSV', type: 'text', help: 'Comma-separated terms; media must match at least one term to be included.' }],
-  },
-  {
-    label: 'Blacklist CSV',
-    help: 'Comma-separated terms; media matching any term is excluded.',
-    fields: [{ key: 'blacklistCSV', label: 'Blacklist CSV', type: 'text', help: 'Comma-separated terms; media matching any term is excluded.' }],
-  },
-  {
     label: 'Base path',
     help: 'Only include media whose path starts with this (case-insensitive).',
     fields: [{ key: 'basePath', label: 'Base path', type: 'text', help: 'Only include media whose path starts with this (case-insensitive).' }],
+  },
+  {
+    label: 'Whitelist CSV: contains',
+    help: 'Comma-separated terms; media must match at least one term to be included.',
+    fields: [{ key: 'whitelistCSV', label: 'Whitelist CSV: contains', type: 'text', help: 'Comma-separated terms; media must match at least one term to be included.' }],
+  },
+  {
+    label: 'Blacklist CSV: contains',
+    help: 'Comma-separated terms; media matching any term is excluded.',
+    fields: [{ key: 'blacklistCSV', label: 'Blacklist CSV: contains', type: 'text', help: 'Comma-separated terms; media matching any term is excluded.' }],
   },
 ]
