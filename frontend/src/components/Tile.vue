@@ -281,35 +281,54 @@ function suppressNextClick() {
   suppressTimer = setTimeout(() => (suppressClick = false), 600)
 }
 
-// Right-click, and the native contextmenu event on Android long-press:
-// enters multi-select, or toggles the tile if already selecting.
+// Right-click: enters multi-select, or toggles the tile if already selecting.
 function onContextMenu(e: MouseEvent) {
   e.preventDefault()
+  // Touch long-press is handled solely by the touch timer below (the native
+  // event fires too early, at ~500ms).
+  if (touching) return
   if (selecting.value) selectionStore.toggle(props.tile)
   else selectionStore.enter(props.tile)
   // A touch long-press is followed by a click on release; a mouse right-click isn't.
   if ((e as PointerEvent).pointerType !== 'mouse') suppressNextClick()
 }
 
-// iOS Safari never fires contextmenu on long-press, so also time it manually.
-const LONG_PRESS_MS = 500
+// Touch needs a deliberately long, nearly-still press, since a short touch
+// is used to preview sprites/highlights.
+const LONG_PRESS_MS = 1000
+// Once already multi-selecting, a shorter hold toggles the tile (a tap still does too).
+const SELECTING_HOLD_MS = 400
+const MOVE_TOLERANCE_PX = 3
+let touching = false
+let startX = 0
+let startY = 0
 let pressTimer: ReturnType<typeof setTimeout> | undefined
 
 function cancelPress() {
   clearTimeout(pressTimer)
 }
 
-function onTouchStart() {
+function onTouchMove(e: TouchEvent) {
+  const t = e.touches[0]
+  if (t && Math.hypot(t.clientX - startX, t.clientY - startY) <= MOVE_TOLERANCE_PX) return
+  cancelPress()
+}
+
+function onTouchStart(e: TouchEvent) {
+  touching = true
+  startX = e.touches[0]?.clientX ?? 0
+  startY = e.touches[0]?.clientY ?? 0
   onHoverStart()
   cancelPress()
-  if (selecting.value) return
   pressTimer = setTimeout(() => {
-    selectionStore.enter(props.tile)
+    if (selecting.value) selectionStore.toggle(props.tile)
+    else selectionStore.enter(props.tile)
     suppressNextClick()
-  }, LONG_PRESS_MS)
+  }, selecting.value ? SELECTING_HOLD_MS : LONG_PRESS_MS)
 }
 
 function onTouchEnd() {
+  touching = false
   onHoverEnd()
   cancelPress()
 }
@@ -329,7 +348,7 @@ onUnmounted(() => {
     @mouseenter="onHoverStart"
     @mouseleave="onHoverEnd"
     @touchstart.passive="onTouchStart"
-    @touchmove.passive="cancelPress"
+    @touchmove.passive="onTouchMove"
     @touchcancel.passive="onTouchEnd"
     @touchend.passive="onTouchEnd"
     @contextmenu="onContextMenu"
@@ -399,6 +418,14 @@ onUnmounted(() => {
   -webkit-touch-callout: none;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* Children are swapped during interaction (thumbnail -> sprite/video). If one
+   were the touch target, removing it mid-touch would orphan the touch stream
+   (no more touchmove/touchend reaching the tile), so the tile itself is
+   always the target. */
+.tile > * {
+  pointer-events: none;
 }
 
 .select-border {
