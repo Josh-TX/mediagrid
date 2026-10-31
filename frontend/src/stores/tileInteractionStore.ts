@@ -16,6 +16,18 @@ function end(tilei: number) {
   }
 }
 
+function clear() {
+  activeTilei.value = null
+}
+
+// Touch leaves a tile active after the finger lifts; focusing any input dismisses it.
+if (typeof document !== 'undefined') {
+  document.addEventListener('focusin', (e) => {
+    const t = e.target as HTMLElement | null
+    if (t?.matches?.('input, textarea, select')) clear()
+  })
+}
+
 function isActive(tilei: number): boolean {
   return activeTilei.value === tilei
 }
@@ -23,5 +35,6 @@ function isActive(tilei: number): boolean {
 export const tileInteractionStore = {
   start,
   end,
+  clear,
   isActive,
 }

@@ -264,7 +264,10 @@ function onClick() {
     return
   }
   if (selecting.value) selectionStore.toggle(props.tile)
-  else urlStore.openTile(props.tile.tilei)
+  else {
+    tileInteractionStore.clear()
+    urlStore.openTile(props.tile.tilei)
+  }
 }
 
 function onHoverStart() {
@@ -295,7 +298,7 @@ function onContextMenu(e: MouseEvent) {
 
 // Touch needs a deliberately long, nearly-still press, since a short touch
 // is used to preview sprites/highlights.
-const LONG_PRESS_MS = 1000
+const LONG_PRESS_MS = 800
 // Once already multi-selecting, a shorter hold toggles the tile (a tap still does too).
 const SELECTING_HOLD_MS = 400
 const MOVE_TOLERANCE_PX = 3
@@ -328,8 +331,8 @@ function onTouchStart(e: TouchEvent) {
 }
 
 function onTouchEnd() {
+  // Interaction state intentionally persists after lift (see tileInteractionStore).
   touching = false
-  onHoverEnd()
   cancelPress()
 }
 

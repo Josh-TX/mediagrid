@@ -81,12 +81,12 @@ describe('Tile multi-select', () => {
 
   const touch = (x: number, y: number) => ({ touches: [{ clientX: x, clientY: y }] })
 
-  it('a 1000ms still touch press enters multi-select', async () => {
+  it('a 800ms still touch press enters multi-select', async () => {
     vi.useFakeTimers()
     const wrapper = mountTile(makeTile({ tilei: 4 }))
     await wrapper.find('.tile').trigger('touchstart', touch(10, 10))
     await wrapper.find('.tile').trigger('touchmove', touch(12, 11))
-    vi.advanceTimersByTime(900)
+    vi.advanceTimersByTime(700)
     expect(selectionStore.isActive()).toBe(false)
     vi.advanceTimersByTime(100)
     expect(selectionStore.isSelected(4)).toBe(true)
